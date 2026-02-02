@@ -1,0 +1,214 @@
+================================================================================
+  TGGG ACCOUNTING SYSTEM - SETUP GUIDE FOR COLLABORATORS
+================================================================================
+
+WHAT CHANGED?
+-------------
+This project has been converted from TypeScript to pure JavaScript:
+
+✓ All .tsx files → .jsx files
+✓ Removed TypeScript dependencies (@types/*, typescript)
+✓ Using Vite + React (JavaScript only)
+✓ Django backend for secure data handling
+
+================================================================================
+FIRST TIME SETUP
+================================================================================
+
+1. INSTALL NODE.JS DEPENDENCIES
+   -----------------------------
+   Command:
+   npm install
+
+   This installs all frontend packages from package.json:
+   - React 18
+   - Vite (build tool)
+   - Tailwind CSS
+   - shadcn/ui components
+   - All UI libraries (Radix UI, Recharts, Lucide icons, etc.)
+
+
+2. INSTALL PYTHON DEPENDENCIES
+   ----------------------------
+   Commands:
+   # Create virtual environment
+   python -m venv venv
+
+   # Activate it
+   # Windows:
+   venv\Scripts\activate
+   # Mac/Linux:
+   source venv/bin/activate
+
+   # Install packages
+   pip install -r requirements.txt
+
+   This installs:
+   - Django (web framework)
+   - Django REST Framework (API)
+   - Django CORS Headers (frontend-backend communication)
+   - Pillow (image handling)
+
+
+3. SETUP DJANGO DATABASE
+   ----------------------
+   Commands:
+   python manage.py migrate
+   python manage.py createsuperuser
+
+================================================================================
+RUNNING THE PROJECT
+================================================================================
+
+START FRONTEND (Terminal 1)
+---------------------------
+Command:
+npm run dev
+
+Opens at: http://localhost:3000
+
+
+START BACKEND (Terminal 2)
+--------------------------
+Command:
+python manage.py runserver
+
+Opens at: http://localhost:8000
+
+================================================================================
+DAILY DEVELOPMENT WORKFLOW
+================================================================================
+
+1. Pull latest changes
+   git pull
+
+2. If package.json changed, reinstall
+   npm install
+
+3. If requirements.txt changed, reinstall
+   pip install -r requirements.txt
+
+4. If new Django models, run migrations
+   python manage.py migrate
+
+5. Start both servers
+   npm run dev                    (Terminal 1)
+   python manage.py runserver     (Terminal 2)
+
+================================================================================
+COMMON COMMANDS
+================================================================================
+
+FRONTEND
+--------
+npm run dev       - Start development server
+npm run build     - Build for production
+npm install       - Install/update packages
+
+
+BACKEND
+-------
+python manage.py runserver          - Start Django server
+python manage.py makemigrations     - Create new migrations
+python manage.py migrate            - Apply migrations to database
+python manage.py createsuperuser    - Create admin user
+
+================================================================================
+IMPORTANT FILE EXTENSIONS
+================================================================================
+
+✓ Use .jsx for React components
+✓ Use .js for JavaScript utilities
+✓ Use .py for Django/Python code
+✗ NO .tsx or .ts files (TypeScript has been removed)
+
+================================================================================
+TECH STACK
+================================================================================
+
+FRONTEND
+--------
+- React 18 (JavaScript, no TypeScript)
+- Vite (ultra-fast build tool)
+- Tailwind CSS (styling)
+- shadcn/ui (component library)
+- Radix UI (headless UI primitives)
+- Recharts (data visualization)
+- Lucide React (icons)
+
+BACKEND
+-------
+- Django 4.2+ (Python web framework)
+- Django REST Framework (API)
+- Django CORS Headers (cross-origin requests)
+
+================================================================================
+SECURITY FEATURES (DJANGO)
+================================================================================
+
+✓ SQL injection protection (built-in ORM)
+✓ XSS (Cross-Site Scripting) protection
+✓ CSRF (Cross-Site Request Forgery) protection
+✓ Secure password hashing (PBKDF2)
+✓ Session security
+✓ HTTPS/SSL support
+
+Perfect for handling sensitive accounting and financial data!
+
+================================================================================
+PROJECT STRUCTURE
+================================================================================
+
+TGGG_Accounting/
+├── src/                        Frontend source code
+│   ├── components/            React components
+│   │   ├── ui/               shadcn/ui components (.jsx)
+│   │   ├── DashboardLayout.jsx
+│   │   ├── DashboardOverview.jsx
+│   │   ├── EmployeeManagement.jsx
+│   │   ├── AttendanceLeave.jsx
+│   │   ├── PayrollManagement.jsx
+│   │   └── AIAssistant.jsx
+│   ├── lib/                  Utility functions
+│   ├── assets/               Images, fonts, etc.
+│   ├── App.jsx               Main app component
+│   ├── main.jsx              Entry point
+│   └── index.css             Global styles
+├── core/                      Django core settings
+├── backend/                   Django apps
+├── public/                    Static assets
+├── index.html                HTML template
+├── vite.config.js            Vite configuration
+├── package.json              Frontend dependencies
+├── requirements.txt          Python dependencies
+└── manage.py                 Django management script
+
+================================================================================
+HELPFUL RESOURCES
+================================================================================
+
+React Documentation:        https://react.dev/
+Vite Documentation:         https://vitejs.dev/
+Django Documentation:       https://docs.djangoproject.com/
+Tailwind CSS:               https://tailwindcss.com/
+shadcn/ui Components:       https://ui.shadcn.com/
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Issue: "Module not found" errors
+Solution: Run npm install again
+
+Issue: Django server won't start
+Solution: Make sure virtual environment is activated and run migrations
+
+Issue: Port already in use
+Solution: Kill the process using that port or use a different port
+
+Issue: CORS errors between frontend and backend
+Solution: Check django-cors-headers is installed and configured
+
+================================================================================
+END OF GUIDE
+================================================================================

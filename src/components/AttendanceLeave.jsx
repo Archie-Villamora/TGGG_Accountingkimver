@@ -96,7 +96,7 @@ export function AttendanceLeave() {
   const [isLeaveRequestOpen, setIsLeaveRequestOpen] = useState(false);
   const [selectedTab, setSelectedTab] = useState('attendance');
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status) => {
     const variants = {
       'Present': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100',
       'Absent': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100',
@@ -115,7 +115,7 @@ export function AttendanceLeave() {
     );
   };
 
-  const getLeaveTypeIcon = (type: string) => {
+  const getLeaveTypeIcon = (type) => {
     const leaveType = leaveTypes.find(lt => lt.label.toLowerCase().includes(type.toLowerCase()));
     if (leaveType) {
       const Icon = leaveType.icon;

@@ -37,13 +37,7 @@ import {
   Zap
 } from 'lucide-react';
 
-interface DashboardLayoutProps {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
-  isDarkMode: boolean;
-  toggleDarkMode: () => void;
-  children: React.ReactNode;
-}
+
 
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },

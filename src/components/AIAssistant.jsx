@@ -23,13 +23,7 @@ import {
   Zap
 } from 'lucide-react';
 
-interface Message {
-  id: number;
-  content: string;
-  sender: 'user' | 'ai';
-  timestamp: string;
-  suggestions?: string[];
-}
+
 
 const mockConversation: Message[] = [
   {
@@ -101,7 +95,7 @@ export function AIAssistant() {
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
 
-  const getAIResponse = (message: string): string => {
+  const getAIResponse = (message): string => {
     const lowerMessage = message.toLowerCase();
     
     if (lowerMessage.includes('leave') || lowerMessage.includes('vacation') || lowerMessage.includes('balance')) {
@@ -126,7 +120,7 @@ export function AIAssistant() {
     return aiResponses['default'];
   };
 
-  const sendMessage = (content: string) => {
+  const sendMessage = (content) => {
     if (!content.trim()) return;
 
     // Add user message
@@ -156,7 +150,7 @@ export function AIAssistant() {
     }, 1500);
   };
 
-  const handleQuickAction = (query: string) => {
+  const handleQuickAction = (query) => {
     sendMessage(query);
   };
 

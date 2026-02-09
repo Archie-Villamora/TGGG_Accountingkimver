@@ -18,7 +18,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger
-} from './ui/accounting-ui';
+} from '../../../components/ui/accounting-ui';
 import { 
   Settings as SettingsIcon, 
   Building, 

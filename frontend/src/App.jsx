@@ -4,6 +4,12 @@ import StatusModal from './components/StatusModal';
 import AccountingDashboard from './pages/dashboards/AccountingDashboard';
 import EmployeeDashboard from './pages/dashboards/EmployeeDashboard';
 import InternDashboard from './pages/dashboards/InternDashboard';
+import { DashboardLayout } from './pages/dashboards/Accounting_Department/DashboardLayout';
+import { DashboardOverview } from './pages/dashboards/Accounting_Department/DashboardOverview';
+import { EmployeeManagement } from './pages/dashboards/Accounting_Department/EmployeeManagement';
+import { AttendanceLeave } from './pages/dashboards/Accounting_Department/AttendanceLeave';
+import { PayrollManagement } from './pages/dashboards/Accounting_Department/PayrollManagement';
+import { Settings } from './pages/dashboards/Accounting_Department/Settings';
 
 const API_URL = 'http://localhost:8000/api/accounts';
 
@@ -926,6 +932,7 @@ function AdminDashboard({ user, onLogout }) {
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   useEffect(() => {
     // Check if user is already logged in
@@ -972,9 +979,33 @@ export default function App() {
   // Route to department dashboard based on department_name (fallback)
   const departmentKey = (user.department_name || '').toLowerCase();
 
+  // Accounting Department gets the full dashboard
+  if (departmentKey === 'accounting department' || departmentKey === 'accounting') {
+    const renderContent = () => {
+      switch (activeTab) {
+        case 'dashboard':
+          return <DashboardOverview />;
+        case 'employees':
+          return <EmployeeManagement />;
+        case 'attendance':
+          return <AttendanceLeave />;
+        case 'payroll':
+          return <PayrollManagement />;
+        case 'settings':
+          return <Settings />;
+        default:
+          return <DashboardOverview />;
+      }
+    };
+
+    return (
+      <DashboardLayout activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout}>
+        {renderContent()}
+      </DashboardLayout>
+    );
+  }
+
   switch (departmentKey) {
-    case 'accounting department':
-      return <AccountingDashboard user={user} onLogout={handleLogout} />;
     case 'design department':
       return <DesignDashboard user={user} onLogout={handleLogout} />;
     case 'engineering department':

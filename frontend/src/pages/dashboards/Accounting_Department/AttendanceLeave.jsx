@@ -28,7 +28,7 @@ import {
   TabsList,
   TabsTrigger,
   Textarea
-} from './ui/accounting-ui';
+} from '../../../components/ui/accounting-ui';
 import { 
   Clock, 
   CalendarDays, 
@@ -216,7 +216,7 @@ export function AttendanceLeave() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
+        <Card className="border-0 shadow-lg bg-linear-to-br from-card to-card/50 backdrop-blur-sm">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -428,7 +428,7 @@ export function AttendanceLeave() {
         <TabsContent value="calendar" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Calendar */}
-            <Card className="lg:col-span-2 border-0 shadow-lg bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
+            <Card className="lg:col-span-2 border-0 shadow-lg bg-linear-to-br from-card to-card/50 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle>Attendance Calendar</CardTitle>
               </CardHeader>

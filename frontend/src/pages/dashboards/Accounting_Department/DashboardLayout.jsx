@@ -33,7 +33,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger
-} from './ui/accounting-ui';
+} from '../../../components/ui/accounting-ui';
 import alviProfile from '@/assets/4db478d5344f83406043f453643082ef14ec3b86.png';
 import tripleGLogo from '@/assets/18705286721879dd5e9e4c3fe85f4aede934da35.png';
 import { 
@@ -61,7 +61,8 @@ import {
   UserCheck,
   Zap,
   ArrowUpDown,
-  Check
+  Check,
+  LogOut
 } from 'lucide-react';
 
 
@@ -147,6 +148,18 @@ export function DashboardLayout({ activeTab, setActiveTab, children, onLogout })
                 );
               })}
             </SidebarMenu>
+            
+            {/* Logout Button at Bottom */}
+            <div className="mt-auto pt-4 border-t border-border/50">
+              <Button
+                onClick={onLogout}
+                variant="ghost"
+                className="w-full justify-start gap-3 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+              >
+                <LogOut className="w-5 h-5" />
+                <span>Logout</span>
+              </Button>
+            </div>
           </SidebarContent>
         </Sidebar>
 
@@ -242,8 +255,8 @@ export function DashboardLayout({ activeTab, setActiveTab, children, onLogout })
                             onClick={() => setNotificationFilter(filter)}
                             className={`px-3 py-1.5 rounded-full text-sm capitalize transition-colors ${
                               notificationFilter === filter 
-                                ? 'bg-transparent border border-[#F27229] text-[#F27229]' 
-                                : 'bg-[#021B2C] text-[#AEAAAA] hover:text-white'
+                                ? 'bg-[#F27229] text-white' 
+                                : 'bg-[#021B2C] text-[#AEAAAA] hover:bg-[#F27229]/20 hover:text-[#F27229]'
                             }`}
                           >
                             {filter}

@@ -11,7 +11,7 @@ import {
   CardTitle,
   Input,
   ScrollArea
-} from './ui/accounting-ui';
+} from '../../../components/ui/accounting-ui';
 import alviProfile from '@/assets/651002f6876413a3b201123bf1660ae20713e019.png';
 import { 
   MessageCircle, 
@@ -167,7 +167,7 @@ export function AIAssistant() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-medium flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-primary to-chart-1 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-linear-to-r from-primary to-chart-1 flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-primary-foreground" />
             </div>
             AI Assistant
@@ -182,7 +182,7 @@ export function AIAssistant() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Quick Actions */}
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
+        <Card className="border-0 shadow-lg bg-linear-to-br from-card to-card/50 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Lightbulb className="w-5 h-5" />
@@ -217,7 +217,7 @@ export function AIAssistant() {
         </Card>
 
         {/* Chat Interface */}
-        <Card className="lg:col-span-2 border-0 shadow-lg bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
+        <Card className="lg:col-span-2 border-0 shadow-lg bg-linear-to-br from-card to-card/50 backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MessageCircle className="w-5 h-5" />
@@ -234,8 +234,8 @@ export function AIAssistant() {
                     className={`flex gap-3 ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     {message.sender === 'ai' && (
-                      <Avatar className="w-8 h-8 bg-gradient-to-r from-primary to-chart-1">
-                        <AvatarFallback className="bg-gradient-to-r from-primary to-chart-1 text-primary-foreground">
+                      <Avatar className="w-8 h-8 bg-linear-to-br from-primary to-chart-1">
+                        <AvatarFallback className="bg-linear-to-r from-primary to-chart-1 text-primary-foreground">
                           <Bot className="w-4 h-4" />
                         </AvatarFallback>
                       </Avatar>
@@ -287,8 +287,8 @@ export function AIAssistant() {
                 {/* Typing indicator */}
                 {isTyping && (
                   <div className="flex gap-3 justify-start">
-                    <Avatar className="w-8 h-8 bg-gradient-to-r from-primary to-chart-1">
-                      <AvatarFallback className="bg-gradient-to-r from-primary to-chart-1 text-primary-foreground">
+                    <Avatar className="w-8 h-8 bg-linear-to-r from-primary to-chart-1">
+                      <AvatarFallback className="bg-linear-to-r from-primary to-chart-1 text-primary-foreground">
                         <Bot className="w-4 h-4" />
                       </AvatarFallback>
                     </Avatar>
@@ -327,7 +327,7 @@ export function AIAssistant() {
       </div>
 
       {/* AI Capabilities */}
-      <Card className="border-0 shadow-lg bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
+      <Card className="border-0 shadow-lg bg-linear-to-br from-card to-card/50 backdrop-blur-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <HelpCircle className="w-5 h-5" />

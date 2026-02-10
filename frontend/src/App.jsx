@@ -981,6 +981,32 @@ export default function App() {
   const departmentName = user.department_name || 'Unassigned Department';
   const token = localStorage.getItem('token');
 
+  // Employee in Accounting Department - redirect to Accounting Dashboard
+  if (user.role === 'employee' && (user.department_name?.toLowerCase() === 'accounting department' || user.department_name?.toLowerCase() === 'accounting')) {
+    const renderContent = () => {
+      switch (activeTab) {
+        case 'dashboard':
+          return <DashboardOverview />;
+        case 'employees':
+          return <EmployeeManagement />;
+        case 'attendance':
+          return <AttendanceLeave />;
+        case 'payroll':
+          return <PayrollManagement />;
+        case 'settings':
+          return <Settings />;
+        default:
+          return <DashboardOverview />;
+      }
+    };
+
+    return (
+      <DashboardLayout activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout}>
+        {renderContent()}
+      </DashboardLayout>
+    );
+  }
+
   // Intern Dashboard Routing
   if (user.role === 'intern') {
     if (currentPage === 'overtime') {
@@ -1012,7 +1038,7 @@ export default function App() {
   // Route to department dashboard based on department_name (fallback)
   const departmentKey = (user.department_name || '').toLowerCase();
 
-  // Accounting Department gets the full dashboard
+  // Accounting Department gets the full dashboard (for non-employee roles)
   if (departmentKey === 'accounting department' || departmentKey === 'accounting') {
     const renderContent = () => {
       switch (activeTab) {

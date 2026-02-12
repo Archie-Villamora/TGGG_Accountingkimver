@@ -25,7 +25,16 @@ def login_view(request):
     
     try:
         user = CustomUser.objects.get(email=email)
-        if user.check_password(password) and user.is_active:
+        if user.check_password(password):
+            if not user.is_active:
+                return Response({'error': 'Account not yet approved by Studio Head/Admin.'}, status=status.HTTP_403_FORBIDDEN)
+            # Only allow login for users with the allowed roles
+            allowed_roles = [
+                'accounting', 'bim_specialist', 'intern', 'junior_architect',
+                'president', 'site_engineer', 'site_coordinator', 'studio_head', 'admin'
+            ]
+            if user.role not in allowed_roles:
+                return Response({'error': 'Your role is not permitted to login.'}, status=status.HTTP_403_FORBIDDEN)
             refresh = RefreshToken.for_user(user)
             return Response({
                 'success': True,
@@ -45,13 +54,9 @@ def login_view(request):
                 }
             }, status=status.HTTP_200_OK)
         else:
-            return Response({
-                'error': 'Invalid credentials or inactive account'
-            }, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
     except CustomUser.DoesNotExist:
-        return Response({
-            'error': 'Invalid credentials'
-        }, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 @api_view(['POST'])
@@ -62,46 +67,32 @@ def register_view(request):
     password = request.data.get('password')
     first_name = request.data.get('first_name', '')
     last_name = request.data.get('last_name', '')
-    department_id = request.data.get('department_id')
-    
+    # Remove department and role assignment at registration
     if not email or not password:
-        return Response({
-            'error': 'Email and password are required'
-        }, status=status.HTTP_400_BAD_REQUEST)
-    
+        return Response({'error': 'Email and password are required'}, status=status.HTTP_400_BAD_REQUEST)
     if CustomUser.objects.filter(email=email).exists():
-        return Response({
-            'error': 'Email already registered'
-        }, status=status.HTTP_400_BAD_REQUEST)
-    
+        return Response({'error': 'Email already registered'}, status=status.HTTP_400_BAD_REQUEST)
     try:
-        department = Department.objects.get(id=department_id) if department_id else None
         user = CustomUser.objects.create_user(
             email=email,
             password=password,
             first_name=first_name,
             last_name=last_name,
             username=email.split('@')[0],
-            department=department,
-            is_active=False
+            is_active=False  # Always inactive until approved by studio head/admin
         )
-        
         return Response({
             'success': True,
-            'message': 'Registration submitted. Your account will be verified by an admin.',
+            'message': 'Registration submitted. Your account will be verified by a Studio Head or Admin.',
             'user': {
                 'id': user.id,
                 'email': user.email,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
-                'department': user.department.id if user.department else None,
-                'department_name': user.department.name if user.department else None,
             }
         }, status=status.HTTP_201_CREATED)
     except Exception as e:
-        return Response({
-            'error': str(e)
-        }, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])
@@ -139,16 +130,16 @@ def get_departments(request):
     ])
 
 
-def _is_admin_user(user):
-    return user.is_staff or user.is_superuser or user.role in ['admin', 'manager', 'supervisor']
+def _is_studio_head_or_admin(user):
+    # Only studio head or admin can approve/see users
+    return user.is_staff or user.is_superuser or user.role in ['studio_head', 'admin']
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def pending_users(request):
-    if not _is_admin_user(request.user):
+    if not _is_studio_head_or_admin(request.user):
         return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
-
     users = CustomUser.objects.filter(is_active=False).order_by('-created_at')
     return Response(PendingUserSerializer(users, many=True).data)
 
@@ -156,25 +147,32 @@ def pending_users(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def approve_user(request):
-    if not _is_admin_user(request.user):
+    if not _is_studio_head_or_admin(request.user):
         return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
 
     user_id = request.data.get('user_id')
-    department_id = request.data.get('department_id')
     role = request.data.get('role')
     permissions = request.data.get('permissions', [])
+    department_id = request.data.get('department_id')  # Optional
 
-    if not user_id or not department_id or not role:
-        return Response({'error': 'user_id, department_id, and role are required'}, status=status.HTTP_400_BAD_REQUEST)
+    allowed_roles = [
+        'accounting', 'bim_specialist', 'intern', 'junior_architect',
+        'president', 'site_engineer', 'site_coordinator', 'studio_head', 'admin'
+    ]
+    if not user_id or not role or role not in allowed_roles:
+        return Response({'error': 'user_id and valid role are required'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         user = CustomUser.objects.get(id=user_id)
-        department = Department.objects.get(id=department_id)
     except CustomUser.DoesNotExist:
         return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-    except Department.DoesNotExist:
-        return Response({'error': 'Department not found'}, status=status.HTTP_404_NOT_FOUND)
 
+    department = None
+    if department_id:
+        try:
+            department = Department.objects.get(id=department_id)
+        except Department.DoesNotExist:
+            return Response({'error': 'Department not found'}, status=status.HTTP_404_NOT_FOUND)
     user.department = department
     user.role = role
     user.permissions = permissions
@@ -190,7 +188,7 @@ Your account has been successfully verified and approved!
 
 Account Details:
 - Email: {user.email}
-- Department: {department.name}
+- Department: {user.department.name if user.department else 'N/A'}
 - Role: {user.get_role_display()}
 
 You can now log in to the Triple G using your email and password.
@@ -200,7 +198,6 @@ If you have any questions, please contact your administrator.
 Best regards,
 Triple G Admin
         """.strip()
-        
         send_mail(
             subject='Your Account Has Been Verified - Triple G',
             message=email_message,
@@ -219,8 +216,8 @@ Triple G Admin
         'user': {
             'id': user.id,
             'email': user.email,
-            'department': user.department.id,
-            'department_name': user.department.name,
+            'department': user.department.id if user.department else None,
+            'department_name': user.department.name if user.department else None,
             'role': user.role,
         }
     })
@@ -238,8 +235,7 @@ def accounts_overview(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def list_users(request):
-    if not _is_admin_user(request.user):
+    if not _is_studio_head_or_admin(request.user):
         return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
-
     users = CustomUser.objects.all().order_by('last_name', 'first_name', 'email')
     return Response(CustomUserSerializer(users, many=True).data)

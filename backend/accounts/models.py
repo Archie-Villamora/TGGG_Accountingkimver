@@ -2,12 +2,18 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils import timezone
 
+
+# Updated roles for the new flow
 ROLE_CHOICES = [
-    ('admin', 'Administrator'),
-    ('manager', 'Manager'),
-    ('supervisor', 'Supervisor'),
-    ('employee', 'Employee'),
+    ('studio_head', 'Studio Head'),
+    ('admin', 'Admin'),
+    ('accounting', 'Accounting'),
+    ('bim_specialist', 'BIM Specialist'),
     ('intern', 'Intern'),
+    ('junior_architect', 'Junior Architect'),
+    ('president', 'President'),
+    ('site_engineer', 'Site Engineer'),
+    ('site_coordinator', 'Site Coordinator'),
 ]
 
 PERMISSION_CHOICES = [

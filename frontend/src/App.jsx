@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import StatusModal from './components/StatusModal';
 import StudioHeadDashboard from './pages/dashboards/StudioHead/StudioHeadDashboard';
+import StudioHeadProfilePage from './pages/dashboards/StudioHead/StudioHeadProfilePage';
 
 import InternAttendanceDashboard from './pages/dashboards/Intern_Dashboard/InternAttendance';
 import InternOvertimePage from './pages/dashboards/Intern_Dashboard/OvertimePage';
@@ -829,7 +830,13 @@ export default function App() {
 
     // Route to studio head or admin dashboard
     if (user.role === 'studio_head' || user.role === 'admin') {
-      return <StudioHeadDashboard user={user} onLogout={handleLogout} />;
+      if (currentPage === 'profile') {
+        return <StudioHeadProfilePage user={user} token={localStorage.getItem('token')} onLogout={handleLogout} onNavigate={handleNavigate} />;
+      }
+      if (currentPage === 'studio-head') {
+        return <StudioHeadDashboard user={user} onLogout={handleLogout} onNavigate={handleNavigate} />;
+      }
+      return <StudioHeadDashboard user={user} onLogout={handleLogout} onNavigate={handleNavigate} />;
     }
 
     // Accounting role - redirect to Accounting Dashboard

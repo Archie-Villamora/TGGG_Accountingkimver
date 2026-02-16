@@ -33,51 +33,13 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
           <span className="text-base font-semibold sm:hidden">TG AOC</span>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-          <button
-            onClick={() => onNavigate('attendance')}
-            style={{
-              background: currentPage === 'attendance' ? '#FF7120' : 'transparent',
-              border: '1px solid #FF7120',
-              color: currentPage === 'attendance' ? 'white' : '#FF7120',
-              padding: '0.4rem 0.6rem',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '0.75rem',
-              fontWeight: '500',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.3rem',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => {
-              if (currentPage !== 'attendance') {
-                e.currentTarget.style.background = '#FF7120';
-                e.currentTarget.style.borderColor = '#FF7120';
-                e.currentTarget.style.color = 'white';
-                e.currentTarget.style.transform = 'translateY(-1px)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 113, 32, 0.25)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (currentPage !== 'attendance') {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.borderColor = '#FF7120';
-                e.currentTarget.style.color = '#FF7120';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-              }
-            }}
-          >
-            <Home className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span>Dashboard</span>
-          </button>
-          {user?.role === 'site_engineer' && (
+          {(user?.role === 'studio_head' || user?.role === 'admin') && (
             <button
-              onClick={() => onNavigate('site-hub')}
+              onClick={() => onNavigate('studio-head')}
               style={{
-                background: currentPage === 'site-hub' ? '#FF7120' : 'transparent',
+                background: currentPage === 'studio-head' ? '#FF7120' : 'transparent',
                 border: '1px solid #FF7120',
-                color: currentPage === 'site-hub' ? 'white' : '#FF7120',
+                color: currentPage === 'studio-head' ? 'white' : '#FF7120',
                 padding: '0.4rem 0.6rem',
                 borderRadius: '6px',
                 cursor: 'pointer',
@@ -89,7 +51,7 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
                 transition: 'all 0.2s'
               }}
               onMouseEnter={(e) => {
-                if (currentPage !== 'site-hub') {
+                if (currentPage !== 'studio-head') {
                   e.currentTarget.style.background = '#FF7120';
                   e.currentTarget.style.borderColor = '#FF7120';
                   e.currentTarget.style.color = 'white';
@@ -98,7 +60,87 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
                 }
               }}
               onMouseLeave={(e) => {
-                if (currentPage !== 'site-hub') {
+                if (currentPage !== 'studio-head') {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.borderColor = '#FF7120';
+                  e.currentTarget.style.color = '#FF7120';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }
+              }}
+            >
+              <Home className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span>Dashboard</span>
+            </button>
+          )}
+          {user?.role !== 'studio_head' && user?.role !== 'admin' && (
+            <button
+              onClick={() => onNavigate('attendance')}
+              style={{
+                background: currentPage === 'attendance' ? '#FF7120' : 'transparent',
+                border: '1px solid #FF7120',
+                color: currentPage === 'attendance' ? 'white' : '#FF7120',
+                padding: '0.4rem 0.6rem',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.75rem',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                if (currentPage !== 'attendance') {
+                  e.currentTarget.style.background = '#FF7120';
+                  e.currentTarget.style.borderColor = '#FF7120';
+                  e.currentTarget.style.color = 'white';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 113, 32, 0.25)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (currentPage !== 'attendance') {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.borderColor = '#FF7120';
+                  e.currentTarget.style.color = '#FF7120';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }
+              }}
+            >
+              <Home className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span>Dashboard</span>
+            </button>
+          )}
+          {user?.role === 'site_engineer' && (
+            <button
+              onClick={() => onNavigate('engineer-hub')}
+              style={{
+                background: currentPage === 'engineer-hub' ? '#FF7120' : 'transparent',
+                border: '1px solid #FF7120',
+                color: currentPage === 'engineer-hub' ? 'white' : '#FF7120',
+                padding: '0.4rem 0.6rem',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.75rem',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                if (currentPage !== 'engineer-hub') {
+                  e.currentTarget.style.background = '#FF7120';
+                  e.currentTarget.style.borderColor = '#FF7120';
+                  e.currentTarget.style.color = 'white';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 113, 32, 0.25)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (currentPage !== 'engineer-hub') {
                   e.currentTarget.style.background = 'transparent';
                   e.currentTarget.style.borderColor = '#FF7120';
                   e.currentTarget.style.color = '#FF7120';
@@ -108,7 +150,7 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
               }}
             >
               <HardHat className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span>Site Hub</span>
+              <span>Engineer Hub</span>
             </button>
           )}
           {user?.role === 'site_coordinator' && (
@@ -191,82 +233,86 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
               <span>Designer Hub</span>
             </button>
           )}
-          <button
-            onClick={() => onNavigate('overtime')}
-            style={{
-              background: currentPage === 'overtime' ? '#FF7120' : 'transparent',
-              border: '1px solid #FF7120',
-              color: currentPage === 'overtime' ? 'white' : '#FF7120',
-              padding: '0.4rem 0.6rem',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '0.75rem',
-              fontWeight: '500',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.3rem',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => {
-              if (currentPage !== 'overtime') {
-                e.currentTarget.style.background = '#FF7120';
-                e.currentTarget.style.borderColor = '#FF7120';
-                e.currentTarget.style.color = 'white';
-                e.currentTarget.style.transform = 'translateY(-1px)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 113, 32, 0.25)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (currentPage !== 'overtime') {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.borderColor = '#FF7120';
-                e.currentTarget.style.color = '#FF7120';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-              }
-            }}
-          >
-            <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span>OT</span>
-          </button>
-          <button
-            onClick={() => onNavigate('todo')}
-            style={{
-              background: currentPage === 'todo' ? '#FF7120' : 'transparent',
-              border: '1px solid #FF7120',
-              color: currentPage === 'todo' ? 'white' : '#FF7120',
-              padding: '0.4rem 0.6rem',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '0.75rem',
-              fontWeight: '500',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.3rem',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => {
-              if (currentPage !== 'todo') {
-                e.currentTarget.style.background = '#FF7120';
-                e.currentTarget.style.borderColor = '#FF7120';
-                e.currentTarget.style.color = 'white';
-                e.currentTarget.style.transform = 'translateY(-1px)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 113, 32, 0.25)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (currentPage !== 'todo') {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.borderColor = '#FF7120';
-                e.currentTarget.style.color = '#FF7120';
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-              }
-            }}
-          >
-            <CheckSquare className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span>Todo</span>
-          </button>
+          {user?.role !== 'studio_head' && user?.role !== 'admin' && (
+            <>
+              <button
+                onClick={() => onNavigate('overtime')}
+                style={{
+                  background: currentPage === 'overtime' ? '#FF7120' : 'transparent',
+                  border: '1px solid #FF7120',
+                  color: currentPage === 'overtime' ? 'white' : '#FF7120',
+                  padding: '0.4rem 0.6rem',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: '500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  if (currentPage !== 'overtime') {
+                    e.currentTarget.style.background = '#FF7120';
+                    e.currentTarget.style.borderColor = '#FF7120';
+                    e.currentTarget.style.color = 'white';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 113, 32, 0.25)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (currentPage !== 'overtime') {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.borderColor = '#FF7120';
+                    e.currentTarget.style.color = '#FF7120';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }
+                }}
+              >
+                <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span>OT</span>
+              </button>
+              <button
+                onClick={() => onNavigate('todo')}
+                style={{
+                  background: currentPage === 'todo' ? '#FF7120' : 'transparent',
+                  border: '1px solid #FF7120',
+                  color: currentPage === 'todo' ? 'white' : '#FF7120',
+                  padding: '0.4rem 0.6rem',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: '500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  if (currentPage !== 'todo') {
+                    e.currentTarget.style.background = '#FF7120';
+                    e.currentTarget.style.borderColor = '#FF7120';
+                    e.currentTarget.style.color = 'white';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 113, 32, 0.25)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (currentPage !== 'todo') {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.borderColor = '#FF7120';
+                    e.currentTarget.style.color = '#FF7120';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }
+                }}
+              >
+                <CheckSquare className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span>Todo</span>
+              </button>
+            </>
+          )}
           <div className="hidden sm:flex items-center gap-2 sm:gap-4">
             <Popover>
             <PopoverTrigger asChild>
@@ -281,8 +327,8 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  width: '32px',
-                  height: '32px',
+                  width: '36px',
+                  height: '36px',
                   transition: 'all 0.2s',
                   position: 'relative'
                 }}
@@ -297,7 +343,7 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
                   e.currentTarget.querySelector('svg').style.color = '#FF7120';
                 }}
               >
-                <Bell className="h-4 w-4 sm:h-5 sm:w-5" style={{ transition: 'color 0.2s' }} />
+                <Bell className="h-5 w-5" style={{ transition: 'color 0.2s' }} />
                 {unreadCount > 0 && (
                   <div style={{
                     position: 'absolute',

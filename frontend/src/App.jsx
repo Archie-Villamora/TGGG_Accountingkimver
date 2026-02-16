@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import StatusModal from './components/StatusModal';
 import StudioHeadDashboard from './pages/dashboards/StudioHead/StudioHeadDashboard';
+import StudioHeadProfilePage from './pages/dashboards/StudioHead/StudioHeadProfilePage';
 
 import InternAttendanceDashboard from './pages/dashboards/Intern_Dashboard/InternAttendance';
 import InternOvertimePage from './pages/dashboards/Intern_Dashboard/OvertimePage';
@@ -18,6 +19,7 @@ import EmployeeOvertimePage from './pages/dashboards/Public_Dashboard/OvertimePa
 import EmployeeTodoPage from './pages/dashboards/Public_Dashboard/TodoPage';
 import EmployeeProfilePage from './pages/dashboards/Public_Dashboard/ProfilePage';
 import SiteEngineerHub from './pages/dashboards/SiteEngineer_Dashboard/SiteEngineerHub';
+import SiteEngineerDiaryHub from './pages/dashboards/SiteEngineer_Dashboard/SiteEngineerDiaryHub';
 import SiteCoordinatorHub from './pages/dashboards/SiteCoordinator_Dashboard/SiteCoordinatorHub';
 import JuniorDesignerHub from './pages/dashboards/JuniorDesigner_Dashboard/JuniorDesignerHub';
 import { DashboardLayout } from './pages/dashboards/Accounting_Department/DashboardLayout';
@@ -829,7 +831,13 @@ export default function App() {
 
     // Route to studio head or admin dashboard
     if (user.role === 'studio_head' || user.role === 'admin') {
-      return <StudioHeadDashboard user={user} onLogout={handleLogout} />;
+      if (currentPage === 'profile') {
+        return <StudioHeadProfilePage user={user} token={localStorage.getItem('token')} onLogout={handleLogout} onNavigate={handleNavigate} />;
+      }
+      if (currentPage === 'studio-head') {
+        return <StudioHeadDashboard user={user} onLogout={handleLogout} onNavigate={handleNavigate} />;
+      }
+      return <StudioHeadDashboard user={user} onLogout={handleLogout} onNavigate={handleNavigate} />;
     }
 
     // Accounting role - redirect to Accounting Dashboard
@@ -846,8 +854,8 @@ export default function App() {
 
     // Site Engineer Dashboard Routing
     if (user.role === 'site_engineer') {
-      if (currentPage === 'site-hub') {
-        return <SiteEngineerHub user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
+      if (currentPage === 'engineer-hub') {
+        return <SiteEngineerDiaryHub user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
       }
       if (currentPage === 'overtime') {
         return <EmployeeOvertimePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;

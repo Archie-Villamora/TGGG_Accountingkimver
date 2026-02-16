@@ -1,20 +1,26 @@
-import DashboardHeader from './components/DashboardHeader';
-import DashboardTabs from './components/DashboardTabs';
-import MessageBanner from './components/MessageBanner';
+import React, { useState } from 'react';
+import PublicNavigation from '../Public_Dashboard/PublicNavigation';
+import { Home, UserCheck, Users, FileText, GitMerge } from 'lucide-react';
 import OverviewPanel from './components/OverviewPanel';
 import PendingApprovalsPanel from './components/PendingApprovalsPanel';
 import ManageUsersPanel from './components/ManageUsersPanel';
-
-import { styles } from './studioHeadStyles';
+import MessageBanner from './components/MessageBanner';
 import { useStudioHeadDashboard } from './hooks/useStudioHeadDashboard';
 
-export default function StudioHeadDashboard({ user, onLogout }) {
+const TABS = [
+  { id: 'overview', label: 'Overview', icon: Home },
+  { id: 'approvals', label: 'User Approvals', icon: UserCheck },
+  { id: 'users', label: 'Manage Users', icon: Users },
+  { id: 'reviews', label: 'Design Reviews', icon: FileText },
+  { id: 'coordination', label: 'Coordination', icon: GitMerge },
+];
+
+export default function StudioHeadDashboard({ user, onLogout, onNavigate }) {
   const {
     activeTab,
     setActiveTab,
     message,
     setMessage,
-
     pendingUsers,
     pendingLoading,
     roleByUserId,
@@ -22,7 +28,6 @@ export default function StudioHeadDashboard({ user, onLogout }) {
     allowedRoles,
     approveUser,
     loadingApprove,
-
     usersLoading,
     usersError,
     searchTerm,
@@ -30,59 +35,109 @@ export default function StudioHeadDashboard({ user, onLogout }) {
     filteredUsers,
   } = useStudioHeadDashboard();
 
+  const cardClass = "rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-lg";
+
   return (
-    <div style={styles.page}>
-      <DashboardHeader onLogout={onLogout} />
+    <div className="min-h-screen bg-[#00273C] relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute top-40 -right-40 h-[520px] w-[520px] rounded-full bg-cyan-400/10 blur-[90px]" />
+      </div>
 
-      <DashboardTabs activeTab={activeTab} setActiveTab={setActiveTab} />
+      <PublicNavigation onNavigate={onNavigate} currentPage="studio-head" user={user} />
 
-      <MessageBanner message={message} onClose={() => setMessage('')} />
+      <div className="relative pt-28 px-6 pb-10">
+        <div className="max-w-[1600px] mx-auto">
+          <MessageBanner message={message} onClose={() => setMessage('')} />
+          
+          <div className="flex gap-6">
+            {/* Sidebar Navigation */}
+            <aside className="w-64 shrink-0">
+              <div className={`${cardClass} p-4 sticky top-24`}>
+                <nav className="space-y-2">
+                  {TABS.map((tab) => {
+                    const Icon = tab.icon;
+                    const isActive = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+                          isActive
+                            ? "bg-[#FF7120] text-white"
+                            : "text-white/70 hover:text-white hover:bg-white/5"
+                        }`}
+                      >
+                        <Icon className="h-5 w-5" />
+                        <span className="font-medium">{tab.label}</span>
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
+            </aside>
 
-      {/* Tabs */}
-      {activeTab === 'overview' && (
-        <OverviewPanel pendingCount={pendingUsers.length} />
-      )}
+            {/* Main Content */}
+            <main className="flex-1 min-w-0">
+              <div className={cardClass}>
+                {/* Header */}
+                <div className="p-6 border-b border-white/10">
+                  <h1 className="text-2xl font-semibold text-white">
+                    {TABS.find(t => t.id === activeTab)?.label || 'Studio Head Dashboard'}
+                  </h1>
+                  <p className="text-white/60 text-sm mt-1">Manage users, approvals, and team coordination</p>
+                </div>
 
-      {activeTab === 'approvals' && (
-        <PendingApprovalsPanel
-          pendingUsers={pendingUsers}
-          pendingLoading={pendingLoading}
-          roleByUserId={roleByUserId}
-          setRoleByUserId={setRoleByUserId}
-          allowedRoles={allowedRoles}
-          approveUser={approveUser}
-          loadingApprove={loadingApprove}
-        />
-      )}
+                {/* Tab Content */}
+                <div className="p-6">
+                  {activeTab === 'overview' && (
+                    <OverviewPanel pendingCount={pendingUsers.length} />
+                  )}
 
-      {activeTab === 'users' && (
-        <ManageUsersPanel
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          usersLoading={usersLoading}
-          usersError={usersError}
-          filteredUsers={filteredUsers}
-        />
-      )}
+                  {activeTab === 'approvals' && (
+                    <PendingApprovalsPanel
+                      pendingUsers={pendingUsers}
+                      pendingLoading={pendingLoading}
+                      roleByUserId={roleByUserId}
+                      setRoleByUserId={setRoleByUserId}
+                      allowedRoles={allowedRoles}
+                      approveUser={approveUser}
+                      loadingApprove={loadingApprove}
+                    />
+                  )}
 
-      {/* Placeholder tabs (design-ready) */}
-      {activeTab === 'reviews' && (
-        <div style={styles.panel}>
-          <h2 style={{ margin: 0, fontSize: '20px' }}>Design Reviews</h2>
-          <p style={{ color: '#9CA3AF', marginTop: '8px' }}>
-            Queue for drawings, presentations, and documentation review (connect your projects module here).
-          </p>
+                  {activeTab === 'users' && (
+                    <ManageUsersPanel
+                      searchTerm={searchTerm}
+                      setSearchTerm={setSearchTerm}
+                      usersLoading={usersLoading}
+                      usersError={usersError}
+                      filteredUsers={filteredUsers}
+                    />
+                  )}
+
+                  {activeTab === 'reviews' && (
+                    <div className="rounded-xl border border-white/10 bg-[#00273C]/60 p-6">
+                      <h2 className="text-white font-semibold text-xl mb-2">Design Reviews</h2>
+                      <p className="text-white/60 text-sm">
+                        Queue for drawings, presentations, and documentation review (connect your projects module here).
+                      </p>
+                    </div>
+                  )}
+
+                  {activeTab === 'coordination' && (
+                    <div className="rounded-xl border border-white/10 bg-[#00273C]/60 p-6">
+                      <h2 className="text-white font-semibold text-xl mb-2">Coordination</h2>
+                      <p className="text-white/60 text-sm">
+                        Handoffs between design, site, and management teams (RFIs, revisions, approvals).
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </main>
+          </div>
         </div>
-      )}
-
-      {activeTab === 'coordination' && (
-        <div style={styles.panel}>
-          <h2 style={{ margin: 0, fontSize: '20px' }}>Coordination</h2>
-          <p style={{ color: '#9CA3AF', marginTop: '8px' }}>
-            Handoffs between design, site, and management teams (RFIs, revisions, approvals).
-          </p>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -234,7 +234,7 @@ const ReviewTab = () => (
   </div>
 );
 
-const SiteCoordinatorHub = ({ user, onNavigate }) => {
+const SiteEngineerDiaryHub = ({ user, onNavigate }) => {
   const [activeTab, setActiveTab] = useState("project");
 
   const cardClass = "rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-lg";
@@ -246,7 +246,7 @@ const SiteCoordinatorHub = ({ user, onNavigate }) => {
         <div className="absolute top-40 -right-40 h-[520px] w-[520px] rounded-full bg-cyan-400/10 blur-[90px]" />
       </div>
 
-      <PublicNavigation onNavigate={onNavigate} currentPage="coordinator-hub" user={user} />
+      <PublicNavigation onNavigate={onNavigate} currentPage="engineer-hub" user={user} />
 
       <div className="relative pt-28 px-6 pb-10">
         <div className="max-w-[1600px] mx-auto">
@@ -299,4 +299,4 @@ const SiteCoordinatorHub = ({ user, onNavigate }) => {
   );
 };
 
-export default SiteCoordinatorHub;
+export default SiteEngineerDiaryHub;

@@ -115,11 +115,11 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
           )}
           {user?.role === 'site_engineer' && (
             <button
-              onClick={() => onNavigate('site-hub')}
+              onClick={() => onNavigate('engineer-hub')}
               style={{
-                background: currentPage === 'site-hub' ? '#FF7120' : 'transparent',
+                background: currentPage === 'engineer-hub' ? '#FF7120' : 'transparent',
                 border: '1px solid #FF7120',
-                color: currentPage === 'site-hub' ? 'white' : '#FF7120',
+                color: currentPage === 'engineer-hub' ? 'white' : '#FF7120',
                 padding: '0.4rem 0.6rem',
                 borderRadius: '6px',
                 cursor: 'pointer',
@@ -131,7 +131,7 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
                 transition: 'all 0.2s'
               }}
               onMouseEnter={(e) => {
-                if (currentPage !== 'site-hub') {
+                if (currentPage !== 'engineer-hub') {
                   e.currentTarget.style.background = '#FF7120';
                   e.currentTarget.style.borderColor = '#FF7120';
                   e.currentTarget.style.color = 'white';
@@ -140,7 +140,7 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
                 }
               }}
               onMouseLeave={(e) => {
-                if (currentPage !== 'site-hub') {
+                if (currentPage !== 'engineer-hub') {
                   e.currentTarget.style.background = 'transparent';
                   e.currentTarget.style.borderColor = '#FF7120';
                   e.currentTarget.style.color = '#FF7120';
@@ -150,7 +150,7 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
               }}
             >
               <HardHat className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span>Site Hub</span>
+              <span>Engineer Hub</span>
             </button>
           )}
           {user?.role === 'site_coordinator' && (

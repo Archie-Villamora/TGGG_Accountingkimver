@@ -19,6 +19,7 @@ import EmployeeOvertimePage from './pages/dashboards/Public_Dashboard/OvertimePa
 import EmployeeTodoPage from './pages/dashboards/Public_Dashboard/TodoPage';
 import EmployeeProfilePage from './pages/dashboards/Public_Dashboard/ProfilePage';
 import SiteEngineerHub from './pages/dashboards/SiteEngineer_Dashboard/SiteEngineerHub';
+import SiteEngineerDiaryHub from './pages/dashboards/SiteEngineer_Dashboard/SiteEngineerDiaryHub';
 import SiteCoordinatorHub from './pages/dashboards/SiteCoordinator_Dashboard/SiteCoordinatorHub';
 import JuniorDesignerHub from './pages/dashboards/JuniorDesigner_Dashboard/JuniorDesignerHub';
 import { DashboardLayout } from './pages/dashboards/Accounting_Department/DashboardLayout';
@@ -853,8 +854,8 @@ export default function App() {
 
     // Site Engineer Dashboard Routing
     if (user.role === 'site_engineer') {
-      if (currentPage === 'site-hub') {
-        return <SiteEngineerHub user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
+      if (currentPage === 'engineer-hub') {
+        return <SiteEngineerDiaryHub user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
       }
       if (currentPage === 'overtime') {
         return <EmployeeOvertimePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;

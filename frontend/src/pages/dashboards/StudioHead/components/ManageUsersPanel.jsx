@@ -7,7 +7,11 @@ export default function ManageUsersPanel({
   setSearchTerm,
   usersLoading,
   usersError,
+  userActionById,
   filteredUsers,
+  onEditUser,
+  onToggleUserStatus,
+  onDeleteUser,
 }) {
   return (
     <div style={styles.panel}>
@@ -24,7 +28,9 @@ export default function ManageUsersPanel({
           onChange={(e) => setSearchTerm(e.target.value)}
           style={styles.input}
         />
-        <button style={styles.buttonGhost}>Add Account</button>
+        <button style={{ ...styles.buttonGhost, opacity: 0.6, cursor: 'not-allowed' }} disabled>
+          Add Account
+        </button>
       </div>
 
       <div style={{ marginTop: '16px', display: 'grid', gap: '10px' }}>
@@ -36,7 +42,14 @@ export default function ManageUsersPanel({
         )}
 
         {!usersLoading && !usersError && filteredUsers.map((u) => (
-          <UserRow key={u.id} user={u} />
+          <UserRow
+            key={u.id}
+            user={u}
+            loading={!!userActionById?.[u.id]}
+            onEditUser={onEditUser}
+            onToggleUserStatus={onToggleUserStatus}
+            onDeleteUser={onDeleteUser}
+          />
         ))}
       </div>
     </div>

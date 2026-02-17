@@ -33,46 +33,6 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
           <span className="text-base font-semibold sm:hidden">TG AOC</span>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-          {(user?.role === 'studio_head' || user?.role === 'admin') && (
-            <button
-              onClick={() => onNavigate('studio-head')}
-              style={{
-                background: currentPage === 'studio-head' ? '#FF7120' : 'transparent',
-                border: '1px solid #FF7120',
-                color: currentPage === 'studio-head' ? 'white' : '#FF7120',
-                padding: '0.4rem 0.6rem',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '0.75rem',
-                fontWeight: '500',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.3rem',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                if (currentPage !== 'studio-head') {
-                  e.currentTarget.style.background = '#FF7120';
-                  e.currentTarget.style.borderColor = '#FF7120';
-                  e.currentTarget.style.color = 'white';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 113, 32, 0.25)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (currentPage !== 'studio-head') {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.borderColor = '#FF7120';
-                  e.currentTarget.style.color = '#FF7120';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = 'none';
-                }
-              }}
-            >
-              <Home className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span>Dashboard</span>
-            </button>
-          )}
           {user?.role !== 'studio_head' && user?.role !== 'admin' && (
             <button
               onClick={() => onNavigate('attendance')}

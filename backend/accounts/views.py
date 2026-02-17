@@ -11,6 +11,11 @@ from .serializers import CustomUserSerializer, PendingUserSerializer
 
 # Create your views here.
 
+ALLOWED_ROLES = [
+    'accounting', 'employee', 'bim_specialist', 'intern', 'junior_architect',
+    'president', 'site_engineer', 'site_coordinator', 'studio_head', 'admin'
+]
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_view(request):
@@ -29,11 +34,7 @@ def login_view(request):
             if not user.is_active:
                 return Response({'error': 'Account not yet approved by Studio Head/Admin.'}, status=status.HTTP_403_FORBIDDEN)
             # Only allow login for users with the allowed roles
-            allowed_roles = [
-                'accounting', 'employee', 'bim_specialist', 'intern', 'junior_architect',
-                'president', 'site_engineer', 'site_coordinator', 'studio_head', 'admin'
-            ]
-            if user.role not in allowed_roles:
+            if user.role not in ALLOWED_ROLES:
                 return Response({'error': 'Your role is not permitted to login.'}, status=status.HTTP_403_FORBIDDEN)
             refresh = RefreshToken.for_user(user)
             return Response({
@@ -155,11 +156,7 @@ def approve_user(request):
     permissions = request.data.get('permissions', [])
     department_id = request.data.get('department_id')  # Optional
 
-    allowed_roles = [
-        'accounting', 'employee', 'bim_specialist', 'intern', 'junior_architect',
-        'president', 'site_engineer', 'site_coordinator', 'studio_head', 'admin'
-    ]
-    if not user_id or not role or role not in allowed_roles:
+    if not user_id or not role or role not in ALLOWED_ROLES:
         return Response({'error': 'user_id and valid role are required'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
@@ -239,3 +236,75 @@ def list_users(request):
         return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
     users = CustomUser.objects.all().order_by('last_name', 'first_name', 'email')
     return Response(CustomUserSerializer(users, many=True).data)
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def manage_user(request, user_id):
+    if not _is_studio_head_or_admin(request.user):
+        return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        user = CustomUser.objects.get(id=user_id)
+    except CustomUser.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'DELETE':
+        if request.user.id == user.id:
+            return Response({'error': 'You cannot delete your own account.'}, status=status.HTTP_400_BAD_REQUEST)
+        user.delete()
+        return Response({'success': True})
+
+    # PATCH update
+    fields_updated = []
+    first_name = request.data.get('first_name')
+    last_name = request.data.get('last_name')
+    role = request.data.get('role')
+    department_id = request.data.get('department_id') if 'department_id' in request.data else None
+    is_active = request.data.get('is_active') if 'is_active' in request.data else None
+
+    if first_name is not None:
+        user.first_name = str(first_name).strip()
+        fields_updated.append('first_name')
+
+    if last_name is not None:
+        user.last_name = str(last_name).strip()
+        fields_updated.append('last_name')
+
+    if role is not None:
+        if role not in ALLOWED_ROLES:
+            return Response({'error': 'Invalid role'}, status=status.HTTP_400_BAD_REQUEST)
+        user.role = role
+        fields_updated.append('role')
+
+    if 'department_id' in request.data:
+        if department_id in [None, '', 'null', 'None']:
+            user.department = None
+        else:
+            try:
+                user.department = Department.objects.get(id=department_id)
+            except Department.DoesNotExist:
+                return Response({'error': 'Department not found'}, status=status.HTTP_404_NOT_FOUND)
+        fields_updated.append('department')
+
+    if is_active is not None:
+        normalized = is_active
+        if isinstance(is_active, str):
+            normalized = is_active.lower() in ['1', 'true', 'yes', 'on']
+        else:
+            normalized = bool(is_active)
+
+        if request.user.id == user.id and normalized is False:
+            return Response({'error': 'You cannot suspend your own account.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.is_active = normalized
+        fields_updated.append('is_active')
+
+    if not fields_updated:
+        return Response({'error': 'No valid fields to update'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.save()
+    return Response({
+        'success': True,
+        'user': CustomUserSerializer(user).data,
+    })

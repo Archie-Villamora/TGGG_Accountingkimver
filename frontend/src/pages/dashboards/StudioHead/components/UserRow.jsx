@@ -1,6 +1,35 @@
 import { styles } from '../studioHeadStyles';
 
-export default function UserRow({ user }) {
+export default function UserRow({
+  user,
+  loading = false,
+  onEditUser,
+  onToggleUserStatus,
+  onDeleteUser,
+}) {
+  const handleEdit = () => {
+    const nextFirst = window.prompt('Edit first name', user.first_name || '');
+    if (nextFirst === null) return;
+
+    const nextLast = window.prompt('Edit last name', user.last_name || '');
+    if (nextLast === null) return;
+
+    onEditUser?.(user.id, {
+      first_name: nextFirst.trim(),
+      last_name: nextLast.trim(),
+    });
+  };
+
+  const handleToggleStatus = () => {
+    onToggleUserStatus?.(user.id, !user.is_active);
+  };
+
+  const handleDelete = () => {
+    const confirmed = window.confirm(`Delete user ${user.email}? This cannot be undone.`);
+    if (!confirmed) return;
+    onDeleteUser?.(user.id);
+  };
+
   return (
     <div
       style={{
@@ -24,39 +53,48 @@ export default function UserRow({ user }) {
 
       <div style={{ display: 'flex', gap: '8px' }}>
         <button
+          onClick={handleEdit}
+          disabled={loading}
           style={{
             padding: '6px 10px',
             backgroundColor: '#1f3b53',
             border: '1px solid #2c4d66',
             color: 'white',
             borderRadius: '8px',
-            cursor: 'pointer',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.6 : 1,
           }}
         >
           Edit
         </button>
 
         <button
+          onClick={handleToggleStatus}
+          disabled={loading}
           style={{
             padding: '6px 10px',
-            backgroundColor: '#263a34',
-            border: '1px solid #2f5c4f',
-            color: '#d1fae5',
+            backgroundColor: user.is_active ? '#263a34' : '#1f3b53',
+            border: user.is_active ? '1px solid #2f5c4f' : '1px solid #2c4d66',
+            color: user.is_active ? '#d1fae5' : '#dbeafe',
             borderRadius: '8px',
-            cursor: 'pointer',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.6 : 1,
           }}
         >
-          Suspend
+          {user.is_active ? 'Suspend' : 'Activate'}
         </button>
 
         <button
+          onClick={handleDelete}
+          disabled={loading}
           style={{
             padding: '6px 10px',
             backgroundColor: '#3b1f24',
             border: '1px solid #5f2a33',
             color: '#fecaca',
             borderRadius: '8px',
-            cursor: 'pointer',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.6 : 1,
           }}
         >
           Delete

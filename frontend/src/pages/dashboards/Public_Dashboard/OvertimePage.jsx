@@ -1,96 +1,89 @@
 import React, { useState } from 'react';
-import { Button } from '../../../components/ui/button';
 import OvertimeForm from './OvertimeForm.jsx';
 import OvertimeStatus from './OvertimeStatus.jsx';
+import LeaveForm from './LeaveForm.jsx';
+import LeaveStatus from './LeaveStatus.jsx';
 import PublicNavigation from './PublicNavigation';
+import StudioHeadSidebar from '../StudioHead/components/StudioHeadSidebar';
 
 const OvertimePage = ({ user, token, onLogout, onNavigate }) => {
-  const [activeTab, setActiveTab] = useState('form');
+  const isStudioHeadMode = user?.role === 'studio_head' || user?.role === 'admin';
+  const [activeTab, setActiveTab] = useState('ot-form');
+
+  const tabStyle = (isActive) => ({
+    padding: '0.75rem 1.5rem',
+    background: isActive ? '#FF7120' : 'transparent',
+    color: isActive ? 'white' : '#9ca3af',
+    border: `1px solid ${isActive ? '#FF7120' : 'rgba(255, 113, 32, 0.3)'}`,
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '0.9rem',
+    fontWeight: '600',
+    transition: 'all 0.2s'
+  });
+
+  const renderTabButton = (tabId, label) => (
+    <button
+      onClick={() => setActiveTab(tabId)}
+      style={tabStyle(activeTab === tabId)}
+      onMouseEnter={(e) => {
+        if (activeTab !== tabId) {
+          e.currentTarget.style.background = '#FF7120';
+          e.currentTarget.style.color = 'white';
+          e.currentTarget.style.borderColor = '#FF7120';
+          e.currentTarget.style.transform = 'translateY(-1px)';
+          e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 113, 32, 0.25)';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (activeTab !== tabId) {
+          e.currentTarget.style.background = 'transparent';
+          e.currentTarget.style.color = '#9ca3af';
+          e.currentTarget.style.borderColor = 'rgba(255, 113, 32, 0.3)';
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = 'none';
+        }
+      }}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <div className="min-h-screen" style={{ background: '#00273C' }}>
       <PublicNavigation onNavigate={onNavigate} currentPage="overtime" user={user} />
 
       <div className="pt-40 sm:pt-28 px-3 sm:px-6 pb-6 w-full">
-        <div className="max-w-1400px mx-auto px-2 sm:px-10 space-y-4 sm:space-y-8">
+        <div className={isStudioHeadMode ? "max-w-[1600px] mx-auto flex gap-6" : "max-w-[1400px] mx-auto px-2 sm:px-10 space-y-4 sm:space-y-8"}>
+          {isStudioHeadMode && (
+            <aside className="w-64 shrink-0">
+              <StudioHeadSidebar currentPage="overtime" onNavigate={onNavigate} />
+            </aside>
+          )}
+
+          <div className={isStudioHeadMode ? "flex-1 min-w-0 space-y-4 sm:space-y-8" : ""}>
           {/* Tab Navigation */}
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setActiveTab('form')}
-              style={{
-                padding: '0.75rem 1.5rem',
-                background: activeTab === 'form' ? '#FF7120' : 'transparent',
-                color: activeTab === 'form' ? 'white' : '#9ca3af',
-                border: `1px solid ${activeTab === 'form' ? '#FF7120' : 'rgba(255, 113, 32, 0.3)'}`,
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '0.9rem',
-                fontWeight: '600',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                if (activeTab !== 'form') {
-                  e.currentTarget.style.background = '#FF7120';
-                  e.currentTarget.style.color = 'white';
-                  e.currentTarget.style.borderColor = '#FF7120';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 113, 32, 0.25)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (activeTab !== 'form') {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.color = '#9ca3af';
-                  e.currentTarget.style.borderColor = 'rgba(255, 113, 32, 0.3)';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = 'none';
-                }
-              }}
-            >
-              Request Overtime
-            </button>
-            <button
-              onClick={() => setActiveTab('status')}
-              style={{
-                padding: '0.75rem 1.5rem',
-                background: activeTab === 'status' ? '#FF7120' : 'transparent',
-                color: activeTab === 'status' ? 'white' : '#9ca3af',
-                border: `1px solid ${activeTab === 'status' ? '#FF7120' : 'rgba(255, 113, 32, 0.3)'}`,
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '0.9rem',
-                fontWeight: '600',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                if (activeTab !== 'status') {
-                  e.currentTarget.style.background = '#FF7120';
-                  e.currentTarget.style.color = 'white';
-                  e.currentTarget.style.borderColor = '#FF7120';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 113, 32, 0.25)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (activeTab !== 'status') {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.color = '#9ca3af';
-                  e.currentTarget.style.borderColor = 'rgba(255, 113, 32, 0.3)';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = 'none';
-                }
-              }}
-            >
-              My Requests
-            </button>
+            {renderTabButton('ot-form', 'Request Overtime')}
+            {renderTabButton('ot-status', 'OT Status')}
+            {renderTabButton('leave-form', 'Request Leave')}
+            {renderTabButton('leave-status', 'Leave Status')}
           </div>
 
           {/* Content */}
-          {activeTab === 'form' ? (
+          {activeTab === 'ot-form' && (
             <OvertimeForm token={token} />
-          ) : (
+          )}
+          {activeTab === 'ot-status' && (
             <OvertimeStatus token={token} />
           )}
+          {activeTab === 'leave-form' && (
+            <LeaveForm token={token} />
+          )}
+          {activeTab === 'leave-status' && (
+            <LeaveStatus token={token} />
+          )}
+          </div>
         </div>
       </div>
     </div>

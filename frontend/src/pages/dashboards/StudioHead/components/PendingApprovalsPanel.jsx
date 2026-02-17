@@ -9,7 +9,7 @@ export default function PendingApprovalsPanel({
   setRoleByUserId,
   allowedRoles,
   approveUser,
-  loadingApprove,
+  approvingUserId,
 }) {
   return (
     <div style={styles.panel}>
@@ -36,7 +36,7 @@ export default function PendingApprovalsPanel({
               onChangeRole={(val) => setRoleByUserId((prev) => ({ ...prev, [u.id]: val }))}
               allowedRoles={allowedRoles}
               onApprove={() => approveUser(u.id)}
-              loading={loadingApprove}
+              loading={approvingUserId === u.id}
             />
           ))}
         </div>

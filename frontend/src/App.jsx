@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import StatusModal from './components/StatusModal';
 import StudioHeadDashboard from './pages/dashboards/StudioHead/StudioHeadDashboard';
+import StudioHeadAttendance from './pages/dashboards/StudioHead/StudioHeadAttendance';
 import StudioHeadProfilePage from './pages/dashboards/StudioHead/StudioHeadProfilePage';
 
 import InternAttendanceDashboard from './pages/dashboards/Intern_Dashboard/InternAttendance';
@@ -794,9 +795,12 @@ export default function App() {
   };
 
   const handleNavigate = (page) => {
-    const nextPage = String(page || 'attendance').trim().replace(/^\//, '') || 'attendance';
-    setCurrentPage(nextPage);
-    navigate(`/dashboard/${nextPage}`);
+    const rawTarget = String(page || 'attendance').trim().replace(/^\//, '') || 'attendance';
+    const [nextPage = 'attendance', ...queryParts] = rawTarget.split('?');
+    const nextQuery = queryParts.join('?');
+    const targetPath = nextQuery ? `/dashboard/${nextPage}?${nextQuery}` : `/dashboard/${nextPage}`;
+    setCurrentPage(nextPage || 'attendance');
+    navigate(targetPath);
   };
 
   const renderAccountingDashboard = () => {
@@ -831,6 +835,12 @@ export default function App() {
 
     // Route to studio head or admin dashboard
     if (user.role === 'studio_head' || user.role === 'admin') {
+      if (currentPage === 'attendance') {
+        return <StudioHeadAttendance user={user} token={localStorage.getItem('token')} onLogout={handleLogout} onNavigate={handleNavigate} />;
+      }
+      if (currentPage === 'overtime') {
+        return <EmployeeOvertimePage user={user} token={localStorage.getItem('token')} onLogout={handleLogout} onNavigate={handleNavigate} />;
+      }
       if (currentPage === 'profile') {
         return <StudioHeadProfilePage user={user} token={localStorage.getItem('token')} onLogout={handleLogout} onNavigate={handleNavigate} />;
       }

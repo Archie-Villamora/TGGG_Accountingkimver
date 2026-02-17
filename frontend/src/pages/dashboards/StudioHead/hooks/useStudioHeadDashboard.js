@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { approvePendingUser, getAllUsers, getPendingUsers } from '../services/studioHeadApi';
+import {
+  approvePendingUser,
+  deleteUserAccount,
+  getAllUsers,
+  getPendingUsers,
+  updateUserAccount,
+} from '../services/studioHeadApi';
 
 export function useStudioHeadDashboard() {
   const [activeTab, setActiveTab] = useState('overview'); // overview | approvals | users | reviews | coordination
 
   const [message, setMessage] = useState('');
-  const [loadingApprove, setLoadingApprove] = useState(false);
+  const [approvingUserId, setApprovingUserId] = useState(null);
 
   const [pendingUsers, setPendingUsers] = useState([]);
   const [pendingLoading, setPendingLoading] = useState(false);
@@ -13,6 +19,7 @@ export function useStudioHeadDashboard() {
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState('');
+  const [userActionById, setUserActionById] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
 
   // role selection per pending user
@@ -20,6 +27,7 @@ export function useStudioHeadDashboard() {
 
   const allowedRoles = useMemo(() => ([
     { value: 'accounting', label: 'Accounting' },
+    { value: 'employee', label: 'Employee' },
     { value: 'bim_specialist', label: 'BIM Specialist' },
     { value: 'intern', label: 'Intern' },
     { value: 'junior_architect', label: 'Junior Architect' },
@@ -67,7 +75,7 @@ export function useStudioHeadDashboard() {
   async function approveUser(userId) {
     const role = roleByUserId[userId] || 'accounting';
     try {
-      setLoadingApprove(true);
+      setApprovingUserId(userId);
       setMessage('');
       await approvePendingUser({ userId, role });
       setMessage('User approved successfully.');
@@ -76,7 +84,46 @@ export function useStudioHeadDashboard() {
     } catch (e) {
       setMessage('Failed to approve user.');
     } finally {
-      setLoadingApprove(false);
+      setApprovingUserId(null);
+    }
+  }
+
+  async function editUser(userId, updates) {
+    try {
+      setUserActionById((prev) => ({ ...prev, [userId]: true }));
+      await updateUserAccount(userId, updates);
+      setMessage('User updated successfully.');
+      await fetchUsers();
+    } catch (e) {
+      setMessage('Failed to update user.');
+    } finally {
+      setUserActionById((prev) => ({ ...prev, [userId]: false }));
+    }
+  }
+
+  async function toggleUserStatus(userId, isActive) {
+    try {
+      setUserActionById((prev) => ({ ...prev, [userId]: true }));
+      await updateUserAccount(userId, { is_active: isActive });
+      setMessage(`User ${isActive ? 'activated' : 'suspended'} successfully.`);
+      await fetchUsers();
+    } catch (e) {
+      setMessage(`Failed to ${isActive ? 'activate' : 'suspend'} user.`);
+    } finally {
+      setUserActionById((prev) => ({ ...prev, [userId]: false }));
+    }
+  }
+
+  async function removeUser(userId) {
+    try {
+      setUserActionById((prev) => ({ ...prev, [userId]: true }));
+      await deleteUserAccount(userId);
+      setMessage('User deleted successfully.');
+      await fetchUsers();
+    } catch (e) {
+      setMessage('Failed to delete user.');
+    } finally {
+      setUserActionById((prev) => ({ ...prev, [userId]: false }));
     }
   }
 
@@ -113,14 +160,18 @@ export function useStudioHeadDashboard() {
     setRoleByUserId,
     allowedRoles,
     approveUser,
-    loadingApprove,
+    approvingUserId,
 
     // users
     usersLoading,
     usersError,
+    userActionById,
     searchTerm,
     setSearchTerm,
     filteredUsers,
+    editUser,
+    toggleUserStatus,
+    removeUser,
 
     // refresh
     fetchPending,

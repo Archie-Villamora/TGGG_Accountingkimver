@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
 import PublicNavigation from '../Public_Dashboard/PublicNavigation';
 import { Home, UserCheck, Users, FileText, GitMerge } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import OverviewPanel from './components/OverviewPanel';
 import PendingApprovalsPanel from './components/PendingApprovalsPanel';
 import ManageUsersPanel from './components/ManageUsersPanel';
 import MessageBanner from './components/MessageBanner';
+import StudioHeadSidebar from './components/StudioHeadSidebar';
 import { useStudioHeadDashboard } from './hooks/useStudioHeadDashboard';
 
 const TABS = [
@@ -16,6 +18,7 @@ const TABS = [
 ];
 
 export default function StudioHeadDashboard({ user, onLogout, onNavigate }) {
+  const location = useLocation();
   const {
     activeTab,
     setActiveTab,
@@ -27,13 +30,26 @@ export default function StudioHeadDashboard({ user, onLogout, onNavigate }) {
     setRoleByUserId,
     allowedRoles,
     approveUser,
-    loadingApprove,
+    approvingUserId,
     usersLoading,
     usersError,
+    userActionById,
     searchTerm,
     setSearchTerm,
     filteredUsers,
+    editUser,
+    toggleUserStatus,
+    removeUser,
   } = useStudioHeadDashboard();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const requestedTab = params.get('tab');
+    if (!requestedTab) return;
+    if (TABS.some((tab) => tab.id === requestedTab)) {
+      setActiveTab(requestedTab);
+    }
+  }, [location.search, setActiveTab]);
 
   const cardClass = "rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-lg";
 
@@ -52,28 +68,12 @@ export default function StudioHeadDashboard({ user, onLogout, onNavigate }) {
           <div className="flex gap-6">
             {/* Sidebar Navigation */}
             <aside className="w-64 shrink-0">
-              <div className={`${cardClass} p-4 sticky top-24`}>
-                <nav className="space-y-2">
-                  {TABS.map((tab) => {
-                    const Icon = tab.icon;
-                    const isActive = activeTab === tab.id;
-                    return (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${
-                          isActive
-                            ? "bg-[#FF7120] text-white"
-                            : "text-white/70 hover:text-white hover:bg-white/5"
-                        }`}
-                      >
-                        <Icon className="h-5 w-5" />
-                        <span className="font-medium">{tab.label}</span>
-                      </button>
-                    );
-                  })}
-                </nav>
-              </div>
+              <StudioHeadSidebar
+                currentPage="studio-head"
+                onNavigate={onNavigate}
+                activeTab={activeTab}
+                onSelectTab={setActiveTab}
+              />
             </aside>
 
             {/* Main Content */}
@@ -101,7 +101,7 @@ export default function StudioHeadDashboard({ user, onLogout, onNavigate }) {
                       setRoleByUserId={setRoleByUserId}
                       allowedRoles={allowedRoles}
                       approveUser={approveUser}
-                      loadingApprove={loadingApprove}
+                      approvingUserId={approvingUserId}
                     />
                   )}
 
@@ -111,7 +111,11 @@ export default function StudioHeadDashboard({ user, onLogout, onNavigate }) {
                       setSearchTerm={setSearchTerm}
                       usersLoading={usersLoading}
                       usersError={usersError}
+                      userActionById={userActionById}
                       filteredUsers={filteredUsers}
+                      onEditUser={editUser}
+                      onToggleUserStatus={toggleUserStatus}
+                      onDeleteUser={removeUser}
                     />
                   )}
 

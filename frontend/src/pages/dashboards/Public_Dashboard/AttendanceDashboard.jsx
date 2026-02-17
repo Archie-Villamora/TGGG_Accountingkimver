@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import PublicNavigation from "./PublicNavigation";
+import StudioHeadSidebar from "../StudioHead/components/StudioHeadSidebar";
 import {
   MapPin,
   ChevronDown,
@@ -13,6 +14,8 @@ import {
 } from "lucide-react";
 
 const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
+  const isStudioHeadMode = user?.role === "studio_head" || user?.role === "admin";
+
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   );
@@ -210,7 +213,14 @@ const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
       <PublicNavigation onNavigate={onNavigate} currentPage="attendance" user={user} />
 
       <div className="relative pt-40 sm:pt-28 px-3 sm:px-6 pb-10 w-full">
-        <div className="max-w-[1400px] mx-auto px-2 sm:px-10 space-y-5 sm:space-y-8">
+        <div className={isStudioHeadMode ? "max-w-[1600px] mx-auto flex gap-6" : ""}>
+          {isStudioHeadMode && (
+            <aside className="w-64 shrink-0">
+              <StudioHeadSidebar currentPage="attendance" onNavigate={onNavigate} />
+            </aside>
+          )}
+
+          <div className={isStudioHeadMode ? "flex-1 min-w-0 space-y-5 sm:space-y-8" : "max-w-[1400px] mx-auto px-2 sm:px-10 space-y-5 sm:space-y-8"}>
           {/* Header / Welcome */}
           <div className={cardClass}>
             <div className="p-4 sm:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -578,6 +588,7 @@ const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
           <p className="text-center text-white/35 text-xs pb-4">
             © {new Date().getFullYear()} Attendance Dashboard • Designed for clarity and accuracy.
           </p>
+          </div>
         </div>
       </div>
     </div>

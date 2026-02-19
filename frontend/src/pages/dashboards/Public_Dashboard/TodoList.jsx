@@ -6,7 +6,7 @@ import { TabNavigation, ManagementButtons, Calendar, GroupInfo, TaskForm, TeamFi
 import { TaskCard, MemberStats } from '../../../components/TodoCards.jsx';
 import Icon from '../../../components/Icon.jsx';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/todos';
 
 function TodoList({ token, user, onNotificationUpdate }) {
   const [todos, setTodos] = useState([]);
@@ -101,7 +101,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
   }, [token]);
 
   const fetchInterns = useCallback(async () => {
-    if (user?.role !== 'coordinator') return;
+    if (user?.role !== 'site_coordinator') return;
     try {
       const { data } = await axios.get(`${API}/users/interns`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -131,13 +131,13 @@ function TodoList({ token, user, onNotificationUpdate }) {
       fetchTodos(activeTab);
     }
     fetchGroups();
-    if (user?.role === 'coordinator' || userProfile?.is_leader) {
+    if (user?.role === 'site_coordinator' || userProfile?.is_leader) {
       fetchAvailableUsers();
     }
-    if (user?.role === 'coordinator') {
+    if (user?.role === 'site_coordinator') {
       fetchInterns();
     }
-    
+
     // Check for tab navigation from notification
     const savedTab = localStorage.getItem('todoActiveTab');
     if (savedTab) {
@@ -162,7 +162,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
 
 
 
-  const isCoordinator = user?.role === 'coordinator';
+  const isCoordinator = user?.role === 'site_coordinator';
   const isLeader = userProfile?.is_leader;
   const leaderHasGroup = groups.some(g => g.leader_id === userProfile?.id);
 
@@ -1120,11 +1120,11 @@ function TodoList({ token, user, onNotificationUpdate }) {
                             {ongoingTodos.length}
                           </span>
                         </h3>
-                      {ongoingTodos.length === 0 ? (
-                        <p style={{ textAlign: 'center', color: '#6b7280', padding: '1rem', background: 'rgba(0, 39, 60, 0.5)', borderRadius: '8px' }}>No ongoing tasks for this date.</p>
-                      ) : (
-                        ongoingTodos.map(todo => <TaskCard key={todo.id} todo={todo} isCompleted={false} activeTab={activeTab === 'team' && teamSubTab === 'manage' ? 'group' : activeTab} userProfile={userProfile} groups={groups} isCoordinator={isCoordinator} onToggle={toggleTodo} onDelete={deleteTodo} onConfirm={openConfirmModal} onReject={deleteTodo} onConfirmCompletion={confirmCompletion} onRejectCompletion={rejectCompletion} disabled={actionInProgress} />)
-                      )}
+                        {ongoingTodos.length === 0 ? (
+                          <p style={{ textAlign: 'center', color: '#6b7280', padding: '1rem', background: 'rgba(0, 39, 60, 0.5)', borderRadius: '8px' }}>No ongoing tasks for this date.</p>
+                        ) : (
+                          ongoingTodos.map(todo => <TaskCard key={todo.id} todo={todo} isCompleted={false} activeTab={activeTab === 'team' && teamSubTab === 'manage' ? 'group' : activeTab} userProfile={userProfile} groups={groups} isCoordinator={isCoordinator} onToggle={toggleTodo} onDelete={deleteTodo} onConfirm={openConfirmModal} onReject={deleteTodo} onConfirmCompletion={confirmCompletion} onRejectCompletion={rejectCompletion} disabled={actionInProgress} />)
+                        )}
                       </div>
 
                       <div>

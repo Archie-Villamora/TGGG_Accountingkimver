@@ -14,6 +14,7 @@ function Profile({ token, user, onLogout }) {
   const [showPasswordSection, setShowPasswordSection] = useState(false);
   const [totalHours, setTotalHours] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
   const [showCharLimitModal, setShowCharLimitModal] = useState(false);
 
   const showAlert = (type, title, message) => {
@@ -121,7 +122,7 @@ function Profile({ token, user, onLogout }) {
   };
 
   const uploadProfilePic = async () => {
-    if (!profilePic) return;
+    if (!profilePic || isUploading) return;
 
     const maxSize = 5 * 1024 * 1024; // 5MB
     if (profilePic.size > maxSize) {
@@ -129,11 +130,12 @@ function Profile({ token, user, onLogout }) {
       return;
     }
 
+    setIsUploading(true);
     const formData = new FormData();
     formData.append('profile_pic', profilePic);
 
     try {
-      await axios.post(`${API}/profile/picture`, formData, {
+      const response = await axios.post(`${API}/profile/picture`, formData, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
@@ -142,9 +144,26 @@ function Profile({ token, user, onLogout }) {
       showAlert('success', 'Picture Updated', 'Profile picture updated successfully.');
       setProfilePic(null);
       fetchProfile();
+
+      // Update local storage so the new picture is reflected across the app if they use it in App.jsx
+      try {
+        const storedUser = JSON.parse(localStorage.getItem('user'));
+        if (storedUser) {
+          storedUser.profile_picture = response.data.profile_picture;
+          localStorage.setItem('user', JSON.stringify(storedUser));
+          window.dispatchEvent(new Event('userUpdated'));
+        }
+      } catch (e) {
+        console.error("Could not update local storage user");
+      }
+
     } catch (err) {
       const errorMsg = err.response?.data?.error || 'Failed to upload profile picture.';
       showAlert('error', 'Upload Failed', errorMsg);
+      setProfilePic(null);
+      fetchProfile();
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -264,6 +283,7 @@ function Profile({ token, user, onLogout }) {
                   <input
                     type="file"
                     accept="image/*"
+                    disabled={isUploading}
                     onChange={(e) => {
                       const file = e.target.files[0];
                       if (file && file.size > 5 * 1024 * 1024) {
@@ -271,7 +291,12 @@ function Profile({ token, user, onLogout }) {
                         e.target.value = '';
                         return;
                       }
-                      setProfilePic(file);
+                      if (file) {
+                        const objectUrl = URL.createObjectURL(file);
+                        setProfile(prev => ({ ...prev, profile_picture: objectUrl }));
+                        setProfilePic(file);
+                      }
+                      e.target.value = '';
                     }}
                     style={{
                       position: 'absolute',
@@ -289,10 +314,10 @@ function Profile({ token, user, onLogout }) {
                       alignItems: 'center',
                       gap: '8px',
                       padding: '0.5rem 1rem',
-                      background: '#FF7120',
+                      background: isUploading ? 'rgba(255, 113, 32, 0.5)' : '#FF7120',
                       color: 'white',
                       borderRadius: '6px',
-                      cursor: 'pointer',
+                      cursor: isUploading ? 'not-allowed' : 'pointer',
                       fontSize: '0.9rem',
                       fontWeight: '500'
                     }}
@@ -312,17 +337,33 @@ function Profile({ token, user, onLogout }) {
                     </p>
                     <button
                       onClick={uploadProfilePic}
+                      disabled={isUploading}
                       style={{
-                        background: '#FF7120',
+                        background: isUploading ? 'rgba(255, 113, 32, 0.5)' : '#FF7120',
                         color: 'white',
                         border: 'none',
                         borderRadius: '6px',
                         padding: '0.5rem 1rem',
-                        cursor: 'pointer',
-                        fontSize: '0.9rem'
+                        cursor: isUploading ? 'not-allowed' : 'pointer',
+                        fontSize: '0.9rem',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isUploading) {
+                          e.currentTarget.style.background = '#e66310';
+                          e.currentTarget.style.transform = 'translateY(-1px)';
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 113, 32, 0.25)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isUploading) {
+                          e.currentTarget.style.background = '#FF7120';
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = 'none';
+                        }
                       }}
                     >
-                      Upload Picture
+                      {isUploading ? 'Uploading...' : 'Upload Picture'}
                     </button>
                   </div>
                 )}

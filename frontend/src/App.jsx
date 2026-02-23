@@ -807,6 +807,16 @@ export default function App() {
       setUser(JSON.parse(savedUser));
     }
     setLoading(false);
+
+    const handleUserUpdate = () => {
+      const updatedUser = localStorage.getItem('user');
+      if (updatedUser) {
+        setUser(JSON.parse(updatedUser));
+      }
+    };
+
+    window.addEventListener('userUpdated', handleUserUpdate);
+    return () => window.removeEventListener('userUpdated', handleUserUpdate);
   }, []);
 
   // Fetch notifications on mount + poll every 30s

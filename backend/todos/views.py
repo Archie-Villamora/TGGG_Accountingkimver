@@ -60,6 +60,7 @@ def todo_profile(request):
         'role': user.role,
         'department': user.department.name if user.department else None,
         'department_id': user.department_id,
+        'profile_picture': user.profile_picture,
         'is_leader': getattr(user, 'is_leader', False),
         'group_id': group_membership.group_id if group_membership else (led_group.id if led_group else None),
     }

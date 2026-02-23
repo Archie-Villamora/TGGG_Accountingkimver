@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import StatusModal from './components/StatusModal';
@@ -761,6 +761,45 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [currentPage, setCurrentPage] = useState('attendance');
+  const [notifications, setNotifications] = useState([]);
+
+  const token = localStorage.getItem('token');
+  const NOTIF_API = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+
+  const fetchNotifications = useCallback(async () => {
+    const t = localStorage.getItem('token');
+    if (!t) return;
+    try {
+      const res = await axios.get(`${NOTIF_API}/notifications`, {
+        headers: { Authorization: `Bearer ${t}` }
+      });
+      setNotifications(res.data);
+    } catch (err) {
+      // silently ignore — user may not have todos access
+    }
+  }, [NOTIF_API]);
+
+  const markNotificationRead = useCallback(async (notif) => {
+    const t = localStorage.getItem('token');
+    if (!t || notif.is_read) return;
+    try {
+      await axios.post(`${NOTIF_API}/notifications/${notif.id}/read`, {}, {
+        headers: { Authorization: `Bearer ${t}` }
+      });
+      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
+    } catch (err) { /* ignore */ }
+  }, [NOTIF_API]);
+
+  const markAllNotificationsRead = useCallback(async () => {
+    const t = localStorage.getItem('token');
+    if (!t) return;
+    try {
+      await axios.post(`${NOTIF_API}/notifications/read-all`, {}, {
+        headers: { Authorization: `Bearer ${t}` }
+      });
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    } catch (err) { /* ignore */ }
+  }, [NOTIF_API]);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
@@ -769,6 +808,14 @@ export default function App() {
     }
     setLoading(false);
   }, []);
+
+  // Fetch notifications on mount + poll every 30s
+  useEffect(() => {
+    if (!user) return;
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, [user, fetchNotifications]);
 
   useEffect(() => {
     if (!location.pathname.startsWith('/dashboard')) {
@@ -870,7 +917,7 @@ export default function App() {
         return <EmployeeOvertimePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
       }
       if (currentPage === 'todo') {
-        return <EmployeeTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={() => { }} />;
+        return <EmployeeTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={fetchNotifications} />;
       }
       if (currentPage === 'profile') {
         return <EmployeeProfilePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
@@ -887,7 +934,7 @@ export default function App() {
         return <EmployeeOvertimePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
       }
       if (currentPage === 'todo') {
-        return <EmployeeTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={() => { }} />;
+        return <EmployeeTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={fetchNotifications} />;
       }
       if (currentPage === 'profile') {
         return <EmployeeProfilePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
@@ -904,7 +951,7 @@ export default function App() {
         return <EmployeeOvertimePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
       }
       if (currentPage === 'todo') {
-        return <EmployeeTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={() => { }} />;
+        return <EmployeeTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={fetchNotifications} />;
       }
       if (currentPage === 'profile') {
         return <EmployeeProfilePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
@@ -918,7 +965,7 @@ export default function App() {
         return <InternOvertimePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
       }
       if (currentPage === 'todo') {
-        return <InternTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={() => { }} />;
+        return <InternTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={fetchNotifications} />;
       }
       if (currentPage === 'profile') {
         return <InternProfilePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
@@ -932,7 +979,7 @@ export default function App() {
         return <EmployeeOvertimePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
       }
       if (currentPage === 'todo') {
-        return <EmployeeTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={() => { }} />;
+        return <EmployeeTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={fetchNotifications} />;
       }
       if (currentPage === 'profile') {
         return <EmployeeProfilePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
@@ -946,7 +993,7 @@ export default function App() {
         return <EmployeeOvertimePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
       }
       if (currentPage === 'todo') {
-        return <EmployeeTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={() => { }} />;
+        return <EmployeeTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={fetchNotifications} />;
       }
       if (currentPage === 'profile') {
         return <EmployeeProfilePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
@@ -960,7 +1007,7 @@ export default function App() {
         return <EmployeeOvertimePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
       }
       if (currentPage === 'todo') {
-        return <EmployeeTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={() => { }} />;
+        return <EmployeeTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={fetchNotifications} />;
       }
       if (currentPage === 'profile') {
         return <EmployeeProfilePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
@@ -981,7 +1028,7 @@ export default function App() {
       return <EmployeeOvertimePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
     }
     if (currentPage === 'todo') {
-      return <EmployeeTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={() => { }} />;
+      return <EmployeeTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={fetchNotifications} />;
     }
     if (currentPage === 'profile') {
       return <EmployeeProfilePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;

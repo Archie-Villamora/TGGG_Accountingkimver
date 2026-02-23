@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'accounts',
     'attendance',
     'payroll',
+    'todos',
 ]
 
 MIDDLEWARE = [

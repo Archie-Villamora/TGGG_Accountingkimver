@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { CardSkeleton } from '../../../components/SkeletonLoader.jsx';
-import { CreateGroupModal, ManageGroupsModal, ManageLeadersModal, ConfirmTaskModal } from '../../../components/modals/TodoModals.jsx';
+import { CreateGroupModal, ManageGroupsModal, ManageLeadersModal, ConfirmTaskModal, DeleteConfirmModal } from '../../../components/modals/TodoModals.jsx';
 import { TabNavigation, ManagementButtons, Calendar, GroupInfo, TaskForm, TeamFilter } from '../../../components/TodoUI.jsx';
 import { TaskCard, MemberStats } from '../../../components/TodoCards.jsx';
 import Icon from '../../../components/Icon.jsx';
@@ -46,6 +46,9 @@ function TodoList({ token, user, onNotificationUpdate }) {
   const [confirmAssignee, setConfirmAssignee] = useState('');
   const [confirmTask, setConfirmTask] = useState('');
   const [confirmDescription, setConfirmDescription] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteMessage, setDeleteMessage] = useState('');
 
 
   const fetchUserProfile = useCallback(async () => {
@@ -477,12 +480,17 @@ function TodoList({ token, user, onNotificationUpdate }) {
     }
   };
 
-  const deleteDepartmentTask = async (taskId) => {
-    if (!window.confirm('Delete this task?')) return;
-    if (actionInProgress) return;
+  const openDeleteModal = (taskId, message = 'Are you sure you want to delete this task?') => {
+    setDeleteTarget(taskId);
+    setDeleteMessage(message);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteDepartmentTask = async () => {
+    if (!deleteTarget || actionInProgress) return;
     setActionInProgress(true);
     try {
-      await axios.delete(`${API}/department-tasks/${taskId}`, {
+      await axios.delete(`${API}/department-tasks/${deleteTarget}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchDepartmentTasks();
@@ -490,6 +498,8 @@ function TodoList({ token, user, onNotificationUpdate }) {
       alert(error.response?.data?.error || 'Failed to delete task.');
     } finally {
       setActionInProgress(false);
+      setShowDeleteModal(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -973,7 +983,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
                             </button>
                             {(task.suggested_by === userProfile?.id || isCoordinator) && (
                               <button
-                                onClick={() => deleteDepartmentTask(task.id)}
+                                onClick={() => openDeleteModal(task.id, 'Are you sure you want to delete this suggested task?')}
                                 disabled={actionInProgress}
                                 style={{ padding: '0.5rem', background: actionInProgress ? '#6b7280' : 'rgba(239, 68, 68, 0.2)', color: actionInProgress ? 'white' : '#ef4444', border: `1px solid ${actionInProgress ? '#6b7280' : 'rgba(239, 68, 68, 0.3)'}`, borderRadius: '6px', cursor: actionInProgress ? 'not-allowed' : 'pointer', fontSize: '0.85rem', opacity: actionInProgress ? 0.6 : 1 }}
                               >
@@ -1195,6 +1205,8 @@ function TodoList({ token, user, onNotificationUpdate }) {
       <ManageLeadersModal show={showLeaderModal && isCoordinator} onClose={() => setShowLeaderModal(false)} interns={interns} onToggleLeader={toggleLeader} Icon={Icon} />
 
       <ConfirmTaskModal show={showConfirmModal} onClose={() => { setShowConfirmModal(false); setConfirmingTodo(null); }} onConfirm={submitConfirmTodo} todo={confirmingTodo} task={confirmTask} setTask={setConfirmTask} description={confirmDescription} setDescription={setConfirmDescription} startDate={confirmStartDate} setStartDate={setConfirmStartDate} deadline={confirmDeadline} setDeadline={setConfirmDeadline} assignee={confirmAssignee} setAssignee={setConfirmAssignee} members={getGroupMembersForAssign()} Icon={Icon} />
+
+      <DeleteConfirmModal show={showDeleteModal} onClose={() => { setShowDeleteModal(false); setDeleteTarget(null); }} onConfirm={confirmDeleteDepartmentTask} message={deleteMessage} />
     </div>
 
   );

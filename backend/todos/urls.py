@@ -32,4 +32,9 @@ urlpatterns = [
     re_path(r'^department-tasks/(?P<task_id>[0-9a-f-]+)/grab/?$', views.department_task_grab, name='department_task_grab'),
     re_path(r'^department-tasks/(?P<task_id>[0-9a-f-]+)/complete/?$', views.department_task_complete, name='department_task_complete'),
     re_path(r'^department-tasks/(?P<task_id>[0-9a-f-]+)/abandon/?$', views.department_task_abandon, name='department_task_abandon'),
+
+    # Notifications
+    re_path(r'^notifications/?$', views.notifications_list, name='notifications_list'),
+    re_path(r'^notifications/(?P<notif_id>\d+)/read/?$', views.notification_mark_read, name='notification_mark_read'),
+    re_path(r'^notifications/read-all/?$', views.notifications_mark_all_read, name='notifications_mark_all_read'),
 ]

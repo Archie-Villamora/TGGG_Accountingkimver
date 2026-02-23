@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import TaskGroup, TaskGroupMember, Todo, DepartmentTask, DepartmentTaskStats
+from .models import TaskGroup, TaskGroupMember, Todo, DepartmentTask, DepartmentTaskStats, TodoNotification
 
 
 class UserMiniSerializer(serializers.Serializer):
@@ -88,13 +88,25 @@ class DepartmentTaskSerializer(serializers.ModelSerializer):
     completed_by_name = serializers.SerializerMethodField()
     department_name = serializers.CharField(source='department.name', read_only=True)
 
+    # Bare ID fields the frontend uses for ownership checks
+    # (e.g. task.suggested_by === userProfile.id)
+    suggested_by = serializers.IntegerField(source='suggested_by_id', read_only=True)
+    grabbed_by = serializers.IntegerField(source='grabbed_by_id', read_only=True, allow_null=True)
+    completed_by = serializers.IntegerField(source='completed_by_id', read_only=True, allow_null=True)
+
+    # Nested user objects the frontend uses for display
+    # (e.g. task.suggester?.full_name)
+    suggester = serializers.SerializerMethodField()
+    grabber = serializers.SerializerMethodField()
+    completer = serializers.SerializerMethodField()
+
     class Meta:
         model = DepartmentTask
         fields = [
             'id', 'task', 'description', 'department_id', 'department_name',
-            'suggested_by_id', 'suggested_by_name',
-            'grabbed_by_id', 'grabbed_by_name',
-            'completed_by_id', 'completed_by_name',
+            'suggested_by_id', 'suggested_by_name', 'suggested_by', 'suggester',
+            'grabbed_by_id', 'grabbed_by_name', 'grabbed_by', 'grabber',
+            'completed_by_id', 'completed_by_name', 'completed_by', 'completer',
             'status', 'priority', 'start_date', 'deadline',
             'suggested_at', 'grabbed_at', 'completed_at', 'abandoned_at',
             'created_at', 'updated_at'
@@ -108,6 +120,14 @@ class DepartmentTaskSerializer(serializers.ModelSerializer):
             return f"{user.first_name} {user.last_name}".strip()
         return user.email
 
+    def _user_dict(self, user):
+        if not user:
+            return None
+        return {
+            'id': user.id,
+            'full_name': self._get_name(user),
+        }
+
     def get_suggested_by_name(self, obj):
         return self._get_name(obj.suggested_by)
 
@@ -116,6 +136,15 @@ class DepartmentTaskSerializer(serializers.ModelSerializer):
 
     def get_completed_by_name(self, obj):
         return self._get_name(obj.completed_by)
+
+    def get_suggester(self, obj):
+        return self._user_dict(obj.suggested_by)
+
+    def get_grabber(self, obj):
+        return self._user_dict(obj.grabbed_by)
+
+    def get_completer(self, obj):
+        return self._user_dict(obj.completed_by)
 
 
 class DepartmentTaskStatsSerializer(serializers.ModelSerializer):
@@ -128,3 +157,23 @@ class DepartmentTaskStatsSerializer(serializers.ModelSerializer):
             'total_tasks', 'suggested_count', 'grabbed_count',
             'completed_count', 'abandoned_count', 'last_updated'
         ]
+
+
+class TodoNotificationSerializer(serializers.ModelSerializer):
+    actor_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TodoNotification
+        fields = [
+            'id', 'type', 'title', 'message', 'is_read',
+            'actor_name', 'created_at',
+            'todo_id', 'department_task_id'
+        ]
+        read_only_fields = ['created_at']
+
+    def get_actor_name(self, obj):
+        if not obj.actor:
+            return None
+        if obj.actor.first_name or obj.actor.last_name:
+            return f"{obj.actor.first_name} {obj.actor.last_name}".strip()
+        return obj.actor.email

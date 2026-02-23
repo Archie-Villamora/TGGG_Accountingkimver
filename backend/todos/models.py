@@ -227,3 +227,59 @@ class DepartmentTaskStats(models.Model):
         stats.abandoned_count = tasks.filter(status='abandoned').count()
         stats.save()
         return stats
+
+
+NOTIFICATION_TYPE_CHOICES = [
+    ('task_suggested', 'Task Suggested'),
+    ('task_confirmed', 'Task Confirmed'),
+    ('task_rejected', 'Task Rejected'),
+    ('task_assigned', 'Task Assigned'),
+    ('completion_requested', 'Completion Requested'),
+    ('completion_confirmed', 'Completion Confirmed'),
+    ('completion_rejected', 'Completion Rejected'),
+    ('dept_task_suggested', 'Department Task Suggested'),
+    ('dept_task_grabbed', 'Department Task Grabbed'),
+    ('dept_task_completed', 'Department Task Completed'),
+    ('dept_task_abandoned', 'Department Task Abandoned'),
+]
+
+
+class TodoNotification(models.Model):
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='todo_notifications'
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='triggered_notifications'
+    )
+    type = models.CharField(max_length=30, choices=NOTIFICATION_TYPE_CHOICES)
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    todo = models.ForeignKey(
+        Todo,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='notifications'
+    )
+    department_task = models.ForeignKey(
+        DepartmentTask,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='notifications'
+    )
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Notification for {self.recipient}: {self.title}"
+

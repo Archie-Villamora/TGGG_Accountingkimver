@@ -9,13 +9,35 @@ from django.db.models import Q
 from accounts.models import CustomUser
 from .models import (
     TaskGroup, TaskGroupMember, Todo,
-    DepartmentTask, DepartmentTaskStats
+    DepartmentTask, DepartmentTaskStats, TodoNotification
 )
 from .serializers import (
     TaskGroupSerializer, TodoSerializer,
     DepartmentTaskSerializer, DepartmentTaskStatsSerializer,
-    UserMiniSerializer
+    UserMiniSerializer, TodoNotificationSerializer
 )
+
+
+def _actor_name(user):
+    """Return a display name for a user."""
+    if user.first_name or user.last_name:
+        return f"{user.first_name} {user.last_name}".strip()
+    return user.email
+
+
+def _notify(recipient, actor, notif_type, title, message, todo=None, dept_task=None):
+    """Create a TodoNotification. Skips if recipient == actor."""
+    if recipient and actor and recipient.id == actor.id:
+        return None
+    return TodoNotification.objects.create(
+        recipient=recipient,
+        actor=actor,
+        type=notif_type,
+        title=title,
+        message=message,
+        todo=todo,
+        department_task=dept_task,
+    )
 
 
 # ─── User Profile (with is_leader) ───────────────────────────────
@@ -138,6 +160,29 @@ def _create_todo(request):
         todo.is_confirmed = True
 
     todo.save()
+
+    # ── Notifications ──
+    task_preview = todo.task[:60]
+    name = _actor_name(user)
+    # Member suggests a task → notify leader
+    if todo.todo_type == 'group' and not todo.is_confirmed and todo.group and todo.group.leader:
+        _notify(
+            recipient=todo.group.leader, actor=user,
+            notif_type='task_suggested',
+            title='Task Suggested for Approval',
+            message=f'{name} suggested a new team task: "{task_preview}"',
+            todo=todo,
+        )
+    # Task assigned → notify assignee
+    if todo.todo_type == 'assigned' and todo.assigned_to:
+        _notify(
+            recipient=todo.assigned_to, actor=user,
+            notif_type='task_assigned',
+            title='New Task Assigned to You',
+            message=f'{name} assigned you a task: "{task_preview}"',
+            todo=todo,
+        )
+
     serializer = TodoSerializer(todo)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -165,6 +210,15 @@ def todo_detail(request, todo_id):
                 if todo.group and todo.group.leader_id != request.user.id:
                     todo.pending_completion = True
                     todo.save()
+                    # Notify leader about pending completion
+                    if todo.group.leader:
+                        _notify(
+                            recipient=todo.group.leader, actor=request.user,
+                            notif_type='completion_requested',
+                            title='Completion Pending Approval',
+                            message=f'{_actor_name(request.user)} marked "{todo.task[:60]}" as complete — awaiting your confirmation',
+                            todo=todo,
+                        )
                     return Response(TodoSerializer(todo).data)
 
             todo.completed = completed
@@ -213,6 +267,25 @@ def todo_confirm(request, todo_id):
     todo.assigned_by = user
     todo.save()
 
+    # Notify the suggester that their task was confirmed
+    if todo.suggested_by:
+        _notify(
+            recipient=todo.suggested_by, actor=user,
+            notif_type='task_confirmed',
+            title='Your Suggested Task Was Approved',
+            message=f'Your task suggestion "{todo.task[:60]}" was approved by {_actor_name(user)}',
+            todo=todo,
+        )
+    # If assigned to someone, notify assignee
+    if todo.assigned_to:
+        _notify(
+            recipient=todo.assigned_to, actor=user,
+            notif_type='task_assigned',
+            title='New Task Assigned to You',
+            message=f'{_actor_name(user)} assigned you a task: "{todo.task[:60]}"',
+            todo=todo,
+        )
+
     return Response(TodoSerializer(todo).data)
 
 
@@ -230,6 +303,16 @@ def todo_confirm_completion(request, todo_id):
     todo.pending_completion = False
     todo.save()
 
+    # Notify task owner that completion was confirmed
+    task_owner = todo.assigned_to or todo.user
+    _notify(
+        recipient=task_owner, actor=user,
+        notif_type='completion_confirmed',
+        title='Task Completion Confirmed',
+        message=f'{_actor_name(user)} confirmed completion of "{todo.task[:60]}" — great job!',
+        todo=todo,
+    )
+
     return Response(TodoSerializer(todo).data)
 
 
@@ -245,6 +328,16 @@ def todo_reject_completion(request, todo_id):
 
     todo.pending_completion = False
     todo.save()
+
+    # Notify task owner that completion was rejected
+    task_owner = todo.assigned_to or todo.user
+    _notify(
+        recipient=task_owner, actor=user,
+        notif_type='completion_rejected',
+        title='Task Completion Rejected',
+        message=f'{_actor_name(user)} rejected your completion of "{todo.task[:60]}" — please review and retry',
+        todo=todo,
+    )
 
     return Response(TodoSerializer(todo).data)
 
@@ -451,6 +544,16 @@ def department_task_grab(request, task_id):
     task.grabbed_at = timezone.now()
     task.save()
 
+    # Notify the suggester that their task was grabbed
+    if task.suggested_by:
+        _notify(
+            recipient=task.suggested_by, actor=user,
+            notif_type='dept_task_grabbed',
+            title='Dept. Task Grabbed',
+            message=f'{_actor_name(user)} grabbed your department task: "{task.task[:60]}"',
+            dept_task=task,
+        )
+
     DepartmentTaskStats.refresh_for_department(task.department_id)
     serializer = DepartmentTaskSerializer(task)
     return Response(serializer.data)
@@ -471,6 +574,16 @@ def department_task_complete(request, task_id):
     task.completed_at = timezone.now()
     task.save()
 
+    # Notify the suggester that their task was completed
+    if task.suggested_by:
+        _notify(
+            recipient=task.suggested_by, actor=user,
+            notif_type='dept_task_completed',
+            title='Dept. Task Completed',
+            message=f'{_actor_name(user)} completed your department task: "{task.task[:60]}"',
+            dept_task=task,
+        )
+
     DepartmentTaskStats.refresh_for_department(task.department_id)
     serializer = DepartmentTaskSerializer(task)
     return Response(serializer.data)
@@ -485,10 +598,55 @@ def department_task_abandon(request, task_id):
     if task.status != 'grabbed':
         return Response({'error': 'Only grabbed tasks can be abandoned.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    task.status = 'abandoned'
+    abandoner = request.user
+    # Reset task back to suggested so it can be grabbed again
+    task.status = 'suggested'
+    task.grabbed_by = None
+    task.grabbed_at = None
     task.abandoned_at = timezone.now()
     task.save()
+
+    # Notify the suggester that their task was abandoned
+    if task.suggested_by:
+        _notify(
+            recipient=task.suggested_by, actor=abandoner,
+            notif_type='dept_task_abandoned',
+            title='Dept. Task Abandoned',
+            message=f'{_actor_name(abandoner)} abandoned your department task: "{task.task[:60]}"',
+            dept_task=task,
+        )
 
     DepartmentTaskStats.refresh_for_department(task.department_id)
     serializer = DepartmentTaskSerializer(task)
     return Response(serializer.data)
+
+
+# ─── Notifications ────────────────────────────────────────────────
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def notifications_list(request):
+    """List current user's notifications (newest first, max 50)."""
+    notifications = TodoNotification.objects.filter(
+        recipient=request.user
+    ).select_related('actor')[:50]
+    serializer = TodoNotificationSerializer(notifications, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def notification_mark_read(request, notif_id):
+    """Mark a single notification as read."""
+    notif = get_object_or_404(TodoNotification, id=notif_id, recipient=request.user)
+    notif.is_read = True
+    notif.save()
+    return Response({'status': 'ok'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def notifications_mark_all_read(request):
+    """Mark all of the current user's notifications as read."""
+    TodoNotification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
+    return Response({'status': 'ok'})

@@ -52,6 +52,16 @@ axios.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
+// Setup axios interceptor to handle 401 Unauthorized responses globally
+axios.interceptors.response.use((response) => {
+  return response;
+}, (error) => {
+  if (error.response && error.response.status === 401) {
+    window.dispatchEvent(new Event('authError'));
+  }
+  return Promise.reject(error);
+});
+
 function DesignDashboard({ user, onLogout }) {
   return (
     <div style={{ backgroundColor: '#021B2C', color: 'white', minHeight: '100vh', padding: '20px' }}>
@@ -818,6 +828,20 @@ export default function App() {
     window.addEventListener('userUpdated', handleUserUpdate);
     return () => window.removeEventListener('userUpdated', handleUserUpdate);
   }, []);
+
+  // Handle global auth errors (e.g. 401 Unauthorized)
+  useEffect(() => {
+    const handleAuthError = () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+      setCurrentPage('attendance');
+      navigate('/login', { replace: true });
+    };
+
+    window.addEventListener('authError', handleAuthError);
+    return () => window.removeEventListener('authError', handleAuthError);
+  }, [navigate]);
 
   // Fetch notifications on mount + poll every 30s
   useEffect(() => {

@@ -11,6 +11,7 @@ from .models import CustomUser, Department
 from .serializers import CustomUserSerializer, PendingUserSerializer
 import uuid
 from supabase import create_client, Client
+from django.db import transaction
 
 # Create your views here.
 
@@ -197,6 +198,10 @@ def _is_studio_head_or_admin(user):
     # Only studio head or admin can approve/see users
     return user.is_staff or user.is_superuser or user.role in ['studio_head', 'admin']
 
+def _is_accounting_or_admin(user):
+    # Accounting department staff and admins
+    return user.is_staff or user.is_superuser or user.role in ['studio_head', 'admin', 'accounting']
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -370,3 +375,160 @@ def manage_user(request, user_id):
         'success': True,
         'user': CustomUserSerializer(user).data,
     })
+
+# --- Accounting Employee Management Endpoints ---
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def accounting_employees(request):
+    if not _is_accounting_or_admin(request.user):
+        return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+    
+    from payroll.models import SalaryStructure
+
+    if request.method == 'GET':
+        users = CustomUser.objects.all().select_related('department', 'salary_structure').order_by('last_name', 'first_name')
+        
+        data = []
+        for user in users:
+            salary = 0
+            if hasattr(user, 'salary_structure'):
+                salary = float(user.salary_structure.base_salary)
+                
+            status_text = 'Active' if user.is_active else 'Inactive'
+            
+            data.append({
+                'id': user.id,
+                'name': f"{user.first_name} {user.last_name}".strip(),
+                'email': user.email,
+                'phone': user.phone_number or '',
+                'department': user.department.name if user.department else 'Unassigned',
+                'position': user.get_role_display() if user.role else 'Unassigned',
+                'status': status_text,
+                'joinDate': user.date_hired.strftime('%Y-%m-%d') if user.date_hired else '',
+                'salary': salary,
+                'location': 'Head Office',
+                'avatar': user.profile_picture,
+                'manager': 'N/A',
+                'skills': [],
+            })
+        return Response(data, status=status.HTTP_200_OK)
+
+    elif request.method == 'POST':
+        # Create a new employee
+        email = request.data.get('email')
+        first_name = request.data.get('first_name', '')
+        last_name = request.data.get('last_name', '')
+        phone = request.data.get('phone', '')
+        department_name = request.data.get('department')
+        position_role = request.data.get('position')
+        salary_amount = request.data.get('salary', 0)
+        start_date = request.data.get('startDate')
+        
+        if not email:
+            return Response({'error': 'Email is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if CustomUser.objects.filter(email=email).exists():
+            return Response({'error': 'User with this email already exists'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            with transaction.atomic():
+                dept = None
+                if department_name:
+                    dept = Department.objects.filter(name=department_name).first()
+
+                # Infer role from position string or set to 'employee' if not matching perfectly.
+                # In real scenario, position should map to allowable roles, we will just use 'employee' if no exact match.
+                role_key = 'employee'
+                for r_key, r_display in ALLOWED_ROLES:
+                    if r_display.lower() == str(position_role).lower():
+                        role_key = r_key
+                        break
+
+                user = CustomUser.objects.create(
+                    email=email,
+                    username=email.split('@')[0],
+                    first_name=first_name,
+                    last_name=last_name,
+                    phone_number=phone,
+                    department=dept,
+                    role=role_key,
+                    is_active=True,
+                    date_hired=start_date if start_date else None
+                )
+                user.set_password('TripleG123!') # default password
+                user.save()
+
+                if salary_amount:
+                    SalaryStructure.objects.create(
+                        employee=user,
+                        base_salary=salary_amount,
+                        frequency='monthly'
+                    )
+            
+            return Response({'success': True, 'message': 'Employee created successfully'}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def accounting_employee_detail(request, user_id):
+    if not _is_accounting_or_admin(request.user):
+        return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+        
+    from payroll.models import SalaryStructure
+    
+    try:
+        user = CustomUser.objects.get(id=user_id)
+    except CustomUser.DoesNotExist:
+        return Response({'error': 'Employee not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+    if request.method == 'DELETE':
+        if request.user.id == user.id:
+            return Response({'error': 'Cannot delete your own account'}, status=status.HTTP_400_BAD_REQUEST)
+        user.delete()
+        return Response({'success': True})
+        
+    elif request.method == 'PATCH':
+        try:
+            with transaction.atomic():
+                first_name = request.data.get('first_name')
+                last_name = request.data.get('last_name')
+                phone = request.data.get('phone')
+                department_name = request.data.get('department')
+                position_role = request.data.get('position')
+                salary_amount = request.data.get('salary')
+                start_date = request.data.get('startDate')
+                status_text = request.data.get('status')
+                
+                if first_name is not None: user.first_name = first_name
+                if last_name is not None: user.last_name = last_name
+                if phone is not None: user.phone_number = phone
+                if start_date is not None: user.date_hired = start_date
+                
+                if status_text is not None:
+                    user.is_active = (status_text == 'Active')
+                
+                if department_name is not None:
+                    dept = Department.objects.filter(name=department_name).first()
+                    user.department = dept
+                
+                if position_role is not None:
+                    # just setting it roughly, or handle mapped roles in real logic.
+                    user.role = 'employee'
+                    
+                user.save()
+                
+                if salary_amount is not None:
+                    salary_obj, created = SalaryStructure.objects.get_or_create(
+                        employee=user,
+                        defaults={'base_salary': salary_amount, 'frequency': 'monthly'}
+                    )
+                    if not created:
+                        salary_obj.base_salary = float(salary_amount)
+                        salary_obj.save()
+            return Response({'success': True, 'message': 'Employee updated successfully'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+

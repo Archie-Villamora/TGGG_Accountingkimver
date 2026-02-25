@@ -14,4 +14,7 @@ urlpatterns = [
     path('overview/', views.accounts_overview, name='overview'),
     path('users/', views.list_users, name='users'),
     path('users/<int:user_id>/', views.manage_user, name='manage_user'),
+    # Accounting Employee Management Endpoints
+    path('accounting/employees/', views.accounting_employees, name='accounting_employees'),
+    path('accounting/employees/<int:user_id>/', views.accounting_employee_detail, name='accounting_employee_detail'),
 ]

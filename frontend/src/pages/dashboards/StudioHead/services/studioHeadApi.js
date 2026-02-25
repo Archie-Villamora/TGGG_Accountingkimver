@@ -41,3 +41,30 @@ export async function deleteUserAccount(userId) {
   const res = await api.delete(`/accounts/users/${userId}/`);
   return res.data;
 }
+
+// Group & Leader Management
+
+export async function makeLeader(userId) {
+  const res = await api.post(`/users/${userId}/make-leader/`);
+  return res.data;
+}
+
+export async function removeLeader(userId) {
+  const res = await api.post(`/users/${userId}/remove-leader/`);
+  return res.data;
+}
+
+export async function getGroups() {
+  const res = await api.get('/groups/');
+  return res.data;
+}
+
+export async function createGroup(payload) {
+  const res = await api.post('/groups/', payload);
+  return res.data;
+}
+
+export async function disbandGroup(groupId) {
+  const res = await api.delete(`/groups/${groupId}/`);
+  return res.data;
+}

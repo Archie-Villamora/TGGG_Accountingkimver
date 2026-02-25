@@ -3,7 +3,7 @@ import Icon from './Icon';
 
 export const TaskCard = ({ todo, isCompleted, activeTab, userProfile, groups, isCoordinator, onToggle, onDelete, onConfirm, onReject, onConfirmCompletion, onRejectCompletion, disabled }) => {
   const isLeader = groups.find(g => g.id === todo.group_id)?.leader_id === userProfile?.id;
-  
+
   return (
     <div key={todo.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1rem', background: isCompleted ? 'rgba(0, 39, 60, 0.5)' : '#00273C', borderRadius: '8px', marginBottom: '0.75rem', border: `1px solid ${todo.pending_completion ? 'rgba(255, 165, 0, 0.5)' : todo.is_confirmed === false ? 'rgba(255, 193, 7, 0.5)' : isCompleted ? 'rgba(40, 167, 69, 0.3)' : 'rgba(255, 255, 255, 0.1)'}`, opacity: todo.is_confirmed === false ? 0.8 : isCompleted ? 0.8 : 1 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
@@ -44,17 +44,17 @@ export const TaskCard = ({ todo, isCompleted, activeTab, userProfile, groups, is
               </button>
             </>
           )}
-          {(((activeTab === 'group' || activeTab === 'team') && todo.todo_type === 'assigned' && todo.assigned_to === userProfile?.id) || (activeTab === 'personal' && todo.todo_type === 'personal')) && !todo.pending_completion && !todo.completed && (
-            <button onClick={() => onToggle(todo.id, todo.completed)} disabled={disabled} style={{ flex: 1, background: disabled ? '#6b7280' : '#FF7120', border: 'none', color: 'white', padding: '0.65rem 1rem', borderRadius: '6px', cursor: disabled ? 'not-allowed' : 'pointer', fontSize: '0.85rem', opacity: disabled ? 0.6 : 1 }}>
+          {(((activeTab === 'group' || activeTab === 'team') && ((todo.todo_type === 'assigned' && todo.assigned_to_id == userProfile?.id) || todo.todo_type === 'group')) || (activeTab === 'personal' && todo.todo_type === 'personal')) && !todo.pending_completion && !todo.completed && todo.is_confirmed !== false && (
+            <button onClick={() => { if (window.confirm('Are you sure you want to mark this task as complete?')) onToggle(todo.id, todo.completed); }} disabled={disabled} style={{ flex: 1, background: disabled ? '#6b7280' : '#FF7120', border: 'none', color: 'white', padding: '0.65rem 1rem', borderRadius: '6px', cursor: disabled ? 'not-allowed' : 'pointer', fontSize: '0.85rem', opacity: disabled ? 0.6 : 1 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', justifyContent: 'center', width: '100%' }}><Icon name="check" size={14} color="white" strokeWidth={2} />Mark Complete</span>
             </button>
           )}
-          {activeTab === 'group' && todo.todo_type === 'assigned' && todo.assigned_to === userProfile?.id && todo.pending_completion && (
+          {(activeTab === 'group' || activeTab === 'team') && todo.todo_type === 'assigned' && todo.assigned_to_id == userProfile?.id && todo.pending_completion && (
             <button onClick={() => onRejectCompletion(todo.id)} disabled={disabled} style={{ flex: 1, background: 'transparent', border: '1px solid rgba(255, 165, 0, 0.5)', color: '#ffa500', padding: '0.65rem 1rem', borderRadius: '6px', cursor: disabled ? 'not-allowed' : 'pointer', fontSize: '0.85rem', opacity: disabled ? 0.6 : 1 }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', justifyContent: 'center', width: '100%' }}><Icon name="x" size={14} color="#ffa500" strokeWidth={2} />Cancel</span>
             </button>
           )}
-          {activeTab === 'group' && todo.todo_type === 'assigned' && todo.pending_completion && (todo.assigned_by === userProfile?.id || isCoordinator) && (
+          {activeTab === 'group' && todo.todo_type === 'assigned' && todo.pending_completion && (todo.assigned_by_id == userProfile?.id || isCoordinator) && (
             <>
               <button onClick={() => onConfirmCompletion(todo.id)} disabled={disabled} style={{ flex: 1, background: disabled ? '#6b7280' : '#28a745', border: 'none', color: 'white', padding: '0.65rem 1rem', borderRadius: '6px', cursor: disabled ? 'not-allowed' : 'pointer', fontSize: '0.85rem', opacity: disabled ? 0.6 : 1 }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', justifyContent: 'center', width: '100%' }}><Icon name="check" size={14} color="white" strokeWidth={2} />Confirm Completion</span>
@@ -64,7 +64,7 @@ export const TaskCard = ({ todo, isCompleted, activeTab, userProfile, groups, is
               </button>
             </>
           )}
-          {((todo.todo_type === 'personal' && todo.user_id === userProfile?.id) || (todo.todo_type === 'group' && isLeader) || (todo.todo_type === 'assigned' && (todo.assigned_by === userProfile?.id || isCoordinator))) && activeTab !== 'group' && (
+          {((todo.todo_type === 'personal' && todo.user_id == userProfile?.id) || (todo.todo_type === 'group' && isLeader) || (todo.todo_type === 'assigned' && (todo.assigned_by_id == userProfile?.id || isCoordinator))) && activeTab !== 'group' && (
             <button onClick={() => onDelete(todo.id)} disabled={disabled} style={{ flex: 1, background: 'transparent', border: '1px solid rgba(255, 113, 32, 0.3)', color: '#FF7120', padding: '0.65rem 1rem', borderRadius: '6px', cursor: disabled ? 'not-allowed' : 'pointer', fontSize: '0.85rem', opacity: disabled ? 0.6 : 1 }}>Delete</button>
           )}
         </div>
@@ -81,7 +81,7 @@ export const MemberStats = ({ groups, userProfile, todos }) => {
 
   const allMembers = [{ user: leaderGroup.leader || userProfile }, ...(leaderGroup.members || [])].filter(m => m.user);
   const memberStats = allMembers.map(member => {
-    const memberTodos = todos.filter(t => t.todo_type === 'assigned' && t.assigned_to === member.user?.id && t.assigned_by === userProfile?.id);
+    const memberTodos = todos.filter(t => t.todo_type === 'assigned' && t.assigned_to_id == member.user?.id && t.assigned_by_id == userProfile?.id);
     return {
       id: member.user?.id,
       name: member.user?.full_name || 'Unknown',

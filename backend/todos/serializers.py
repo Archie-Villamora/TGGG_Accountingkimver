@@ -26,6 +26,7 @@ class TaskGroupMemberSerializer(serializers.ModelSerializer):
 
 class TaskGroupSerializer(serializers.ModelSerializer):
     members = TaskGroupMemberSerializer(many=True, read_only=True)
+    leader = UserMiniSerializer(read_only=True)
     leader_id = serializers.IntegerField(source='leader.id', read_only=True, allow_null=True)
     leader_name = serializers.SerializerMethodField()
     created_by_id = serializers.IntegerField(source='created_by.id', read_only=True, allow_null=True)
@@ -33,7 +34,7 @@ class TaskGroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskGroup
         fields = [
-            'id', 'name', 'description', 'leader_id', 'leader_name',
+            'id', 'name', 'description', 'leader', 'leader_id', 'leader_name',
             'created_by_id', 'members', 'created_at'
         ]
 
@@ -49,6 +50,7 @@ class TodoSerializer(serializers.ModelSerializer):
     assignee = serializers.SerializerMethodField()
     suggester = serializers.SerializerMethodField()
     owner = serializers.SerializerMethodField()
+    assigner = serializers.SerializerMethodField()
 
     class Meta:
         model = Todo
@@ -58,7 +60,7 @@ class TodoSerializer(serializers.ModelSerializer):
             'is_confirmed', 'pending_completion',
             'start_date', 'deadline', 'date_assigned',
             'created_at', 'updated_at',
-            'assignee', 'suggester', 'owner'
+            'assignee', 'suggester', 'owner', 'assigner'
         ]
         read_only_fields = ['created_at', 'updated_at']
 
@@ -80,6 +82,9 @@ class TodoSerializer(serializers.ModelSerializer):
 
     def get_owner(self, obj):
         return self._user_dict(obj.user)
+        
+    def get_assigner(self, obj):
+        return self._user_dict(obj.assigned_by)
 
 
 class DepartmentTaskSerializer(serializers.ModelSerializer):

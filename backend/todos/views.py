@@ -100,13 +100,13 @@ def _list_todos(request):
             Q(assigned_to=user, todo_type='assigned')
         )
     elif todo_type == 'group':
-        # For manage tab: show unconfirmed group todos + pending completions
+        # For manage tab: show all group todos so MemberStats can calculate correctly
+        # The frontend will filter this list down to pending tasks for the task cards.
         led_group_ids = list(
             TaskGroup.objects.filter(leader=user).values_list('id', flat=True)
         )
         todos = Todo.objects.filter(
-            Q(group_id__in=led_group_ids, is_confirmed=False) |
-            Q(group_id__in=led_group_ids, pending_completion=True)
+            group_id__in=led_group_ids
         )
     else:
         todos = Todo.objects.filter(user=user)
@@ -324,21 +324,27 @@ def todo_reject_completion(request, todo_id):
     todo = get_object_or_404(Todo, id=todo_id)
     user = request.user
 
-    if not todo.group or todo.group.leader_id != user.id:
-        return Response({'error': 'Only the group leader can reject completion.'}, status=status.HTTP_403_FORBIDDEN)
+    # Leader can reject anyone's; member can only reject/cancel their own
+    is_leader = todo.group and todo.group.leader_id == user.id
+    is_owner = todo.assigned_to_id == user.id or todo.user_id == user.id
+    is_coordinator = user.role == 'site_coordinator'
+
+    if not (is_leader or is_owner or is_coordinator):
+        return Response({'error': 'Only the group leader or assignee can reject completion.'}, status=status.HTTP_403_FORBIDDEN)
 
     todo.pending_completion = False
     todo.save()
 
-    # Notify task owner that completion was rejected
-    task_owner = todo.assigned_to or todo.user
-    _notify(
-        recipient=task_owner, actor=user,
-        notif_type='completion_rejected',
-        title='Task Completion Rejected',
-        message=f'{_actor_name(user)} rejected your completion of "{todo.task[:60]}" — please review and retry',
-        todo=todo,
-    )
+    # If the leader or coordinator rejected it, notify the owner. If the owner canceled, no notification is needed.
+    if is_leader or is_coordinator:
+        task_owner = todo.assigned_to or todo.user
+        _notify(
+            recipient=task_owner, actor=user,
+            notif_type='completion_rejected',
+            title='Task Completion Rejected',
+            message=f'{_actor_name(user)} rejected your completion of "{todo.task[:60]}" — please review and retry',
+            todo=todo,
+        )
 
     return Response(TodoSerializer(todo).data)
 
@@ -358,20 +364,37 @@ def groups_list_create(request):
     user = request.user
     name = request.data.get('name', '').strip()
     description = request.data.get('description', '')
+    leader_id = request.data.get('leader_id')
 
     if not name:
         return Response({'error': 'Group name is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Leaders can only create one group
-    if getattr(user, 'is_leader', False) and TaskGroup.objects.filter(leader=user).exists():
+    is_privileged = user.role in ['studio_head', 'admin'] or user.is_staff
+
+    target_leader = user
+    if leader_id and is_privileged:
+        target_leader = get_object_or_404(CustomUser, id=leader_id)
+
+    # Leaders can only create/lead one group (if not privileged creating for someone else)
+    if not is_privileged and getattr(user, 'is_leader', False) and TaskGroup.objects.filter(leader=user).exists():
         return Response({'error': 'You already lead a group.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+    # Check if target leader already leads a group
+    if target_leader and TaskGroup.objects.filter(leader=target_leader).exists():
+        return Response({'error': 'The selected user already leads another group.'}, status=status.HTTP_400_BAD_REQUEST)
 
     group = TaskGroup.objects.create(
         name=name,
         description=description,
-        leader=user,
+        leader=target_leader,
         created_by=user
     )
+    
+    # If a target leader was assigned, ensure they have is_leader = True
+    if target_leader and not getattr(target_leader, 'is_leader', False):
+        target_leader.is_leader = True
+        target_leader.save(update_fields=['is_leader'])
+
     serializer = TaskGroupSerializer(group)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -384,7 +407,8 @@ def group_delete(request, group_id):
     user = request.user
 
     is_coordinator = user.role == 'site_coordinator'
-    if group.leader_id != user.id and not is_coordinator and not user.is_staff:
+    is_privileged = user.role in ['studio_head', 'admin'] or user.is_staff
+    if group.leader_id != user.id and not is_coordinator and not is_privileged:
         return Response({'error': 'Not authorized.'}, status=status.HTTP_403_FORBIDDEN)
 
     group.delete()
@@ -458,6 +482,11 @@ def list_interns(request):
 @permission_classes([IsAuthenticated])
 def make_leader(request, user_id):
     """Promote a user to leader."""
+    user = request.user
+    is_privileged = user.role in ['studio_head', 'admin', 'site_coordinator'] or user.is_staff
+    if not is_privileged:
+        return Response({'error': 'Not authorized.'}, status=status.HTTP_403_FORBIDDEN)
+        
     target = get_object_or_404(CustomUser, id=user_id)
     target.is_leader = True
     target.save(update_fields=['is_leader'])
@@ -468,6 +497,11 @@ def make_leader(request, user_id):
 @permission_classes([IsAuthenticated])
 def remove_leader(request, user_id):
     """Demote a user from leader."""
+    user = request.user
+    is_privileged = user.role in ['studio_head', 'admin', 'site_coordinator'] or user.is_staff
+    if not is_privileged:
+        return Response({'error': 'Not authorized.'}, status=status.HTTP_403_FORBIDDEN)
+
     target = get_object_or_404(CustomUser, id=user_id)
     target.is_leader = False
     target.save(update_fields=['is_leader'])

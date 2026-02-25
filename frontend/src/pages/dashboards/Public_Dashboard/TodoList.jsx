@@ -569,8 +569,12 @@ function TodoList({ token, user, onNotificationUpdate }) {
 
 
   const filteredTodos = getFilteredTodos();
-  const ongoingTodos = filteredTodos.filter(todo => !todo.completed);
+  let ongoingTodos = filteredTodos.filter(todo => !todo.completed);
   const doneTodos = filteredTodos.filter(todo => todo.completed);
+
+  if (activeTab === 'team' && teamSubTab === 'manage') {
+    ongoingTodos = ongoingTodos.filter(todo => todo.is_confirmed === false || todo.pending_completion);
+  }
 
   const tabs = [
     { id: 'personal', label: 'Personal', icon: 'user' },
@@ -751,7 +755,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
             </div>
           )}
 
-          {activeTab === 'team' && teamSubTab === 'tasks' && groups.length > 0 && <GroupInfo groups={groups} userProfile={userProfile} Icon={Icon} />}
+          {activeTab === 'team' && (!isLeader || teamSubTab === 'tasks') && groups.length > 0 && <GroupInfo groups={groups} userProfile={userProfile} Icon={Icon} />}
 
           {activeTab === 'personal' && (
             <TaskForm activeTab={activeTab} isLeader={isLeader} canAddTodo={canAddTodo()} dateTask={dateTask} setDateTask={setDateTask} taskDescription={taskDescription} setTaskDescription={setTaskDescription} selectedAssignee={selectedAssignee} setSelectedAssignee={setSelectedAssignee} selectedDate={selectedDate} setSelectedDate={setSelectedDate} deadlineDate={deadlineDate} setDeadlineDate={setDeadlineDate} onSubmit={addDateTodo} getGroupMembersForAssign={getGroupMembersForAssign} submitting={submitting} />

@@ -30,7 +30,7 @@ export const ManageGroupsModal = ({ show, onClose, groups, isCoordinator, userPr
                 <h4 style={{ margin: 0, color: '#e8eaed' }}>{group.name}</h4>
                 <p style={{ margin: '0.25rem 0 0 0', color: '#6b7280', fontSize: '0.85rem' }}>Leader: {group.leader?.full_name || 'None'}</p>
               </div>
-              {(isCoordinator || group.leader_id === userProfile?.id) && (
+              {(isCoordinator || group.leader_id == userProfile?.id) && (
                 <button onClick={() => onDeleteGroup(group.id)} style={{ background: 'rgba(255, 80, 80, 0.1)', border: '1px solid rgba(255, 80, 80, 0.3)', color: '#ff5050', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}><Icon name="trash" size={14} color="#ff5050" strokeWidth={2} />Delete Group</span>
                 </button>
@@ -42,15 +42,15 @@ export const ManageGroupsModal = ({ show, onClose, groups, isCoordinator, userPr
                 {group.members?.map(member => (
                   <span key={member.user?.id} style={{ background: 'rgba(255, 113, 32, 0.1)', padding: '0.25rem 0.75rem', borderRadius: '16px', fontSize: '0.8rem', color: '#e8eaed', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     {member.user?.full_name}
-                    {(isCoordinator || group.leader_id === userProfile?.id) && (
-                      <button onClick={() => onRemoveMember(group.id, member.user?.id)} style={{ background: 'none', border: 'none', color: '#ff6b6b', cursor: 'pointer', padding: 0, fontSize: '0.9rem' }}>×</button>
+                    {(isCoordinator || group.leader_id == userProfile?.id) && (
+                      <button type="button" onClick={(e) => { e.preventDefault(); onRemoveMember(group.id, member.user?.id); }} style={{ background: 'none', border: 'none', color: '#ff6b6b', cursor: 'pointer', padding: 0, fontSize: '0.9rem' }}>×</button>
                     )}
                   </span>
                 ))}
                 {(!group.members || group.members.length === 0) && <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>No members yet</span>}
               </div>
             </div>
-            {(isCoordinator || group.leader_id === userProfile?.id) && availableUsers.length > 0 && (
+            {(isCoordinator || group.leader_id == userProfile?.id) && availableUsers.length > 0 && (
               <select onChange={(e) => { if (e.target.value) { onAddMember(group.id, e.target.value); e.target.value = ''; } }} style={{ width: '100%', padding: '0.5rem', background: '#001824', color: '#e8eaed', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '6px', fontSize: '0.85rem' }}>
                 <option value="">Add member...</option>
                 {availableUsers.map(u => <option key={u.id} value={u.id}>{u.full_name}</option>)}

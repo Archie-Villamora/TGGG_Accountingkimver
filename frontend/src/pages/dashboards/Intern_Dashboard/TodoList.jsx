@@ -569,8 +569,12 @@ function TodoList({ token, user, onNotificationUpdate }) {
 
 
   const filteredTodos = getFilteredTodos();
-  const ongoingTodos = filteredTodos.filter(todo => !todo.completed);
+  let ongoingTodos = filteredTodos.filter(todo => !todo.completed);
   const doneTodos = filteredTodos.filter(todo => todo.completed);
+
+  if (activeTab === 'team' && teamSubTab === 'manage') {
+    ongoingTodos = ongoingTodos.filter(todo => todo.is_confirmed === false || todo.pending_completion);
+  }
 
   const tabs = [
     { id: 'personal', label: 'Personal', icon: 'user' },

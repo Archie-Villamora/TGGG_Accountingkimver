@@ -5,6 +5,7 @@ import { useLocation } from 'react-router-dom';
 import OverviewPanel from './components/OverviewPanel';
 import PendingApprovalsPanel from './components/PendingApprovalsPanel';
 import ManageUsersPanel from './components/ManageUsersPanel';
+import CoordinatorPanel from './components/CoordinatorPanel';
 import MessageBanner from './components/MessageBanner';
 import StudioHeadSidebar from './components/StudioHeadSidebar';
 import { useStudioHeadDashboard } from './hooks/useStudioHeadDashboard';
@@ -14,7 +15,7 @@ const TABS = [
   { id: 'approvals', label: 'User Approvals', icon: UserCheck },
   { id: 'users', label: 'Manage Users', icon: Users },
   { id: 'reviews', label: 'Design Reviews', icon: FileText },
-  { id: 'coordination', label: 'Coordination', icon: GitMerge },
+  { id: 'coordination', label: 'Coordinator Panel', icon: GitMerge },
 ];
 
 export default function StudioHeadDashboard({ user, onLogout, onNavigate }) {
@@ -40,6 +41,12 @@ export default function StudioHeadDashboard({ user, onLogout, onNavigate }) {
     editUser,
     toggleUserStatus,
     removeUser,
+    groups,
+    groupsLoading,
+    handleMakeLeader,
+    handleRemoveLeader,
+    handleCreateGroup,
+    handleDisbandGroup,
   } = useStudioHeadDashboard();
 
   useEffect(() => {
@@ -64,7 +71,7 @@ export default function StudioHeadDashboard({ user, onLogout, onNavigate }) {
       <div className="relative pt-28 px-6 pb-10">
         <div className="max-w-[1600px] mx-auto">
           <MessageBanner message={message} onClose={() => setMessage('')} />
-          
+
           <div className="flex gap-6">
             {/* Sidebar Navigation */}
             <aside className="w-64 shrink-0">
@@ -129,12 +136,15 @@ export default function StudioHeadDashboard({ user, onLogout, onNavigate }) {
                   )}
 
                   {activeTab === 'coordination' && (
-                    <div className="rounded-xl border border-white/10 bg-[#00273C]/60 p-6">
-                      <h2 className="text-white font-semibold text-xl mb-2">Coordination</h2>
-                      <p className="text-white/60 text-sm">
-                        Handoffs between design, site, and management teams (RFIs, revisions, approvals).
-                      </p>
-                    </div>
+                    <CoordinatorPanel
+                      users={filteredUsers}
+                      groups={groups}
+                      onMakeLeader={handleMakeLeader}
+                      onRemoveLeader={handleRemoveLeader}
+                      onCreateGroup={handleCreateGroup}
+                      onDisbandGroup={handleDisbandGroup}
+                      loadingAction={userActionById}
+                    />
                   )}
                 </div>
               </div>

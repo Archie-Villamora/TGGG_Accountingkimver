@@ -87,6 +87,29 @@ class Leave(models.Model):
         return f"{self.employee.email} - {self.leave_type} ({self.start_date} to {self.end_date})"
 
 
+class OvertimeRequest(models.Model):
+    employee = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='overtime_requests')
+    employee_name = models.CharField(max_length=255, blank=True)
+    job_position = models.CharField(max_length=255, blank=True)
+    date_completed = models.DateField(default=timezone.localdate)
+    department = models.CharField(max_length=255, blank=True)
+    anticipated_hours = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    explanation = models.TextField()
+    employee_signature = models.URLField(max_length=1000, blank=True, null=True)
+    supervisor_signature = models.TextField(blank=True, null=True)
+    management_signature = models.TextField(blank=True, null=True)
+    approval_date = models.DateField(blank=True, null=True)
+    periods = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"OT #{self.id} - {self.employee.email}"
+
+
 class AttendancePolicy(models.Model):
     department = models.OneToOneField('accounts.Department', on_delete=models.CASCADE, related_name='attendance_policy')
     work_hours_per_day = models.IntegerField(default=8)  # in hours

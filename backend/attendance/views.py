@@ -1,13 +1,23 @@
 from datetime import date
+from decimal import Decimal, InvalidOperation
 
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Leave
+from .models import Attendance, Leave, OvertimeRequest
 
 # Create your views here.
+
+OVERTIME_REVIEWER_ROLES = {
+    'site_coordinator',
+    'studio_head',
+    'admin',
+    'accounting',
+    'president',
+    'ceo',
+}
 
 @api_view(['GET'])
 def attendance_overview(request):
@@ -16,6 +26,14 @@ def attendance_overview(request):
         'message': 'Attendance module',
         'features': ['Time Tracking', 'Clock In/Out', 'Leave Management', 'Attendance Reports']
     })
+
+
+def _display_name(user):
+    return f"{user.first_name} {user.last_name}".strip() or user.email
+
+
+def _can_review_overtime(user):
+    return bool(user.is_staff or user.is_superuser or user.role in OVERTIME_REVIEWER_ROLES)
 
 
 def _serialize_leave(leave):
@@ -39,6 +57,53 @@ def _serialize_leave(leave):
         'rejection_reason': leave.rejection_reason,
         'created_at': leave.created_at,
         'updated_at': leave.updated_at,
+    }
+
+
+def _serialize_attendance(record):
+    return {
+        'id': record.id,
+        'date': record.date,
+        'status': record.status,
+        'status_label': record.get_status_display(),
+        'time_in': record.time_in.strftime('%H:%M') if record.time_in else None,
+        'time_out': record.time_out.strftime('%H:%M') if record.time_out else None,
+        'notes': record.notes,
+        'created_at': record.created_at,
+        'updated_at': record.updated_at,
+    }
+
+
+def _parse_date_or_none(value, field_name):
+    if value in [None, '', 'null', 'None']:
+        return None, None
+    try:
+        return date.fromisoformat(str(value)), None
+    except ValueError:
+        return None, Response(
+            {'error': f'Invalid {field_name} format. Use YYYY-MM-DD.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+def _serialize_overtime_request(request_obj):
+    return {
+        'id': request_obj.id,
+        'employee_id': request_obj.employee_id,
+        'employee_name': request_obj.employee_name or _display_name(request_obj.employee),
+        'full_name': _display_name(request_obj.employee),
+        'job_position': request_obj.job_position,
+        'date_completed': request_obj.date_completed,
+        'department': request_obj.department,
+        'anticipated_hours': str(request_obj.anticipated_hours),
+        'explanation': request_obj.explanation,
+        'employee_signature': request_obj.employee_signature,
+        'supervisor_signature': request_obj.supervisor_signature,
+        'management_signature': request_obj.management_signature,
+        'approval_date': request_obj.approval_date,
+        'periods': request_obj.periods or [],
+        'created_at': request_obj.created_at,
+        'updated_at': request_obj.updated_at,
     }
 
 
@@ -89,3 +154,111 @@ def create_leave_request(request):
 def my_leave_requests(request):
     leaves = Leave.objects.filter(employee=request.user).select_related('approved_by').order_by('-created_at')
     return Response([_serialize_leave(leave) for leave in leaves])
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_attendance_records(request):
+    records = Attendance.objects.filter(employee=request.user).order_by('-date', '-created_at')
+    return Response([_serialize_attendance(record) for record in records])
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def overtime_list_create(request):
+    payload = request.data
+    periods = payload.get('periods') or []
+    if not isinstance(periods, list):
+        return Response({'error': 'periods must be a list.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    date_completed, date_error = _parse_date_or_none(payload.get('date_completed'), 'date_completed')
+    if date_error:
+        return date_error
+    if not date_completed:
+        date_completed = date.today()
+
+    anticipated_hours_raw = payload.get('anticipated_hours', 0)
+    try:
+        anticipated_hours = Decimal(str(anticipated_hours_raw or 0))
+    except (InvalidOperation, TypeError):
+        return Response({'error': 'anticipated_hours must be numeric.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    explanation = (payload.get('explanation') or '').strip()
+    if not explanation:
+        return Response({'error': 'Explanation is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    overtime_request = OvertimeRequest.objects.create(
+        employee=request.user,
+        employee_name=(payload.get('employee_name') or _display_name(request.user)).strip(),
+        job_position=(payload.get('job_position') or (request.user.get_role_display() if request.user.role else '')).strip(),
+        date_completed=date_completed,
+        department=(payload.get('department') or (request.user.department.name if request.user.department else '')).strip(),
+        anticipated_hours=anticipated_hours,
+        explanation=explanation,
+        employee_signature=payload.get('employee_signature'),
+        supervisor_signature=payload.get('supervisor_signature'),
+        management_signature=payload.get('management_signature'),
+        periods=periods,
+    )
+
+    approval_date, approval_error = _parse_date_or_none(payload.get('approval_date'), 'approval_date')
+    if approval_error:
+        overtime_request.delete()
+        return approval_error
+    if approval_date:
+        overtime_request.approval_date = approval_date
+        overtime_request.save(update_fields=['approval_date', 'updated_at'])
+
+    return Response(_serialize_overtime_request(overtime_request), status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_overtime_requests(request):
+    requests = OvertimeRequest.objects.filter(employee=request.user).select_related('employee')
+    return Response([_serialize_overtime_request(req) for req in requests])
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def all_overtime_requests(request):
+    if not _can_review_overtime(request.user):
+        return Response({'error': 'Not authorized to view overtime requests.'}, status=status.HTTP_403_FORBIDDEN)
+
+    requests = OvertimeRequest.objects.select_related('employee').all()
+    return Response([_serialize_overtime_request(req) for req in requests])
+
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def approve_overtime_request(request, request_id):
+    if not _can_review_overtime(request.user):
+        return Response({'error': 'Not authorized to approve overtime requests.'}, status=status.HTTP_403_FORBIDDEN)
+
+    overtime_request = OvertimeRequest.objects.select_related('employee').filter(id=request_id).first()
+    if not overtime_request:
+        return Response({'error': 'Overtime request not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    fields_to_update = []
+
+    if 'supervisor_signature' in request.data:
+        overtime_request.supervisor_signature = request.data.get('supervisor_signature')
+        fields_to_update.append('supervisor_signature')
+
+    if 'management_signature' in request.data:
+        overtime_request.management_signature = request.data.get('management_signature')
+        fields_to_update.append('management_signature')
+
+    if 'approval_date' in request.data:
+        approval_date, approval_error = _parse_date_or_none(request.data.get('approval_date'), 'approval_date')
+        if approval_error:
+            return approval_error
+        overtime_request.approval_date = approval_date
+        fields_to_update.append('approval_date')
+
+    if not fields_to_update:
+        return Response({'error': 'No approval fields provided.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    fields_to_update.append('updated_at')
+    overtime_request.save(update_fields=fields_to_update)
+    return Response(_serialize_overtime_request(overtime_request))

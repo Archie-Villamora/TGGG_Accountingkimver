@@ -3,7 +3,7 @@ import axios from 'axios';
 import Alert from '../../../components/Alert.jsx';
 import { TableSkeleton } from '../../../components/SkeletonLoader.jsx';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 const escapeHtml = (value) => {
   if (value === null || value === undefined) {

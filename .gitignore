@@ -14,6 +14,7 @@ backend/*.pyc
 
 # production
 /build
+frontend/build
 
 # misc
 .vscode/

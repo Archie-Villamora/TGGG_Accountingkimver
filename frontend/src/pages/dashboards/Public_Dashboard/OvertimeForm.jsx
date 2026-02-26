@@ -4,7 +4,7 @@ import supabase from '../../../lib/supabaseClient';
 import Alert from '../../../components/Alert.jsx';
 import { CardSkeleton } from '../../../components/SkeletonLoader.jsx';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 const getTodayDate = () => {
   const now = new Date();
@@ -88,7 +88,7 @@ function OvertimeForm({ token }) {
         setForm(prev => ({
           ...prev,
           employee_name: data.full_name || prev.employee_name,
-          job_position: data.role === 'coordinator' ? 'Head Coordinator' : 'Intern',
+          job_position: data.role === 'site_coordinator' ? 'Head Coordinator' : 'Intern',
           employee_signature: data.full_name || prev.employee_signature
         }));
       } catch (err) {

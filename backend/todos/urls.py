@@ -8,6 +8,7 @@ app_name = 'todos'
 urlpatterns = [
     # User profile (with is_leader)
     re_path(r'^profile/picture/?$', upload_profile_picture, name='upload_profile_picture'),
+    re_path(r'^profile/password/?$', views.todo_profile_password, name='profile_password'),
     re_path(r'^profile/?$', views.todo_profile, name='profile'),
 
     # Todos

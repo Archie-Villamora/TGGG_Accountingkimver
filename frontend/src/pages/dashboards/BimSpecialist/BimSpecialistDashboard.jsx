@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   Calendar,
-  CheckCircle,
   Clock,
   FileImage,
   FileText,
@@ -11,7 +10,6 @@ import {
   ShieldCheck,
   Upload,
   User,
-  XCircle,
 } from 'lucide-react';
 import PublicNavigation from '../Public_Dashboard/PublicNavigation';
 import BimSpecialistSidebar from './components/BimSpecialistSidebar';
@@ -41,11 +39,7 @@ export default function BimSpecialistDashboard({ user, onNavigate }) {
 
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [workDoc, setWorkDoc] = useState('');
-  const [locationIn, setLocationIn] = useState(null);
-  const [locationInError, setLocationInError] = useState('');
-  const [locationOut, setLocationOut] = useState(null);
-  const [locationOutError, setLocationOutError] = useState('');
-  const [buttonLoading, setButtonLoading] = useState(false);
+  const [attendanceReady, setAttendanceReady] = useState(false);
 
   const [docTitle, setDocTitle] = useState('');
   const [docDate, setDocDate] = useState(new Date().toISOString().split('T')[0]);
@@ -71,11 +65,11 @@ export default function BimSpecialistDashboard({ user, onNavigate }) {
     const latest = attendanceRows[0];
     const lateMinutes = latest?.late ?? '0';
     return [
-      { label: "Today's Status", value: locationIn ? 'Ready to Time In' : 'Location Required', tone: locationIn ? 'good' : 'warn', icon: MapPin },
+      { label: "Today's Status", value: attendanceReady ? 'Ready to Time In' : 'Location Required', tone: attendanceReady ? 'good' : 'warn', icon: MapPin },
       { label: 'Late Minutes (Latest)', value: lateMinutes, tone: lateMinutes === '0' ? 'good' : 'warn', icon: Clock },
       { label: 'Total Hours (Latest)', value: latest?.hours ?? '-', tone: 'neutral', icon: FileText },
     ];
-  }, [locationIn]);
+  }, [attendanceReady]);
 
   const overviewStats = useMemo(
     () => [
@@ -191,7 +185,7 @@ export default function BimSpecialistDashboard({ user, onNavigate }) {
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge tone="neutral"><ShieldCheck className="h-3.5 w-3.5 mr-1" />Attendance & Work Logs</Badge>
-            <Badge tone={locationIn ? 'good' : 'warn'}>{locationIn ? 'Location Ready' : 'Location Needed'}</Badge>
+            <Badge tone={attendanceReady ? 'good' : 'warn'}>{attendanceReady ? 'Location Ready' : 'Location Needed'}</Badge>
           </div>
         </div>
       </div>
@@ -215,22 +209,21 @@ export default function BimSpecialistDashboard({ user, onNavigate }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-        <div className={`${cardClass} p-4 sm:p-6 space-y-3`}>
-          <h3 className="text-white font-semibold">Attendance</h3>
-          <p className="text-white/50 text-sm">Capture location first to enable Time In.</p>
-          {locationIn && <div className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold border bg-emerald-500/10 text-emerald-300 border-emerald-500/20"><CheckCircle className="h-4 w-4" />Location captured ±{Math.round(locationIn.accuracy)}m</div>}
-          {locationInError && <div className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold border bg-red-500/10 text-red-300 border-red-500/20"><XCircle className="h-4 w-4" />{locationInError}</div>}
-          <button type="button" onClick={getLocationIn} className="rounded-xl border border-[#FF7120]/40 bg-[#FF7120]/10 px-4 py-2 text-sm font-semibold text-[#FF7120] hover:bg-[#FF7120]/20 transition">Scan location now</button>
-          <button type="button" disabled={!locationIn || buttonLoading} onClick={() => { setButtonLoading(true); setTimeout(() => setButtonLoading(false), 900); }} className="w-full sm:w-auto rounded-xl px-5 py-3 font-semibold transition bg-[#FF7120] text-white disabled:bg-white/10 disabled:text-white/40">{buttonLoading ? 'Processing...' : 'Time In'}</button>
-        </div>
+        <LocationAttendance
+          role={user?.role}
+          className={`${cardClass} p-4 sm:p-6`}
+          onStatusChange={({ ready }) => setAttendanceReady(ready)}
+        />
 
         <div className={`${cardClass} p-4 sm:p-6 space-y-3`}>
           <h3 className="text-white font-semibold">Work Documentation</h3>
-          <textarea rows={5} value={workDoc} onChange={(e) => setWorkDoc(e.target.value)} placeholder="What did you accomplish today?" className="w-full rounded-xl border border-white/15 bg-[#00273C]/60 px-3 py-2 text-sm text-white placeholder:text-white/45 outline-none resize-none" />
-          {locationOut && <div className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold border bg-emerald-500/10 text-emerald-300 border-emerald-500/20"><CheckCircle className="h-4 w-4" />Location captured ±{Math.round(locationOut.accuracy)}m</div>}
-          {locationOutError && <div className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold border bg-red-500/10 text-red-300 border-red-500/20"><XCircle className="h-4 w-4" />{locationOutError}</div>}
-          <button type="button" onClick={getLocationOut} className="rounded-xl border border-[#FF7120]/40 bg-[#FF7120]/10 px-4 py-2 text-sm font-semibold text-[#FF7120] hover:bg-[#FF7120]/20 transition">Scan location now</button>
-          <button type="button" disabled={!locationOut || buttonLoading} onClick={() => { setButtonLoading(true); setTimeout(() => setButtonLoading(false), 900); }} className="w-full sm:w-auto rounded-xl px-5 py-3 font-semibold transition bg-[#FF7120] text-white disabled:bg-white/10 disabled:text-white/40">{buttonLoading ? 'Processing...' : 'Time Out'}</button>
+          <textarea
+            rows={5}
+            value={workDoc}
+            onChange={(e) => setWorkDoc(e.target.value)}
+            placeholder="What did you accomplish today?"
+            className="w-full rounded-xl border border-white/15 bg-[#00273C]/60 px-3 py-2 text-sm text-white placeholder:text-white/45 outline-none resize-none"
+          />
         </div>
       </div>
 

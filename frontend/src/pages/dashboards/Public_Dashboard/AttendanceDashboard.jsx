@@ -3,15 +3,14 @@ import PublicNavigation from "./PublicNavigation";
 import StudioHeadSidebar from "../StudioHead/components/StudioHeadSidebar";
 import {
   MapPin,
-  ChevronDown,
   Calendar,
   FileText,
   User,
-  CheckCircle,
-  XCircle,
   Clock,
   ShieldCheck,
+  ChevronDownIcon,
 } from "lucide-react";
+import LocationAttendance from "../../../components/attendance/LocationAttendance";
 
 const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
   const isStudioHeadMode = user?.role === "studio_head" || user?.role === "admin";
@@ -20,52 +19,8 @@ const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
     new Date().toISOString().split("T")[0]
   );
   const [workDoc, setWorkDoc] = useState("");
-  const [location, setLocation] = useState(null);
-  const [locationError, setLocationError] = useState("");
-  const [locationOut, setLocationOut] = useState(null);
-  const [locationOutError, setLocationOutError] = useState("");
-  const [buttonLoading, setButtonLoading] = useState(false);
+  const [locationReady, setLocationReady] = useState(false);
   const [expandedWorkIdx, setExpandedWorkIdx] = useState(null);
-
-  const getLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationError("Geolocation is not supported by your browser");
-      return;
-    }
-    setLocationError("");
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-        });
-      },
-      () => {
-        setLocationError("Unable to retrieve location. Please enable location access.");
-      }
-    );
-  };
-
-  const getLocationOut = () => {
-    if (!navigator.geolocation) {
-      setLocationOutError("Geolocation is not supported by your browser");
-      return;
-    }
-    setLocationOutError("");
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocationOut({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-        });
-      },
-      () => {
-        setLocationOutError("Unable to retrieve location. Please enable location access.");
-      }
-    );
-  };
 
   // Mock data (keep yours / replace with API)
   const attendanceData = [
@@ -104,9 +59,9 @@ const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
     return [
       {
         label: "Today's Status",
-        value: location ? "Ready to Time In" : "Location Required",
+        value: locationReady ? "Ready to Time In" : "Location Required",
         icon: MapPin,
-        tone: location ? "good" : "warn",
+        tone: locationReady ? "good" : "warn",
       },
       {
         label: "Late Minutes (Latest)",
@@ -121,7 +76,7 @@ const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
         tone: "neutral",
       },
     ];
-  }, [latest, location]);
+  }, [latest, locationReady]);
 
   const cardClass =
     "rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.22)]";
@@ -129,25 +84,6 @@ const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
   const subtleText = "text-white/60";
   const titleText = "text-white font-semibold tracking-[-0.02em]";
   const sectionTitle = "text-white font-semibold tracking-tight text-[clamp(0.95rem,2.4vw,1.1rem)]";
-
-  const StatusChip = ({ type, text }) => {
-    const base =
-      "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold border";
-    if (type === "success") {
-      return (
-        <div className={`${base} bg-emerald-500/10 text-emerald-300 border-emerald-500/20`}>
-          <CheckCircle className="h-4 w-4" />
-          <span>{text}</span>
-        </div>
-      );
-    }
-    return (
-      <div className={`${base} bg-red-500/10 text-red-300 border-red-500/20`}>
-        <XCircle className="h-4 w-4" />
-        <span>{text}</span>
-      </div>
-    );
-  };
 
   const Badge = ({ tone = "neutral", children }) => {
     const base = "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold border";
@@ -159,47 +95,6 @@ const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
           : "bg-white/5 text-white/70 border-white/10";
     return <span className={`${base} ${cls}`}>{children}</span>;
   };
-
-  const PrimaryButton = ({ disabled, onClick, children }) => (
-    <button
-      disabled={disabled}
-      onClick={onClick}
-      className={[
-        "w-full sm:w-auto rounded-xl px-5 py-3 font-semibold transition",
-        "shadow-[0_12px_24px_rgba(0,0,0,0.22)]",
-        disabled
-          ? "bg-white/10 text-white/40 cursor-not-allowed"
-          : "bg-[#FF7120] text-white hover:brightness-95",
-      ].join(" ")}
-    >
-      {children}
-    </button>
-  );
-
-  const GhostButton = ({ onClick, children }) => (
-    <button
-      onClick={onClick}
-      className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-white/80 hover:text-white hover:bg-white/10 transition text-sm font-semibold"
-    >
-      {children}
-    </button>
-  );
-
-  const DropZoneButton = ({ active, onClick, children }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "w-full rounded-xl border-2 border-dashed px-4 py-3 transition",
-        "flex items-center justify-center gap-2 text-sm font-semibold",
-        active
-          ? "border-[#FF7120]/60 bg-[#FF7120]/10 text-[#FF7120]"
-          : "border-white/15 bg-[#00273C]/60 text-white/60 hover:text-white hover:border-white/25",
-      ].join(" ")}
-    >
-      {children}
-    </button>
-  );
 
   return (
     <div className="min-h-screen bg-[#00273C] relative overflow-hidden">
@@ -253,9 +148,9 @@ const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
                       <ShieldCheck className="h-3.5 w-3.5 mr-1 inline" />
                       Attendance & Work Logs
                     </Badge>
-                    <Badge tone={location ? "good" : "warn"}>
-                      {location ? "Location Ready" : "Location Needed"}
-                    </Badge>
+          <Badge tone={locationReady ? "good" : "warn"}>
+            {locationReady ? "Location Ready" : "Location Needed"}
+          </Badge>
                   </div>
 
                   <p className="mt-3 text-white/50 text-sm leading-relaxed">
@@ -265,12 +160,20 @@ const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <GhostButton onClick={() => alert("Add a policy modal / route here.")}>
+                  <button
+                    type="button"
+                    onClick={() => alert("Add a policy modal / route here.")}
+                    className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition text-sm font-semibold"
+                  >
                     View Policy
-                  </GhostButton>
-                  <GhostButton onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+                    className="px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 hover:text-white transition text-sm font-semibold"
+                  >
                     Back to Top
-                  </GhostButton>
+                  </button>
                 </div>
               </div>
             </div>
@@ -298,60 +201,11 @@ const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
 
             {/* Forms */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              {/* Attendance Card */}
-              <div className={`${cardClass} p-4 sm:p-6`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className={sectionTitle}>Attendance</h3>
-                    <p className="mt-1 text-white/50 text-sm">
-                      Capture location first to enable Time In.
-                    </p>
-                  </div>
-                  <Badge tone="neutral">
-                    <Calendar className="h-3.5 w-3.5 mr-1 inline" />
-                    {selectedDate}
-                  </Badge>
-                </div>
-
-                <div className="mt-5 space-y-3">
-                  <p className="text-white/60 text-sm font-semibold">Location (Required)</p>
-
-                  {location && (
-                    <StatusChip
-                      type="success"
-                      text={`Location captured • ±${Math.round(location.accuracy)}m`}
-                    />
-                  )}
-                  {locationError && <StatusChip type="error" text={locationError} />}
-
-                  <DropZoneButton active={!!location} onClick={getLocation}>
-                    <MapPin className="h-4 w-4" />
-                    {location
-                      ? `Captured (${location.latitude.toFixed(4)}, ${location.longitude.toFixed(
-                        4
-                      )})`
-                      : "Scan location now"}
-                  </DropZoneButton>
-
-                  <div className="pt-2 flex flex-col sm:flex-row sm:items-center gap-2">
-                    <PrimaryButton
-                      disabled={!location || buttonLoading}
-                      onClick={() => {
-                        setButtonLoading(true);
-                        setTimeout(() => setButtonLoading(false), 900);
-                      }}
-                    >
-                      {buttonLoading ? "Processing..." : "Time In"}
-                    </PrimaryButton>
-
-                    <p className="text-white/45 text-xs leading-relaxed sm:max-w-[420px]">
-                      Time In available: <span className="text-white/60">5AM–12PM</span> (counted
-                      8AM–12PM), <span className="text-white/60">12:40PM–5PM</span>, and{" "}
-                      <span className="text-white/60">6:50PM–10PM</span> for overtime.
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <LocationAttendance
+                role={user?.role}
+                className={`${cardClass} p-4 sm:p-6`}
+                onStatusChange={({ ready }) => setLocationReady(ready)}
+              />
 
               {/* Work Documentation Card */}
               <div className={`${cardClass} p-4 sm:p-6`}>
@@ -397,46 +251,6 @@ const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
                     />
                   </div>
 
-                  <div className="pt-2">
-                    <p className="text-white/60 text-sm font-semibold">Location (Required)</p>
-
-                    {locationOut && (
-                      <StatusChip
-                        type="success"
-                        text={`Location captured • ±${Math.round(locationOut.accuracy)}m`}
-                      />
-                    )}
-                    {locationOutError && <StatusChip type="error" text={locationOutError} />}
-
-                    <div className="mt-2">
-                      <DropZoneButton active={!!locationOut} onClick={getLocationOut}>
-                        <MapPin className="h-4 w-4" />
-                        {locationOut
-                          ? `Captured (${locationOut.latitude.toFixed(4)}, ${locationOut.longitude.toFixed(
-                            4
-                          )})`
-                          : "Scan location now"}
-                      </DropZoneButton>
-                    </div>
-
-                    <p className="mt-2 text-white/45 text-xs">You can check out anytime.</p>
-
-                    <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-2">
-                      <PrimaryButton
-                        disabled={!locationOut || buttonLoading}
-                        onClick={() => {
-                          setButtonLoading(true);
-                          setTimeout(() => setButtonLoading(false), 900);
-                        }}
-                      >
-                        {buttonLoading ? "Processing..." : "Time Out"}
-                      </PrimaryButton>
-
-                      <p className="text-white/45 text-xs leading-relaxed">
-                        Tip: add quick bullet points (what you built, what you fixed, what you tested).
-                      </p>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -552,7 +366,7 @@ const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
                                   type="button"
                                   aria-label="Toggle work done details"
                                 >
-                                  <ChevronDown
+                                  <ChevronDownIcon
                                     className={[
                                       "h-4 w-4 transition-transform",
                                       expanded ? "rotate-180" : "rotate-0",

@@ -154,10 +154,10 @@ function TodoList({ token, user, onNotificationUpdate }) {
       fetchTodos(activeTab);
     }
     fetchGroups();
-    if (user?.role === 'coordinator' || userProfile?.is_leader) {
+    if (user?.role === 'site_coordinator' || userProfile?.is_leader) {
       fetchAvailableUsers();
     }
-    if (user?.role === 'coordinator') {
+    if (user?.role === 'site_coordinator') {
       fetchInterns();
     }
 
@@ -185,7 +185,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
 
 
 
-  const isCoordinator = user?.role === 'coordinator';
+  const isCoordinator = user?.role === 'site_coordinator';
   const isLeader = userProfile?.is_leader;
   const leaderHasGroup = groups.some(g => g.leader_id === userProfile?.id);
 

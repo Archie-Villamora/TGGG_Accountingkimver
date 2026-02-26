@@ -40,6 +40,20 @@ import { Settings } from './pages/dashboards/Accounting_Department/Settings';
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 const API_URL = `${API_BASE_URL}/accounts`;
 
+const isTokenExpired = (token) => {
+  if (!token) return true;
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+    const payload = JSON.parse(atob(padded));
+    if (!payload?.exp) return false;
+    return Date.now() >= payload.exp * 1000;
+  } catch {
+    return false;
+  }
+};
+
 const getPageFromPath = (pathname) => {
   if (!pathname.startsWith('/dashboard')) {
     return 'attendance';
@@ -64,7 +78,16 @@ axios.interceptors.request.use((config) => {
 axios.interceptors.response.use((response) => {
   return response;
 }, (error) => {
-  if (error.response && error.response.status === 401) {
+  const statusCode = error.response?.status;
+  const requestUrl = String(error.config?.url || '');
+  const token = localStorage.getItem('token');
+  const isLoginOrRegisterRequest =
+    requestUrl.includes('/accounts/login/') ||
+    requestUrl.includes('/accounts/register/') ||
+    requestUrl.includes('/token/refresh/') ||
+    requestUrl.includes('/token/verify/');
+
+  if (statusCode === 401 && token && !isLoginOrRegisterRequest) {
     window.dispatchEvent(new Event('authError'));
   }
   return Promise.reject(error);
@@ -786,7 +809,7 @@ export default function App() {
 
   const fetchNotifications = useCallback(async () => {
     const t = localStorage.getItem('token');
-    if (!t) return;
+    if (!t || isTokenExpired(t)) return;
     try {
       const res = await axios.get(`${NOTIF_API}/notifications`, {
         headers: { Authorization: `Bearer ${t}` }
@@ -821,8 +844,12 @@ export default function App() {
 
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
-    if (savedUser) {
+    const savedToken = localStorage.getItem('token');
+    if (savedUser && savedToken && !isTokenExpired(savedToken)) {
       setUser(JSON.parse(savedUser));
+    } else if (savedUser || savedToken) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
     }
     setLoading(false);
 

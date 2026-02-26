@@ -18,6 +18,11 @@ OVERTIME_REVIEWER_ROLES = {
     'president',
     'ceo',
 }
+ATTENDANCE_VIEWER_ROLES = {
+    'accounting',
+    'studio_head',
+    'admin',
+}
 
 @api_view(['GET'])
 def attendance_overview(request):
@@ -34,6 +39,10 @@ def _display_name(user):
 
 def _can_review_overtime(user):
     return bool(user.is_staff or user.is_superuser or user.role in OVERTIME_REVIEWER_ROLES)
+
+
+def _can_view_all_attendance(user):
+    return bool(user.is_staff or user.is_superuser or user.role in ATTENDANCE_VIEWER_ROLES)
 
 
 def _serialize_leave(leave):
@@ -61,13 +70,21 @@ def _serialize_leave(leave):
 
 
 def _serialize_attendance(record):
+    employee = record.employee
+    latest_log = record.logs.order_by('-timestamp').first()
     return {
         'id': record.id,
+        'employee_id': employee.id,
+        'employee_name': _display_name(employee),
+        'employee_email': employee.email,
+        'employee_department': employee.department.name if employee.department else None,
+        'employee_role': employee.get_role_display() if employee.role else None,
         'date': record.date,
         'status': record.status,
         'status_label': record.get_status_display(),
         'time_in': record.time_in.strftime('%H:%M') if record.time_in else None,
         'time_out': record.time_out.strftime('%H:%M') if record.time_out else None,
+        'location': latest_log.location if latest_log and latest_log.location else None,
         'notes': record.notes,
         'created_at': record.created_at,
         'updated_at': record.updated_at,
@@ -160,6 +177,21 @@ def my_leave_requests(request):
 @permission_classes([IsAuthenticated])
 def my_attendance_records(request):
     records = Attendance.objects.filter(employee=request.user).order_by('-date', '-created_at')
+    return Response([_serialize_attendance(record) for record in records])
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def all_attendance_records(request):
+    if not _can_view_all_attendance(request.user):
+        return Response({'error': 'Not authorized to view all attendance records.'}, status=status.HTTP_403_FORBIDDEN)
+
+    records = (
+        Attendance.objects
+        .select_related('employee', 'employee__department')
+        .prefetch_related('logs')
+        .order_by('-date', '-created_at')
+    )
     return Response([_serialize_attendance(record) for record in records])
 
 

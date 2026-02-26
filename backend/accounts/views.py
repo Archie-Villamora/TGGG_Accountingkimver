@@ -7,7 +7,7 @@ from django.contrib.auth import authenticate
 from django.core.mail import send_mail
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.conf import settings
-from .models import CustomUser, Department
+from .models import CustomUser, Department, ROLE_CHOICES
 from .serializers import CustomUserSerializer, PendingUserSerializer
 import uuid
 from supabase import create_client, Client
@@ -19,6 +19,11 @@ ALLOWED_ROLES = [
     'accounting', 'employee', 'bim_specialist', 'intern', 'junior_architect',
     'president', 'site_engineer', 'site_coordinator', 'studio_head', 'admin'
 ]
+ROLE_LABEL_TO_KEY = {label.lower(): key for key, label in ROLE_CHOICES}
+ROLE_FILTER_ALIASES = {
+    'interns': 'intern',
+    'junior designer': 'junior_architect',
+}
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -383,20 +388,35 @@ def manage_user(request, user_id):
 def accounting_employees(request):
     if not _is_accounting_or_admin(request.user):
         return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
-    
+
     from payroll.models import SalaryStructure
 
     if request.method == 'GET':
-        users = CustomUser.objects.all().select_related('department', 'salary_structure').order_by('last_name', 'first_name')
-        
+        # Approved/verified users are represented by is_active=True in this project.
+        active_only = request.query_params.get('active_only', 'true').lower() != 'false'
+        requested_role = (request.query_params.get('role') or '').strip().lower()
+        requested_department = (request.query_params.get('department') or '').strip()
+
+        users_qs = CustomUser.objects.select_related('department', 'salary_structure').order_by('last_name', 'first_name')
+        if active_only:
+            users_qs = users_qs.filter(is_active=True)
+        if requested_department:
+            users_qs = users_qs.filter(department__name__iexact=requested_department)
+        if requested_role:
+            normalized_role = ROLE_FILTER_ALIASES.get(requested_role, requested_role)
+            if normalized_role in ROLE_LABEL_TO_KEY:
+                normalized_role = ROLE_LABEL_TO_KEY[normalized_role]
+            if normalized_role in ALLOWED_ROLES:
+                users_qs = users_qs.filter(role=normalized_role)
+
         data = []
-        for user in users:
+        for user in users_qs:
             salary = 0
             if hasattr(user, 'salary_structure'):
                 salary = float(user.salary_structure.base_salary)
-                
+
             status_text = 'Active' if user.is_active else 'Inactive'
-            
+
             data.append({
                 'id': user.id,
                 'name': f"{user.first_name} {user.last_name}".strip(),
@@ -416,47 +436,60 @@ def accounting_employees(request):
 
     elif request.method == 'POST':
         # Create a new employee
-        email = request.data.get('email')
-        first_name = request.data.get('first_name', '')
-        last_name = request.data.get('last_name', '')
-        phone = request.data.get('phone', '')
+        email = (request.data.get('email') or '').strip().lower()
+        first_name = (request.data.get('first_name') or '').strip()
+        last_name = (request.data.get('last_name') or '').strip()
+        phone = (request.data.get('phone') or '').strip()
         department_name = request.data.get('department')
-        position_role = request.data.get('position')
+        position_role = (request.data.get('position') or '').strip()
+        temporary_password = (request.data.get('temporary_password') or '').strip()
         salary_amount = request.data.get('salary', 0)
         start_date = request.data.get('startDate')
-        
-        if not email:
-            return Response({'error': 'Email is required'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
+        if not email or not first_name or not last_name:
+            return Response({'error': 'Email, first name, and last name are required'}, status=status.HTTP_400_BAD_REQUEST)
+        if not temporary_password or len(temporary_password) < 8:
+            return Response({'error': 'temporary_password is required and must be at least 8 characters'}, status=status.HTTP_400_BAD_REQUEST)
+
         if CustomUser.objects.filter(email=email).exists():
             return Response({'error': 'User with this email already exists'}, status=status.HTTP_400_BAD_REQUEST)
-            
+
         try:
             with transaction.atomic():
                 dept = None
                 if department_name:
                     dept = Department.objects.filter(name=department_name).first()
 
-                # Infer role from position string or set to 'employee' if not matching perfectly.
-                # In real scenario, position should map to allowable roles, we will just use 'employee' if no exact match.
+                # Allow exact role key (e.g. "site_engineer") or display label (e.g. "Site Engineer").
                 role_key = 'employee'
-                for r_key, r_display in ALLOWED_ROLES:
-                    if r_display.lower() == str(position_role).lower():
-                        role_key = r_key
-                        break
+                position_lower = position_role.lower()
+                position_lower = ROLE_FILTER_ALIASES.get(position_lower, position_lower)
+                if position_lower in ALLOWED_ROLES:
+                    role_key = position_lower
+                elif position_lower in ROLE_LABEL_TO_KEY:
+                    mapped = ROLE_LABEL_TO_KEY[position_lower]
+                    if mapped in ALLOWED_ROLES:
+                        role_key = mapped
+
+                username_base = email.split('@')[0] if '@' in email else email
+                username = username_base
+                suffix = 1
+                while CustomUser.objects.filter(username=username).exists():
+                    username = f"{username_base}{suffix}"
+                    suffix += 1
 
                 user = CustomUser.objects.create(
                     email=email,
-                    username=email.split('@')[0],
+                    username=username,
                     first_name=first_name,
                     last_name=last_name,
                     phone_number=phone,
                     department=dept,
                     role=role_key,
-                    is_active=True,
+                    is_active=False,
                     date_hired=start_date if start_date else None
                 )
-                user.set_password('TripleG123!') # default password
+                user.set_password(temporary_password)
                 user.save()
 
                 if salary_amount:
@@ -466,7 +499,42 @@ def accounting_employees(request):
                         frequency='monthly'
                     )
             
-            return Response({'success': True, 'message': 'Employee created successfully'}, status=status.HTTP_201_CREATED)
+            email_sent = False
+            try:
+                email_message = f"""
+Hello {first_name} {last_name},
+
+Your Triple G account has been created by the Accounting Department.
+
+Account Details:
+- Email: {email}
+- Temporary Password: {temporary_password}
+- Department: {dept.name if dept else 'N/A'}
+- Role: {user.get_role_display() if user.role else 'N/A'}
+
+Important:
+Your account is currently pending verification. You cannot log in yet until a Studio Head or Admin approves your account.
+You will receive another confirmation once your account is activated.
+
+Best regards,
+Triple G Admin
+                """.strip()
+                send_mail(
+                    subject='Triple G Account Created - Pending Verification',
+                    message=email_message,
+                    from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+                    recipient_list=[email],
+                    fail_silently=False,
+                )
+                email_sent = True
+            except Exception as e:
+                print(f"Account creation email failed: {str(e)}")
+
+            return Response({
+                'success': True,
+                'email_sent': email_sent,
+                'message': 'Employee created and submitted for Studio Head/Admin verification.'
+            }, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -495,32 +563,59 @@ def accounting_employee_detail(request, user_id):
             with transaction.atomic():
                 first_name = request.data.get('first_name')
                 last_name = request.data.get('last_name')
+                email = request.data.get('email')
                 phone = request.data.get('phone')
                 department_name = request.data.get('department')
                 position_role = request.data.get('position')
                 salary_amount = request.data.get('salary')
                 start_date = request.data.get('startDate')
                 status_text = request.data.get('status')
-                
-                if first_name is not None: user.first_name = first_name
-                if last_name is not None: user.last_name = last_name
-                if phone is not None: user.phone_number = phone
-                if start_date is not None: user.date_hired = start_date
-                
+
+                if first_name is not None:
+                    user.first_name = str(first_name).strip()
+                if last_name is not None:
+                    user.last_name = str(last_name).strip()
+                if email is not None:
+                    normalized_email = str(email).strip().lower()
+                    if not normalized_email:
+                        return Response({'error': 'Email cannot be empty'}, status=status.HTTP_400_BAD_REQUEST)
+                    existing = CustomUser.objects.filter(email=normalized_email).exclude(id=user.id).exists()
+                    if existing:
+                        return Response({'error': 'User with this email already exists'}, status=status.HTTP_400_BAD_REQUEST)
+                    user.email = normalized_email
+                if phone is not None:
+                    user.phone_number = str(phone).strip()
+                if start_date is not None:
+                    user.date_hired = start_date
+
                 if status_text is not None:
                     user.is_active = (status_text == 'Active')
-                
+
                 if department_name is not None:
-                    dept = Department.objects.filter(name=department_name).first()
-                    user.department = dept
-                
+                    name_clean = str(department_name).strip()
+                    if not name_clean:
+                        user.department = None
+                    else:
+                        dept = Department.objects.filter(name=name_clean).first()
+                        user.department = dept
+
                 if position_role is not None:
-                    # just setting it roughly, or handle mapped roles in real logic.
-                    user.role = 'employee'
-                    
+                    position_lower = str(position_role).strip().lower()
+                    position_lower = ROLE_FILTER_ALIASES.get(position_lower, position_lower)
+                    next_role = None
+                    if position_lower in ALLOWED_ROLES:
+                        next_role = position_lower
+                    elif position_lower in ROLE_LABEL_TO_KEY:
+                        mapped = ROLE_LABEL_TO_KEY[position_lower]
+                        if mapped in ALLOWED_ROLES:
+                            next_role = mapped
+                    if next_role is None:
+                        return Response({'error': 'Invalid role/position'}, status=status.HTTP_400_BAD_REQUEST)
+                    user.role = next_role
+
                 user.save()
-                
-                if salary_amount is not None:
+
+                if salary_amount is not None and str(salary_amount).strip() != '':
                     salary_obj, created = SalaryStructure.objects.get_or_create(
                         employee=user,
                         defaults={'base_salary': salary_amount, 'frequency': 'monthly'}
@@ -531,4 +626,3 @@ def accounting_employee_detail(request, user_id):
             return Response({'success': True, 'message': 'Employee updated successfully'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import {
   Avatar,
   AvatarFallback,
@@ -23,9 +24,6 @@ import {
 } from '../../../components/ui/accounting-ui';
 import { 
   DollarSign, 
-  Users, 
-  Calendar,
-  FileText,
   Settings,
   BarChart3,
   Download,
@@ -36,99 +34,104 @@ import {
   Trash2
 } from 'lucide-react';
 
-// Mock employee data
-const mockEmployees = [
-  { 
-    id: 'EMP001', 
-    name: 'Sarah Johnson', 
-    avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b1d3?w=40&h=40&fit=crop&crop=face',
-    position: 'Senior Developer'
-  },
-  { 
-    id: 'EMP002', 
-    name: 'Mike Chen', 
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face',
-    position: 'Marketing Manager'
-  },
-  { 
-    id: 'EMP003', 
-    name: 'Lisa Brown', 
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=40&h=40&fit=crop&crop=face',
-    position: 'HR Specialist'
-  },
-  { 
-    id: 'EMP004', 
-    name: 'David Wilson', 
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face',
-    position: 'Sales Lead'
-  },
-  { 
-    id: 'EMP005', 
-    name: 'Emma Davis', 
-    avatar: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=40&h=40&fit=crop&crop=face',
-    position: 'Product Designer'
-  },
-];
+const formatDateInput = (value) => {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toISOString().split('T')[0];
+};
 
-// Mock attendance data for calculation
-const mockAttendanceData = {
-  'EMP001': {
-    '2024-01': { totalDays: 22, totalHours: 176, lateCount: 2, leaveCount: 0, absences: 0 },
-    '2024-02': { totalDays: 20, totalHours: 160, lateCount: 1, leaveCount: 1, absences: 0 },
-    '2024-03': { totalDays: 21, totalHours: 168, lateCount: 0, leaveCount: 2, absences: 1 },
-  },
-  'EMP002': {
-    '2024-01': { totalDays: 20, totalHours: 160, lateCount: 5, leaveCount: 2, absences: 0 },
-    '2024-02': { totalDays: 19, totalHours: 152, lateCount: 3, leaveCount: 1, absences: 1 },
-    '2024-03': { totalDays: 22, totalHours: 176, lateCount: 2, leaveCount: 0, absences: 0 },
-  },
-  'EMP003': {
-    '2024-01': { totalDays: 22, totalHours: 176, lateCount: 1, leaveCount: 0, absences: 0 },
-    '2024-02': { totalDays: 20, totalHours: 160, lateCount: 0, leaveCount: 0, absences: 0 },
-    '2024-03': { totalDays: 21, totalHours: 168, lateCount: 1, leaveCount: 1, absences: 0 },
-  },
-  'EMP004': {
-    '2024-01': { totalDays: 21, totalHours: 168, lateCount: 4, leaveCount: 1, absences: 0 },
-    '2024-02': { totalDays: 19, totalHours: 152, lateCount: 2, leaveCount: 0, absences: 1 },
-    '2024-03': { totalDays: 20, totalHours: 160, lateCount: 3, leaveCount: 2, absences: 0 },
-  },
-  'EMP005': {
-    '2024-01': { totalDays: 22, totalHours: 176, lateCount: 0, leaveCount: 0, absences: 0 },
-    '2024-02': { totalDays: 20, totalHours: 160, lateCount: 0, leaveCount: 0, absences: 0 },
-    '2024-03': { totalDays: 21, totalHours: 168, lateCount: 0, leaveCount: 0, absences: 0 },
-  },
+const getDefaultPayrollRange = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const day = now.getDate();
+  const monthStart = new Date(year, month, 1);
+  const midMonth = new Date(year, month, 15);
+  const secondHalfStart = new Date(year, month, 16);
+  const monthEnd = new Date(year, month + 1, 0);
+
+  if (day <= 15) {
+    return {
+      startDate: formatDateInput(monthStart),
+      endDate: formatDateInput(midMonth),
+    };
+  }
+
+  return {
+    startDate: formatDateInput(secondHalfStart),
+    endDate: formatDateInput(monthEnd),
+  };
+};
+
+const formatCurrency = (amount) => {
+  const value = Number(amount || 0);
+  return `₱${value.toFixed(2)}`;
+};
+
+const toNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const escapeHtml = (value) => {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
+const formatDisplayDate = (value) => {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+};
+
+const detectFrequencyLabel = (periodStart, periodEnd) => {
+  const start = new Date(periodStart);
+  const end = new Date(periodEnd);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 'Bi-Weekly';
+  const days = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  if (days <= 16) return 'Bi-Weekly';
+  if (days <= 22) return 'Semi-Monthly';
+  return 'Monthly';
 };
 
 export function PayrollManagement() {
+  const defaultRange = getDefaultPayrollRange();
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
   const [isProcessPayrollOpen, setIsProcessPayrollOpen] = useState(false);
   const [isExportReportOpen, setIsExportReportOpen] = useState(false);
   const [isTaxDeductionsOpen, setIsTaxDeductionsOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState('');
+  const [selectedStartDate, setSelectedStartDate] = useState(defaultRange.startDate);
+  const [selectedEndDate, setSelectedEndDate] = useState(defaultRange.endDate);
   const [selectedMonth, setSelectedMonth] = useState('01');
   const [selectedYear, setSelectedYear] = useState('2024');
   const [dailySalary, setDailySalary] = useState('');
   const [payrollPeriod, setPayrollPeriod] = useState('1-15');
-  const [deductions, setDeductions] = useState([
-    { id: 1, name: 'SSS Contribution', rate: 4.5, type: 'percentage' },
-    { id: 2, name: 'PhilHealth', rate: 2, type: 'percentage' },
-    { id: 3, name: 'Pag-IBIG', rate: 100, type: 'fixed' },
-  ]);
+  const [employees, setEmployees] = useState([]);
+  const [recentPayrollRecords, setRecentPayrollRecords] = useState([]);
+  const [isLoadingPayrollData, setIsLoadingPayrollData] = useState(true);
+  const [isFetchingAttendance, setIsFetchingAttendance] = useState(false);
+  const [isProcessingPayroll, setIsProcessingPayroll] = useState(false);
+  const [isSavingDeduction, setIsSavingDeduction] = useState(false);
+  const [isLoadingDeductions, setIsLoadingDeductions] = useState(false);
+  const [payrollError, setPayrollError] = useState('');
+  const [deductionError, setDeductionError] = useState('');
+  const [deductions, setDeductions] = useState([]);
   const [newDeductionName, setNewDeductionName] = useState('');
   const [newDeductionRate, setNewDeductionRate] = useState('');
   const [newDeductionType, setNewDeductionType] = useState('percentage');
   
-  // Attendance data for selected employee and month
+  // Attendance data for selected employee and period
   const [attendanceData, setAttendanceData] = useState(null);
 
   // Calculate payroll whenever inputs change
   const [calculations, setCalculations] = useState(null);
-
-  const mockPayrollData = {
-    totalPayroll: 1240000,
-    employeesProcessed: 247,
-    pendingApprovals: 3,
-    nextPayrollDate: '2024-01-31',
-  };
 
   const currentYear = new Date().getFullYear();
   const years = [currentYear, currentYear - 1, currentYear - 2];
@@ -148,16 +151,79 @@ export function PayrollManagement() {
     { value: '12', label: 'December' },
   ];
 
-  // Update attendance data when employee or month changes
-  useEffect(() => {
-    if (selectedEmployee && selectedMonth && selectedYear) {
-      const key = `${selectedYear}-${selectedMonth}`;
-      const data = mockAttendanceData[selectedEmployee]?.[key];
-      setAttendanceData(data || null);
-    } else {
-      setAttendanceData(null);
+  const fetchPayrollData = async () => {
+    setIsLoadingPayrollData(true);
+    setIsLoadingDeductions(true);
+    setPayrollError('');
+    setDeductionError('');
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+      const [employeesResponse, recentResponse, deductionsResponse] = await Promise.all([
+        axios.get(`${API_URL}/payroll/employees/`, { headers }),
+        axios.get(`${API_URL}/payroll/recent/`, { headers }),
+        axios.get(`${API_URL}/payroll/deductions/`, { headers }),
+      ]);
+
+      setEmployees(Array.isArray(employeesResponse.data) ? employeesResponse.data : []);
+      setRecentPayrollRecords(Array.isArray(recentResponse.data) ? recentResponse.data : []);
+      setDeductions(Array.isArray(deductionsResponse.data) ? deductionsResponse.data : []);
+    } catch (error) {
+      console.error('Failed to load payroll data:', error);
+      setPayrollError(error.response?.data?.error || 'Failed to load payroll data.');
+      setDeductionError(error.response?.data?.error || 'Failed to load deductions.');
+    } finally {
+      setIsLoadingPayrollData(false);
+      setIsLoadingDeductions(false);
     }
-  }, [selectedEmployee, selectedMonth, selectedYear]);
+  };
+
+  useEffect(() => {
+    fetchPayrollData();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedEmployee || !selectedStartDate || !selectedEndDate) {
+      setAttendanceData(null);
+      return;
+    }
+
+    if (selectedEndDate < selectedStartDate) {
+      setAttendanceData(null);
+      return;
+    }
+
+    const fetchAttendanceSummary = async () => {
+      setIsFetchingAttendance(true);
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API_URL}/payroll/attendance-summary/`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: {
+            employee_id: selectedEmployee,
+            start_date: selectedStartDate,
+            end_date: selectedEndDate,
+          },
+        });
+        setAttendanceData(response.data || null);
+      } catch (error) {
+        console.error('Failed to load attendance summary:', error);
+        setAttendanceData(null);
+      } finally {
+        setIsFetchingAttendance(false);
+      }
+    };
+
+    fetchAttendanceSummary();
+  }, [selectedEmployee, selectedStartDate, selectedEndDate]);
+
+  useEffect(() => {
+    if (!selectedEmployee) return;
+    const employee = employees.find((item) => item.id === selectedEmployee);
+    if (employee?.default_daily_rate) {
+      setDailySalary(employee.default_daily_rate);
+    }
+  }, [selectedEmployee, employees]);
 
   // Calculate payroll
   useEffect(() => {
@@ -172,68 +238,373 @@ export function PayrollManagement() {
       const absenceDeduction = dailyRate * attendanceData.absences;
       const lateDeduction = (dailyRate * 0.1) * attendanceData.lateCount; // 10% per late
       const leaveDeduction = dailyRate * attendanceData.leaveCount;
-      
-      // SSS, PhilHealth, Pag-IBIG (sample rates)
-      const sssContribution = baseSalary * 0.045; // 4.5%
-      const philHealthContribution = baseSalary * 0.02; // 2%
-      const pagIbigContribution = 100; // Fixed
-      
-      // Tax (simplified - 0-20k: 0%, 20k-40k: 15%, above: 20%)
-      let taxAmount = 0;
-      if (baseSalary > 40000) {
-        taxAmount = (baseSalary - 40000) * 0.20 + 3000;
-      } else if (baseSalary > 20000) {
-        taxAmount = (baseSalary - 20000) * 0.15;
-      }
+
+      const configuredDeductionItems = deductions.map((item) => {
+        const rate = toNumber(item.rate);
+        const computedAmount = item.type === 'percentage'
+          ? (baseSalary * (rate / 100))
+          : rate;
+        return {
+          id: item.id,
+          name: item.name,
+          category: item.category || 'other',
+          type: item.type,
+          rate,
+          amount: Number(computedAmount.toFixed(2)),
+        };
+      });
+      const configuredDeductionsTotal = configuredDeductionItems.reduce((sum, item) => sum + item.amount, 0);
+      const taxAmount = configuredDeductionItems
+        .filter((item) => item.category === 'tax')
+        .reduce((sum, item) => sum + item.amount, 0);
       
       const totalDeductions = 
         absenceDeduction + 
         lateDeduction + 
         leaveDeduction + 
-        sssContribution + 
-        philHealthContribution + 
-        pagIbigContribution + 
-        taxAmount;
+        configuredDeductionsTotal;
       
       const netSalary = baseSalary - totalDeductions;
       
       setCalculations({
         baseSalary,
+        grossSalary: baseSalary,
         deductions: {
           absences: absenceDeduction,
           late: lateDeduction,
           leave: leaveDeduction,
-          sss: sssContribution,
-          philHealth: philHealthContribution,
-          pagIbig: pagIbigContribution,
           tax: taxAmount,
         },
+        deductionItems: configuredDeductionItems,
+        configuredDeductionsTotal,
         totalDeductions,
         netSalary,
       });
     } else {
       setCalculations(null);
     }
-  }, [attendanceData, dailySalary]);
+  }, [attendanceData, dailySalary, deductions]);
 
   const handleProcessPayroll = () => {
     setIsProcessPayrollOpen(true);
   };
 
+  const handleOpenTaxDeductions = async () => {
+    setIsTaxDeductionsOpen(true);
+    try {
+      setIsLoadingDeductions(true);
+      setDeductionError('');
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/payroll/deductions/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setDeductions(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      setDeductionError(error.response?.data?.error || 'Failed to load deductions.');
+    } finally {
+      setIsLoadingDeductions(false);
+    }
+  };
+
+  const handleAddDeduction = async () => {
+    const name = newDeductionName.trim();
+    const rate = newDeductionRate;
+    if (!name || rate === '') {
+      alert('Deduction name and rate/amount are required.');
+      return;
+    }
+
+    setIsSavingDeduction(true);
+    setDeductionError('');
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `${API_URL}/payroll/deductions/`,
+        {
+          name,
+          type: newDeductionType,
+          rate,
+          category: newDeductionType === 'percentage' ? 'tax' : 'other',
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setDeductions((prev) => [...prev, response.data]);
+      setNewDeductionName('');
+      setNewDeductionRate('');
+    } catch (error) {
+      const message = error.response?.data?.error || 'Failed to save deduction.';
+      setDeductionError(message);
+      alert(message);
+    } finally {
+      setIsSavingDeduction(false);
+    }
+  };
+
+  const handleDeleteDeduction = async (deductionId) => {
+    const confirmed = window.confirm('Delete this deduction?');
+    if (!confirmed) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API_URL}/payroll/deductions/${deductionId}/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setDeductions((prev) => prev.filter((item) => item.id !== deductionId));
+    } catch (error) {
+      const message = error.response?.data?.error || 'Failed to delete deduction.';
+      setDeductionError(message);
+      alert(message);
+    }
+  };
+
   const handleCloseModal = () => {
     setIsProcessPayrollOpen(false);
     setSelectedEmployee('');
-    setSelectedMonth('01');
-    setSelectedYear('2024');
+    setSelectedStartDate(defaultRange.startDate);
+    setSelectedEndDate(defaultRange.endDate);
     setDailySalary('');
     setAttendanceData(null);
     setCalculations(null);
   };
 
-  const handleGeneratePayslip = () => {
-    // In a real app, this would generate a PDF or send to processing
-    alert(`Payslip generated for ${mockEmployees.find(e => e.id === selectedEmployee)?.name}\nNet Salary: ₱${calculations?.netSalary.toFixed(2)}`);
-    handleCloseModal();
+  const renderPayslipPrintDocument = (printWindow, payload) => {
+    if (!printWindow) return;
+
+    const slip = payload?.payslip || {};
+    const calc = payload?.calculation || {};
+    const deductionItems = Array.isArray(calc?.deduction_items) ? calc.deduction_items : [];
+
+    const employeeName = slip.employee_name || selectedEmployeeData?.name || 'Employee';
+    const designation = slip.employee_role || selectedEmployeeData?.position || 'Employee';
+    const periodStart = slip.period_start || selectedStartDate;
+    const periodEnd = slip.period_end || selectedEndDate;
+    const frequency = detectFrequencyLabel(periodStart, periodEnd);
+
+    const baseSalary = Number(slip.base_salary ?? calc.base_salary ?? 0);
+    const overtimeAmount = Number(slip.overtime_amount ?? 0);
+    const grossSalary = Number(slip.gross_salary ?? 0);
+    const netSalary = Number(slip.net_salary ?? calc.net_salary ?? 0);
+    const totalDeductions = Number(slip.deductions_total ?? calc.total_deductions ?? 0);
+    const deductionRowsHtml = deductionItems.length
+      ? deductionItems
+          .map((item) => {
+            const amount = toNumber(item.amount);
+            if (amount <= 0) return '';
+            return `<div class="row"><span>${escapeHtml(item.name || 'Deduction')}</span><span>${escapeHtml(formatCurrency(amount))}</span></div>`;
+          })
+          .join('')
+      : `<div class="row"><span>No configured deductions</span><span>${escapeHtml(formatCurrency(0))}</span></div>`;
+
+    const logoUrl = `${window.location.origin}/formlogo.png`;
+    const payDateText = `${formatDisplayDate(periodStart)} to ${formatDisplayDate(periodEnd)}`;
+
+    const html = `
+      <html>
+        <head>
+          <title>TGGG Payslip - ${escapeHtml(employeeName)}</title>
+          <style>
+            @page { size: A4; margin: 12mm; }
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              background: #f2f2f2;
+              font-family: Arial, sans-serif;
+              color: #111;
+              padding: 12px;
+            }
+            .sheet {
+              width: 100%;
+              max-width: 880px;
+              margin: 0 auto;
+              background: #fff;
+              border: 2px solid #111;
+            }
+            .header-logo {
+              width: 100%;
+              display: block;
+              border-bottom: 1px solid #111;
+            }
+            .bar {
+              background: #f39b3a;
+              color: #111;
+              text-align: center;
+              font-weight: 700;
+              font-size: 18px;
+              padding: 8px 10px;
+              border-top: 1px solid #111;
+              border-bottom: 1px solid #111;
+            }
+            .bar.small {
+              font-size: 18px;
+              padding: 6px 10px;
+            }
+            .meta {
+              padding: 10px 14px 4px;
+              font-size: 13px;
+              display: grid;
+              grid-template-columns: 160px 1fr 150px 120px;
+              gap: 4px 10px;
+            }
+            .label { color: #333; }
+            .value { font-weight: 700; }
+            .section {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 20px;
+              padding: 8px 14px 14px;
+              border-bottom: 2px solid #111;
+            }
+            .col-title {
+              font-size: 16px;
+              font-weight: 700;
+              margin-bottom: 6px;
+            }
+            .row {
+              display: flex;
+              justify-content: space-between;
+              align-items: baseline;
+              font-size: 14px;
+              padding: 3px 0;
+            }
+            .row strong {
+              font-size: 16px;
+            }
+            .signatures {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 60px;
+              padding: 24px 20px 16px;
+              font-size: 13px;
+            }
+            .sig-line {
+              border-top: 1px solid #111;
+              margin-top: 28px;
+              padding-top: 6px;
+              text-align: center;
+            }
+            .prepared {
+              margin-bottom: 8px;
+            }
+            @media print {
+              body { background: #fff; padding: 0; }
+              .sheet { border: 2px solid #111; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="sheet">
+            <img class="header-logo" src="${escapeHtml(logoUrl)}" alt="Triple G Logo" />
+            <div class="bar small">TGGG PAYSLIP ${escapeHtml(payDateText)}</div>
+
+            <div class="meta">
+              <div class="label">Employee Name:</div>
+              <div class="value">${escapeHtml(employeeName)}</div>
+              <div class="label">Pay Frequency:</div>
+              <div class="value">${escapeHtml(frequency)}</div>
+
+              <div class="label">Designation:</div>
+              <div class="value">${escapeHtml(designation)}</div>
+              <div class="label">Net Amount:</div>
+              <div class="value">${escapeHtml(formatCurrency(netSalary))}</div>
+            </div>
+
+            <div class="section">
+              <div>
+                <div class="col-title">Earnings</div>
+                <div class="row"><span>Basic Salary</span><span>${escapeHtml(formatCurrency(baseSalary))}</span></div>
+                <div class="row"><span>Regular Overtime</span><span>${escapeHtml(formatCurrency(overtimeAmount))}</span></div>
+                <div class="row"><span>Late/Undertime</span><span>${escapeHtml(formatCurrency(0))}</span></div>
+                <div class="row"><span>Rest Day</span><span>${escapeHtml(formatCurrency(0))}</span></div>
+                <div class="row"><span>Rest Day OT</span><span>${escapeHtml(formatCurrency(0))}</span></div>
+                <div class="row"><span>Holiday</span><span>${escapeHtml(formatCurrency(0))}</span></div>
+                <div class="row" style="margin-top: 8px;"><strong>GROSS Amount</strong><strong>${escapeHtml(formatCurrency(grossSalary))}</strong></div>
+              </div>
+
+              <div>
+                <div class="col-title">Deductions</div>
+                ${deductionRowsHtml}
+                <div class="row" style="margin-top: 8px;"><strong>Total Deductions</strong><strong>${escapeHtml(formatCurrency(totalDeductions))}</strong></div>
+              </div>
+            </div>
+
+            <div class="bar">SALARY NET PAY ${escapeHtml(formatCurrency(netSalary))}</div>
+
+            <div class="signatures">
+              <div>
+                <div class="prepared">Prepared by:</div>
+                <div class="sig-line">
+                  Accounting Department
+                </div>
+              </div>
+              <div>
+                <div class="prepared">Approved by:</div>
+                <div class="sig-line">
+                  Top Management
+                </div>
+              </div>
+            </div>
+          </div>
+          <script>
+            window.onload = function () {
+              setTimeout(function () { window.print(); }, 350);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
+  const handleGeneratePayslip = async () => {
+    if (!selectedEmployee || !selectedStartDate || !selectedEndDate) {
+      alert('Please select employee, start date, and end date.');
+      return;
+    }
+
+    if (selectedEndDate < selectedStartDate) {
+      alert('End date cannot be earlier than start date.');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Popup blocked. Please allow popups to generate and print payslip.');
+      return;
+    }
+    printWindow.document.write('<html><body style="font-family:Arial,sans-serif;padding:20px;">Preparing payslip...</body></html>');
+    printWindow.document.close();
+
+    setIsProcessingPayroll(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `${API_URL}/payroll/process/`,
+        {
+          employee_id: selectedEmployee,
+          period_start: selectedStartDate,
+          period_end: selectedEndDate,
+          daily_salary: dailySalary || null,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      const name = response.data?.payslip?.employee_name || selectedEmployeeData?.name || 'Employee';
+      const netSalary = response.data?.payslip?.net_salary || '0.00';
+      renderPayslipPrintDocument(printWindow, response.data);
+      alert(`Payslip generated for ${name}\nNet Salary: ${formatCurrency(netSalary)}\n\nA print-ready payslip has been opened.`);
+      await fetchPayrollData();
+      handleCloseModal();
+    } catch (error) {
+      if (printWindow && !printWindow.closed) {
+        printWindow.close();
+      }
+      alert(error.response?.data?.error || 'Failed to process payroll.');
+    } finally {
+      setIsProcessingPayroll(false);
+    }
   };
 
   const handleExportReport = () => {
@@ -243,7 +614,7 @@ export function PayrollManagement() {
     setIsExportReportOpen(false);
   };
 
-  const selectedEmployeeData = mockEmployees.find(e => e.id === selectedEmployee);
+  const selectedEmployeeData = employees.find(e => e.id === selectedEmployee);
 
   return (
     <div className="space-y-6">
@@ -284,7 +655,7 @@ export function PayrollManagement() {
             <Button 
               variant="outline" 
               className="h-20 flex-col gap-2"
-              onClick={() => setIsTaxDeductionsOpen(true)}
+              onClick={handleOpenTaxDeductions}
             >
               <Settings className="w-6 h-6" />
               Manage Tax/Deductions
@@ -303,29 +674,41 @@ export function PayrollManagement() {
           <CardTitle>Recent Payroll Records</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {mockEmployees.slice(0, 5).map((employee) => (
-              <div key={employee.id} className="flex items-center justify-between p-4 rounded-lg border border-border/50 transition-colors">
-                <div className="flex items-center gap-4">
-                  <Avatar>
-                    <AvatarImage src={employee.avatar} alt={employee.name} />
-                    <AvatarFallback>{employee.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">{employee.name}</p>
-                    <p className="text-sm text-muted-foreground">{employee.position}</p>
+          {isLoadingPayrollData ? (
+            <p className="text-sm text-muted-foreground">Loading payroll records...</p>
+          ) : payrollError ? (
+            <p className="text-sm text-red-600">{payrollError}</p>
+          ) : recentPayrollRecords.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No payroll records yet. Process payroll to generate records.</p>
+          ) : (
+            <div className="space-y-3">
+              {recentPayrollRecords.map((record) => (
+                <div key={record.id} className="flex items-center justify-between p-4 rounded-lg border border-border/50 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <Avatar>
+                      <AvatarImage src={record.employee_avatar} alt={record.employee_name} />
+                      <AvatarFallback>{(record.employee_name || '?').split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">{record.employee_name}</p>
+                      <p className="text-sm text-muted-foreground">{record.employee_role || 'Employee'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="text-sm font-medium">{formatCurrency(record.net_salary)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {record.period_start} to {record.period_end}
+                      </p>
+                    </div>
+                    <Badge className="bg-primary/10 text-primary border-primary">
+                      {record.status_label || 'Processed'}
+                    </Badge>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <p className="text-sm font-medium">₱{(Math.random() * 30000 + 20000).toFixed(2)}</p>
-                    <p className="text-xs text-muted-foreground">January 2024</p>
-                  </div>
-                  <Badge className="bg-primary/10 text-primary border-primary">Processed</Badge>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -379,21 +762,11 @@ export function PayrollManagement() {
                 </div>
                 <Button 
                   className="w-full gap-2 h-9"
-                  onClick={() => {
-                    if (newDeductionName && newDeductionRate) {
-                      setDeductions([...deductions, {
-                        id: Date.now(),
-                        name: newDeductionName,
-                        rate: parseFloat(newDeductionRate),
-                        type: newDeductionType
-                      }]);
-                      setNewDeductionName('');
-                      setNewDeductionRate('');
-                    }
-                  }}
+                  onClick={handleAddDeduction}
+                  disabled={isSavingDeduction}
                 >
                   <Plus className="w-4 h-4" />
-                  Add Deduction
+                  {isSavingDeduction ? 'Saving...' : 'Add Deduction'}
                 </Button>
               </div>
             </div>
@@ -401,28 +774,35 @@ export function PayrollManagement() {
             {/* Existing Deductions */}
             <div className="space-y-2">
               <h3 className="text-sm font-semibold text-white px-1">Current Deductions</h3>
-              <div className="space-y-2">
-                {deductions.map((deduction) => (
-                  <div key={deduction.id} className="p-3 rounded-lg bg-[#021B2C]/30 border border-[#AEAAAA]/10 hover:bg-[#021B2C]/50 transition-colors">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-white">{deduction.name}</p>
-                        <p className="text-xs text-[#AEAAAA] mt-1">
-                          {deduction.type === 'percentage' ? `${deduction.rate}%` : `₱${deduction.rate}`}
-                        </p>
+              {deductionError ? <p className="text-xs text-red-500 px-1">{deductionError}</p> : null}
+              {isLoadingDeductions ? (
+                <p className="text-sm text-muted-foreground px-1">Loading deductions...</p>
+              ) : deductions.length === 0 ? (
+                <p className="text-sm text-muted-foreground px-1">No deductions configured yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {deductions.map((deduction) => (
+                    <div key={deduction.id} className="p-3 rounded-lg bg-[#021B2C]/30 border border-[#AEAAAA]/10 hover:bg-[#021B2C]/50 transition-colors">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-white">{deduction.name}</p>
+                          <p className="text-xs text-[#AEAAAA] mt-1">
+                            {deduction.type === 'percentage' ? `${deduction.rate}%` : `₱${deduction.rate}`}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteDeduction(deduction.id)}
+                          className="text-red-500 hover:text-red-600 hover:bg-red-500/10 h-8 w-8 p-0"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDeductions(deductions.filter(d => d.id !== deduction.id))}
-                        className="text-red-500 hover:text-red-600 hover:bg-red-500/10 h-8 w-8 p-0"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -534,11 +914,11 @@ export function PayrollManagement() {
                   <SelectValue placeholder="Choose an employee" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mockEmployees.map(emp => (
+                  {employees.map(emp => (
                     <SelectItem key={emp.id} value={emp.id}>
                       <div className="flex items-center gap-2">
                         <span>{emp.name}</span>
-                        <span className="text-xs text-muted-foreground">({emp.id})</span>
+                        <span className="text-xs text-muted-foreground">({emp.employee_id || `ID-${emp.user_id}`})</span>
                       </div>
                     </SelectItem>
                   ))}
@@ -546,37 +926,27 @@ export function PayrollManagement() {
               </Select>
             </div>
 
-            {/* Month and Year Selection */}
+            {/* Payroll Date Range (15-day cycle) */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="month">Month</Label>
-                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                  <SelectTrigger className="bg-[#021B2C] border-[#AEAAAA]/20 text-white">
-                    <SelectValue placeholder="Select month" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {months.map(month => (
-                      <SelectItem key={month.value} value={month.value}>
-                        {month.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="periodStart">Start Date</Label>
+                <Input
+                  id="periodStart"
+                  type="date"
+                  value={selectedStartDate}
+                  onChange={(e) => setSelectedStartDate(e.target.value)}
+                  className="bg-[#021B2C] border-[#AEAAAA]/20 text-white"
+                />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="year">Year</Label>
-                <Select value={selectedYear} onValueChange={setSelectedYear}>
-                  <SelectTrigger className="bg-[#021B2C] border-[#AEAAAA]/20 text-white">
-                    <SelectValue placeholder="Select year" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {years.map(year => (
-                      <SelectItem key={year} value={year.toString()}>
-                        {year}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="periodEnd">End Date</Label>
+                <Input
+                  id="periodEnd"
+                  type="date"
+                  value={selectedEndDate}
+                  onChange={(e) => setSelectedEndDate(e.target.value)}
+                  className="bg-[#021B2C] border-[#AEAAAA]/20 text-white"
+                />
               </div>
             </div>
 
@@ -599,7 +969,13 @@ export function PayrollManagement() {
             )}
 
             {/* Attendance Summary */}
-            {attendanceData ? (
+            {isFetchingAttendance ? (
+              <Card className="bg-[#002035] border-[#AEAAAA]/20">
+                <CardContent className="p-4">
+                  <p className="text-sm text-muted-foreground">Loading attendance summary...</p>
+                </CardContent>
+              </Card>
+            ) : attendanceData ? (
               <Card className="bg-[#002035] border-[#AEAAAA]/20">
                 <CardHeader>
                   <CardTitle className="text-base">Attendance Summary</CardTitle>
@@ -626,15 +1002,23 @@ export function PayrollManagement() {
                       <p className="text-xs text-muted-foreground">Absences</p>
                       <p className="text-xl font-medium text-[#F27229]">{attendanceData.absences}</p>
                     </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">Working Days</p>
+                      <p className="text-xl font-medium text-[#F27229]">{attendanceData.working_days}</p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
-            ) : selectedEmployee && selectedMonth && selectedYear ? (
+            ) : selectedEmployee && selectedStartDate && selectedEndDate ? (
               <Card className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-200">
                     <AlertCircle className="w-5 h-5" />
-                    <p className="text-sm">No attendance data available for this period.</p>
+                    <p className="text-sm">
+                      {selectedEndDate < selectedStartDate
+                        ? 'End date cannot be earlier than start date.'
+                        : 'No attendance data available for this period.'}
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -697,26 +1081,17 @@ export function PayrollManagement() {
                         <span className="text-red-600">- ₱{calculations.deductions.leave.toFixed(2)}</span>
                       </div>
                     )}
-
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">SSS Contribution</span>
-                      <span className="text-red-600">- ₱{calculations.deductions.sss.toFixed(2)}</span>
-                    </div>
-
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">PhilHealth</span>
-                      <span className="text-red-600">- ₱{calculations.deductions.philHealth.toFixed(2)}</span>
-                    </div>
-
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Pag-IBIG</span>
-                      <span className="text-red-600">- ₱{calculations.deductions.pagIbig.toFixed(2)}</span>
-                    </div>
-
-                    {calculations.deductions.tax > 0 && (
+                    {calculations.deductionItems.length > 0 ? (
+                      calculations.deductionItems.map((item) => (
+                        <div key={item.id || item.name} className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">{item.name}</span>
+                          <span className="text-red-600">- ₱{toNumber(item.amount).toFixed(2)}</span>
+                        </div>
+                      ))
+                    ) : (
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Withholding Tax</span>
-                        <span className="text-red-600">- ₱{calculations.deductions.tax.toFixed(2)}</span>
+                        <span className="text-muted-foreground">Configured Deductions</span>
+                        <span className="text-red-600">- ₱0.00</span>
                       </div>
                     )}
 
@@ -745,11 +1120,11 @@ export function PayrollManagement() {
             </Button>
             <Button 
               onClick={handleGeneratePayslip}
-              disabled={!calculations || !selectedEmployee}
+              disabled={!selectedEmployee || !selectedStartDate || !selectedEndDate || selectedEndDate < selectedStartDate || isProcessingPayroll}
               className="gap-2"
             >
               <CheckCircle className="w-4 h-4" />
-              Generate Payslip
+              {isProcessingPayroll ? 'Processing...' : 'Generate Payslip'}
             </Button>
           </div>
         </DialogContent>

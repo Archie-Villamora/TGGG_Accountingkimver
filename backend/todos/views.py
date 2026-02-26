@@ -82,8 +82,10 @@ def _list_todos(request):
     user = request.user
     todo_type = request.query_params.get('type', 'personal')
 
+    opt = ('group', 'assigned_to', 'assigned_by', 'suggested_by', 'user')
+
     if todo_type == 'personal':
-        todos = Todo.objects.filter(user=user, todo_type='personal')
+        todos = Todo.objects.select_related(*opt).filter(user=user, todo_type='personal')
     elif todo_type == 'team':
         # Get all confirmed group/assigned todos for the user's group
         user_group_ids = list(
@@ -95,7 +97,7 @@ def _list_todos(request):
         )
         all_group_ids = list(set(user_group_ids + led_group_ids))
 
-        todos = Todo.objects.filter(
+        todos = Todo.objects.select_related(*opt).filter(
             Q(group_id__in=all_group_ids, is_confirmed=True) |
             Q(assigned_to=user, todo_type='assigned')
         )
@@ -105,11 +107,11 @@ def _list_todos(request):
         led_group_ids = list(
             TaskGroup.objects.filter(leader=user).values_list('id', flat=True)
         )
-        todos = Todo.objects.filter(
+        todos = Todo.objects.select_related(*opt).filter(
             group_id__in=led_group_ids
         )
     else:
-        todos = Todo.objects.filter(user=user)
+        todos = Todo.objects.select_related(*opt).filter(user=user)
 
     serializer = TodoSerializer(todos, many=True)
     return Response(serializer.data)
@@ -453,7 +455,7 @@ def available_users(request):
     """Get users not currently in any group."""
     in_group_ids = TaskGroupMember.objects.values_list('user_id', flat=True)
     leader_ids = TaskGroup.objects.values_list('leader_id', flat=True)
-    excluded_ids = set(list(in_group_ids) + [i for i in leader_ids if i])
+    excluded_ids = set(list(in_group_ids) + [i for i in leader_ids if i] + [request.user.id])
 
     users = CustomUser.objects.filter(is_active=True).exclude(id__in=excluded_ids)
     serializer = UserMiniSerializer(users, many=True)

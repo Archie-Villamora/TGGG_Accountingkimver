@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { CardSkeleton } from '../../../components/SkeletonLoader.jsx';
 import { CreateGroupModal, ManageGroupsModal, ManageLeadersModal, ConfirmTaskModal, DeleteConfirmModal } from '../../../components/modals/TodoModals.jsx';
 import { TabNavigation, ManagementButtons, Calendar, GroupInfo, TaskForm, TeamFilter } from '../../../components/TodoUI.jsx';
 import { TaskCard, MemberStats } from '../../../components/TodoCards.jsx';
 import Icon from '../../../components/Icon.jsx';
+import Alert from '../../../components/Alert.jsx';
+import { groupCache, userRoleCache, cacheConfig } from '../../../utils/cache.js';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/todos';
 
@@ -49,6 +51,25 @@ function TodoList({ token, user, onNotificationUpdate }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteMessage, setDeleteMessage] = useState('');
+  const [alertConfig, setAlertConfig] = useState({ show: false, type: '', title: '', message: '' });
+
+  const showAlert = (message, type = 'error', title = 'Error') => {
+    setAlertConfig({ show: true, type, title, message });
+  };
+
+  const handleRequestConfirm = (message, action) => {
+    setAlertConfig({
+      show: true,
+      type: 'warning',
+      title: 'Confirmation',
+      message: message,
+      showCancel: true,
+      onConfirm: async () => {
+        setAlertConfig(prev => ({ ...prev, show: false }));
+        if (action) action();
+      }
+    });
+  };
 
 
   const fetchUserProfile = useCallback(async () => {
@@ -62,11 +83,20 @@ function TodoList({ token, user, onNotificationUpdate }) {
     }
   }, [token]);
 
-  const fetchGroups = useCallback(async () => {
+  const fetchGroups = useCallback(async (forceRefresh = false) => {
+    const cacheKey = 'groups_list';
+    if (!forceRefresh) {
+      const cached = groupCache.get(cacheKey);
+      if (cached) {
+        setGroups(cached);
+        return;
+      }
+    }
     try {
       const { data } = await axios.get(`${API}/groups`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      groupCache.set(cacheKey, data, cacheConfig.FIVE_MINS);
       setGroups(data);
     } catch (err) {
       console.error('Failed to fetch groups:', err);
@@ -92,11 +122,20 @@ function TodoList({ token, user, onNotificationUpdate }) {
     }
   }, [activeTab, teamSubTab, token]);
 
-  const fetchAvailableUsers = useCallback(async () => {
+  const fetchAvailableUsers = useCallback(async (forceRefresh = false) => {
+    const cacheKey = 'available_users';
+    if (!forceRefresh) {
+      const cached = userRoleCache.get(cacheKey);
+      if (cached) {
+        setAvailableUsers(cached);
+        return;
+      }
+    }
     try {
       const { data } = await axios.get(`${API}/users/available`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      userRoleCache.set(cacheKey, data, cacheConfig.FIVE_MINS);
       setAvailableUsers(data);
     } catch (err) {
       console.error('Failed to fetch available users:', err);
@@ -150,7 +189,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
     // eslint-disable-next-line
   }, [activeTab]);
 
-  // Auto-refresh tasks every 30 seconds
+  // Auto-refresh tasks every 1 min 30 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       if (activeTab === 'department') {
@@ -158,7 +197,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
       } else {
         fetchTodos(activeTab);
       }
-    }, 30000);
+    }, 90000);
 
     return () => clearInterval(interval);
   }, [activeTab, fetchTodos, fetchDepartmentTasks]);
@@ -228,7 +267,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
       if (onNotificationUpdate) onNotificationUpdate();
     } catch (error) {
       console.error('Error adding task:', error);
-      alert(error.response?.data?.error || 'Failed to add task.');
+      showAlert(error.response?.data?.error || 'Failed to add task.');
     } finally {
       setSubmitting(false);
     }
@@ -237,14 +276,19 @@ function TodoList({ token, user, onNotificationUpdate }) {
   const toggleTodo = async (id, completed) => {
     if (actionInProgress) return;
     setActionInProgress(true);
+
+    // Optimistic UI update
+    setTodos(prev => prev.map(t => t.id === id ? { ...t, completed: !completed } : t));
+
     try {
       await axios.put(`${API}/todos/${id}`, { completed: !completed }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      fetchTodos(activeTab);
       if (onNotificationUpdate) onNotificationUpdate();
     } catch (error) {
-      alert(error.response?.data?.error || 'Failed to update task.');
+      // Revert if API fails
+      setTodos(prev => prev.map(t => t.id === id ? { ...t, completed } : t));
+      showAlert(error.response?.data?.error || 'Failed to update task.');
     } finally {
       setActionInProgress(false);
     }
@@ -292,7 +336,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
       fetchTodos(activeTab);
       if (onNotificationUpdate) onNotificationUpdate();
     } catch (error) {
-      alert(error.response?.data?.error || 'Failed to confirm task.');
+      showAlert(error.response?.data?.error || 'Failed to confirm task.');
     }
   };
 
@@ -308,7 +352,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
       fetchTodos(activeTab);
       if (onNotificationUpdate) onNotificationUpdate();
     } catch (error) {
-      alert(error.response?.data?.error || 'Failed to confirm completion.');
+      showAlert(error.response?.data?.error || 'Failed to confirm completion.');
     } finally {
       setActionInProgress(false);
     }
@@ -324,7 +368,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
       fetchTodos(activeTab);
       if (onNotificationUpdate) onNotificationUpdate();
     } catch (error) {
-      alert(error.response?.data?.error || 'Failed to reject completion.');
+      showAlert(error.response?.data?.error || 'Failed to reject completion.');
     } finally {
       setActionInProgress(false);
     }
@@ -333,7 +377,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
   const createGroup = async () => {
     if (!newGroupName.trim()) return;
     if (isLeader && leaderHasGroup) {
-      alert('You already lead a group. Leaders can only own one group.');
+      showAlert('You already lead a group. Leaders can only own one group.', 'warning', 'Warning');
       return;
     }
     try {
@@ -346,9 +390,9 @@ function TodoList({ token, user, onNotificationUpdate }) {
       setNewGroupName('');
       setNewGroupDesc('');
       setShowGroupModal(false);
-      fetchGroups();
+      fetchGroups(true);
     } catch (error) {
-      alert(error.response?.data?.error || 'Failed to create group.');
+      showAlert(error.response?.data?.error || 'Failed to create group.');
     }
   };
 
@@ -357,10 +401,10 @@ function TodoList({ token, user, onNotificationUpdate }) {
       await axios.post(`${API}/groups/${groupId}/members`, { user_id: userId }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      fetchGroups();
-      fetchAvailableUsers();
+      fetchGroups(true);
+      fetchAvailableUsers(true);
     } catch (error) {
-      alert(error.response?.data?.error || 'Failed to add member.');
+      showAlert(error.response?.data?.error || 'Failed to add member.');
     }
   };
 
@@ -369,25 +413,32 @@ function TodoList({ token, user, onNotificationUpdate }) {
       await axios.delete(`${API}/groups/${groupId}/members/${userId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      fetchGroups();
-      fetchAvailableUsers();
+      fetchGroups(true);
+      fetchAvailableUsers(true);
     } catch (error) {
-      alert(error.response?.data?.error || 'Failed to remove member.');
+      showAlert(error.response?.data?.error || 'Failed to remove member.');
     }
   };
 
   const deleteGroup = async (groupId) => {
-    if (!window.confirm('Are you sure you want to delete this group? All group todos will be deleted.')) {
-      return;
-    }
-    try {
-      await axios.delete(`${API}/groups/${groupId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      fetchGroups();
-    } catch (error) {
-      alert(error.response?.data?.error || 'Failed to delete group.');
-    }
+    setAlertConfig({
+      show: true,
+      type: 'warning',
+      title: 'Confirm Deletion',
+      message: 'Are you sure you want to delete this group? All group todos will be deleted.',
+      showCancel: true,
+      onConfirm: async () => {
+        setAlertConfig(prev => ({ ...prev, show: false }));
+        try {
+          await axios.delete(`${API}/groups/${groupId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          fetchGroups(true);
+        } catch (error) {
+          showAlert(error.response?.data?.error || 'Failed to delete group.');
+        }
+      }
+    });
   };
 
   const toggleLeader = async (userId, isCurrentlyLeader) => {
@@ -398,7 +449,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
       });
       fetchInterns();
     } catch (error) {
-      alert(error.response?.data?.error || 'Failed to update leader status.');
+      showAlert(error.response?.data?.error || 'Failed to update leader status.');
     }
   };
 
@@ -409,7 +460,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
       const deadlineStr = deadlineDate.toISOString().split('T')[0];
       const startStr = selectedDate.toISOString().split('T')[0];
       if (deadlineStr < startStr) {
-        alert('Deadline cannot be earlier than start date.');
+        showAlert('Deadline cannot be earlier than start date.', 'warning', 'Warning');
         return;
       }
     }
@@ -429,7 +480,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
       setDeadlineDate(null);
       fetchDepartmentTasks();
     } catch (error) {
-      alert(error.response?.data?.error || 'Failed to suggest task.');
+      showAlert(error.response?.data?.error || 'Failed to suggest task.');
     } finally {
       setSubmitting(false);
     }
@@ -444,7 +495,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
       });
       fetchDepartmentTasks();
     } catch (error) {
-      alert(error.response?.data?.error || 'Failed to grab task.');
+      showAlert(error.response?.data?.error || 'Failed to grab task.');
     } finally {
       setActionInProgress(false);
     }
@@ -459,7 +510,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
       });
       fetchDepartmentTasks();
     } catch (error) {
-      alert(error.response?.data?.error || 'Failed to complete task.');
+      showAlert(error.response?.data?.error || 'Failed to complete task.');
     } finally {
       setActionInProgress(false);
     }
@@ -474,7 +525,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
       });
       fetchDepartmentTasks();
     } catch (error) {
-      alert(error.response?.data?.error || 'Failed to abandon task.');
+      showAlert(error.response?.data?.error || 'Failed to abandon task.');
     } finally {
       setActionInProgress(false);
     }
@@ -495,7 +546,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
       });
       fetchDepartmentTasks();
     } catch (error) {
-      alert(error.response?.data?.error || 'Failed to delete task.');
+      showAlert(error.response?.data?.error || 'Failed to delete task.');
     } finally {
       setActionInProgress(false);
       setShowDeleteModal(false);
@@ -509,7 +560,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
     setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + offset, 1));
   };
 
-  const getFilteredTodos = () => {
+  const filteredTodos = useMemo(() => {
     let filtered = todos;
 
     // Only apply date filter for non-Team tabs
@@ -517,8 +568,6 @@ function TodoList({ token, user, onNotificationUpdate }) {
       const dateStr = selectedDate.toLocaleDateString();
       filtered = filtered.filter(todo => todo.task.includes(`[${dateStr}]`));
     }
-
-
 
     // Apply Team Tab Filters
     if (activeTab === 'team') {
@@ -535,7 +584,17 @@ function TodoList({ token, user, onNotificationUpdate }) {
     }
 
     return filtered;
-  };
+  }, [todos, activeTab, selectedDate, filterText, filterMember]);
+
+  const ongoingTodos = useMemo(() => {
+    let list = filteredTodos.filter(todo => !todo.completed);
+    if (activeTab === 'team' && teamSubTab === 'manage') {
+      list = list.filter(todo => todo.is_confirmed === false || todo.pending_completion);
+    }
+    return list;
+  }, [filteredTodos, activeTab, teamSubTab]);
+
+  const doneTodos = useMemo(() => filteredTodos.filter(todo => todo.completed), [filteredTodos]);
 
   const canAddTodo = () => {
     if (activeTab === 'personal') return true;
@@ -564,18 +623,6 @@ function TodoList({ token, user, onNotificationUpdate }) {
     return members;
   };
 
-
-
-
-
-  const filteredTodos = getFilteredTodos();
-  let ongoingTodos = filteredTodos.filter(todo => !todo.completed);
-  const doneTodos = filteredTodos.filter(todo => todo.completed);
-
-  if (activeTab === 'team' && teamSubTab === 'manage') {
-    ongoingTodos = ongoingTodos.filter(todo => todo.is_confirmed === false || todo.pending_completion);
-  }
-
   const tabs = [
     { id: 'personal', label: 'Personal', icon: 'user' },
     { id: 'team', label: 'Team', icon: 'team' },
@@ -587,6 +634,16 @@ function TodoList({ token, user, onNotificationUpdate }) {
 
   return (
     <div className="dashboard" style={{ overflowX: 'hidden' }}>
+      {alertConfig.show && (
+        <Alert
+          type={alertConfig.type}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          onClose={() => setAlertConfig(p => ({ ...p, show: false }))}
+          showCancel={alertConfig.showCancel}
+          onConfirm={alertConfig.onConfirm}
+        />
+      )}
       <TabNavigation tabs={tabs} activeTab={activeTab} setActiveTab={(tab) => { setActiveTab(tab); if (tab === 'team') setTeamSubTab('tasks'); }} Icon={Icon} />
       {activeTab === 'team' && isLeader && (
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', alignItems: 'center' }}>
@@ -1097,7 +1154,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
                       {ongoingTodos.length === 0 ? (
                         <p style={{ textAlign: 'center', color: '#6b7280', padding: '1rem', background: 'rgba(0, 39, 60, 0.5)', borderRadius: '8px' }}>No ongoing assigned tasks for this date.</p>
                       ) : (
-                        ongoingTodos.map(todo => <TaskCard key={todo.id} todo={todo} isCompleted={false} activeTab={activeTab} userProfile={userProfile} groups={groups} isCoordinator={isCoordinator} onToggle={toggleTodo} onDelete={deleteTodo} onConfirm={openConfirmModal} onReject={deleteTodo} onConfirmCompletion={confirmCompletion} onRejectCompletion={rejectCompletion} disabled={actionInProgress} />)
+                        ongoingTodos.map(todo => <TaskCard key={todo.id} todo={todo} isCompleted={false} activeTab={activeTab} userProfile={userProfile} groups={groups} isCoordinator={isCoordinator} onToggle={toggleTodo} onDelete={deleteTodo} onConfirm={openConfirmModal} onReject={deleteTodo} onConfirmCompletion={confirmCompletion} onRejectCompletion={rejectCompletion} disabled={actionInProgress} requestConfirm={handleRequestConfirm} />)
                       )}
                     </div>
                     <div>
@@ -1107,7 +1164,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
                       {doneTodos.length === 0 ? (
                         <p style={{ textAlign: 'center', color: '#6b7280', padding: '1rem', background: 'rgba(0, 39, 60, 0.5)', borderRadius: '8px' }}>No completed tasks for this date.</p>
                       ) : (
-                        doneTodos.map(todo => <TaskCard key={todo.id} todo={todo} isCompleted={true} activeTab={activeTab} userProfile={userProfile} groups={groups} isCoordinator={isCoordinator} onToggle={toggleTodo} onDelete={deleteTodo} onConfirm={openConfirmModal} onReject={deleteTodo} onConfirmCompletion={confirmCompletion} onRejectCompletion={rejectCompletion} disabled={actionInProgress} />)
+                        doneTodos.map(todo => <TaskCard key={todo.id} todo={todo} isCompleted={true} activeTab={activeTab} userProfile={userProfile} groups={groups} isCoordinator={isCoordinator} onToggle={toggleTodo} onDelete={deleteTodo} onConfirm={openConfirmModal} onReject={deleteTodo} onConfirmCompletion={confirmCompletion} onRejectCompletion={rejectCompletion} disabled={actionInProgress} requestConfirm={handleRequestConfirm} />)
                       )}
                     </div>
                   </div>
@@ -1137,7 +1194,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
                         {ongoingTodos.length === 0 ? (
                           <p style={{ textAlign: 'center', color: '#6b7280', padding: '1rem', background: 'rgba(0, 39, 60, 0.5)', borderRadius: '8px' }}>No ongoing tasks for this date.</p>
                         ) : (
-                          ongoingTodos.map(todo => <TaskCard key={todo.id} todo={todo} isCompleted={false} activeTab={activeTab === 'team' && teamSubTab === 'manage' ? 'group' : activeTab} userProfile={userProfile} groups={groups} isCoordinator={isCoordinator} onToggle={toggleTodo} onDelete={deleteTodo} onConfirm={openConfirmModal} onReject={deleteTodo} onConfirmCompletion={confirmCompletion} onRejectCompletion={rejectCompletion} disabled={actionInProgress} />)
+                          ongoingTodos.map(todo => <TaskCard key={todo.id} todo={todo} isCompleted={false} activeTab={activeTab === 'team' && teamSubTab === 'manage' ? 'group' : activeTab} userProfile={userProfile} groups={groups} isCoordinator={isCoordinator} onToggle={toggleTodo} onDelete={deleteTodo} onConfirm={openConfirmModal} onReject={deleteTodo} onConfirmCompletion={confirmCompletion} onRejectCompletion={rejectCompletion} disabled={actionInProgress} requestConfirm={handleRequestConfirm} />)
                         )}
                       </div>
 
@@ -1188,7 +1245,7 @@ function TodoList({ token, user, onNotificationUpdate }) {
                             {doneTodos.length === 0 ? (
                               <p style={{ textAlign: 'center', color: '#6b7280', padding: '1rem', background: 'rgba(0, 39, 60, 0.5)', borderRadius: '8px' }}>No completed tasks for this date.</p>
                             ) : (
-                              doneTodos.map(todo => <TaskCard key={todo.id} todo={todo} isCompleted={true} activeTab={activeTab === 'team' && teamSubTab === 'manage' ? 'group' : activeTab} userProfile={userProfile} groups={groups} isCoordinator={isCoordinator} onToggle={toggleTodo} onDelete={deleteTodo} onConfirm={openConfirmModal} onReject={deleteTodo} onConfirmCompletion={confirmCompletion} onRejectCompletion={rejectCompletion} disabled={actionInProgress} />)
+                              doneTodos.map(todo => <TaskCard key={todo.id} todo={todo} isCompleted={true} activeTab={activeTab === 'team' && teamSubTab === 'manage' ? 'group' : activeTab} userProfile={userProfile} groups={groups} isCoordinator={isCoordinator} onToggle={toggleTodo} onDelete={deleteTodo} onConfirm={openConfirmModal} onReject={deleteTodo} onConfirmCompletion={confirmCompletion} onRejectCompletion={rejectCompletion} disabled={actionInProgress} requestConfirm={handleRequestConfirm} />)
                             )}
                           </>
                         )}

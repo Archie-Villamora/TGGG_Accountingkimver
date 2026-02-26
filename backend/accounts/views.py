@@ -208,7 +208,7 @@ def _is_accounting_or_admin(user):
 def pending_users(request):
     if not _is_studio_head_or_admin(request.user):
         return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
-    users = CustomUser.objects.filter(is_active=False).order_by('-created_at')
+    users = CustomUser.objects.filter(is_active=False).select_related('department').order_by('-created_at')
     return Response(PendingUserSerializer(users, many=True).data)
 
 
@@ -301,7 +301,7 @@ def accounts_overview(request):
 def list_users(request):
     if not _is_studio_head_or_admin(request.user):
         return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
-    users = CustomUser.objects.all().order_by('last_name', 'first_name', 'email')
+    users = CustomUser.objects.select_related('department').all().order_by('last_name', 'first_name', 'email')
     return Response(CustomUserSerializer(users, many=True).data)
 
 

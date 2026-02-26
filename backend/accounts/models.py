@@ -80,6 +80,10 @@ class CustomUser(AbstractUser):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['department', 'role']),
+            models.Index(fields=['is_active']),
+        ]
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}" if self.first_name else self.email

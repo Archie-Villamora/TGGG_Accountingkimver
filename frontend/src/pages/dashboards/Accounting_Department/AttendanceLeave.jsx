@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
 import {
   Avatar,
   AvatarFallback,
@@ -49,15 +50,6 @@ import {
   Stethoscope,
   Calendar as CalendarIcon
 } from 'lucide-react';
-
-// Mock data
-const mockAttendanceData = [
-  { date: '2024-01-15', checkIn: '09:00', checkOut: '17:30', status: 'Present', hours: 8.5, location: 'Office' },
-  { date: '2024-01-14', checkIn: '09:15', checkOut: '17:45', status: 'Present', hours: 8.5, location: 'Office' },
-  { date: '2024-01-13', checkIn: '09:00', checkOut: '17:00', status: 'Present', hours: 8, location: 'Remote' },
-  { date: '2024-01-12', checkIn: '-', checkOut: '-', status: 'Sick Leave', hours: 0, location: '-' },
-  { date: '2024-01-11', checkIn: '09:30', checkOut: '18:00', status: 'Present', hours: 8.5, location: 'Office' },
-];
 
 const mockLeaveRequests = [
   {
@@ -110,16 +102,66 @@ const mockLeaveBalance = {
   maternity: { used: 0, total: 90 },
 };
 
+const timeToMinutes = (timeValue) => {
+  if (!timeValue || typeof timeValue !== 'string' || !timeValue.includes(':')) return null;
+  const [hourPart, minutePart] = timeValue.split(':');
+  const hours = Number(hourPart);
+  const minutes = Number(minutePart);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+  return (hours * 60) + minutes;
+};
+
+const getWorkedHours = (record) => {
+  const inMinutes = timeToMinutes(record?.time_in);
+  const outMinutes = timeToMinutes(record?.time_out);
+  if (inMinutes === null || outMinutes === null || outMinutes < inMinutes) return 0;
+  return Number(((outMinutes - inMinutes) / 60).toFixed(2));
+};
+
 export function AttendanceLeave() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isLeaveRequestOpen, setIsLeaveRequestOpen] = useState(false);
   const [selectedTab, setSelectedTab] = useState('attendance');
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [isAttendanceLoading, setIsAttendanceLoading] = useState(true);
+  const [attendanceError, setAttendanceError] = useState('');
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+
+  const fetchAttendanceRecords = async () => {
+    setIsAttendanceLoading(true);
+    setAttendanceError('');
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setAttendanceError('Missing login token. Please login again.');
+        setAttendanceRecords([]);
+        return;
+      }
+
+      const response = await axios.get(`${API_URL}/attendance/all/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setAttendanceRecords(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error('Failed to fetch attendance records:', error);
+      setAttendanceError(error.response?.data?.error || 'Failed to load attendance records.');
+      setAttendanceRecords([]);
+    } finally {
+      setIsAttendanceLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAttendanceRecords();
+  }, []);
 
   const getStatusBadge = (status) => {
     const variants = {
       'Present': 'bg-primary/10 text-primary border-primary',
       'Absent': 'bg-red-100 text-red-800',
       'Late': 'bg-yellow-100 text-yellow-800',
+      'On Leave': 'bg-blue-100 text-blue-800',
+      'Excused Absence': 'bg-purple-100 text-purple-800',
       'Sick Leave': 'bg-purple-100 text-purple-800',
       'Vacation': 'bg-blue-100 text-blue-800',
       'Pending': 'bg-yellow-100 text-yellow-800',
@@ -143,18 +185,24 @@ export function AttendanceLeave() {
     return <CalendarIcon className="w-4 h-4" />;
   };
 
-  const attendanceRate = 94.2;
-  const totalHoursWorked = 168;
-  const averageHoursPerDay = 8.4;
+  const attendanceStats = useMemo(() => {
+    const totalRecords = attendanceRecords.length;
+    const presentCount = attendanceRecords.filter(
+      (record) => ['present', 'late'].includes(record?.status)
+    ).length;
+    const totalHours = attendanceRecords.reduce((sum, record) => sum + getWorkedHours(record), 0);
+
+    return {
+      attendanceRate: totalRecords ? Number(((presentCount / totalRecords) * 100).toFixed(1)) : 0,
+      totalHoursWorked: Number(totalHours.toFixed(1)),
+      averageHoursPerDay: totalRecords ? Number((totalHours / totalRecords).toFixed(1)) : 0,
+    };
+  }, [attendanceRecords]);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-medium">Attendance & Leave</h1>
-          <p className="text-muted-foreground">Track attendance and manage leave requests</p>
-        </div>
+      {/* Header Actions */}
+      <div className="flex justify-end gap-2">
         <div className="flex gap-2">
           <Button variant="outline" className="gap-2">
             <Download className="w-4 h-4" />
@@ -221,11 +269,11 @@ export function AttendanceLeave() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Attendance Rate</p>
-                <p className="text-2xl font-medium">{attendanceRate}%</p>
+                <p className="text-2xl font-medium">{attendanceStats.attendanceRate}%</p>
               </div>
               <TrendingUp className="w-8 h-8 text-primary" />
             </div>
-            <Progress value={attendanceRate} className="mt-3" />
+            <Progress value={attendanceStats.attendanceRate} className="mt-3" />
           </CardContent>
         </Card>
         <Card className="border-0 shadow-lg bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
@@ -233,7 +281,7 @@ export function AttendanceLeave() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Hours Worked</p>
-                <p className="text-2xl font-medium">{totalHoursWorked}h</p>
+                <p className="text-2xl font-medium">{attendanceStats.totalHoursWorked}h</p>
               </div>
               <Clock className="w-8 h-8 text-primary" />
             </div>
@@ -245,7 +293,7 @@ export function AttendanceLeave() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Avg Hours/Day</p>
-                <p className="text-2xl font-medium">{averageHoursPerDay}h</p>
+                <p className="text-2xl font-medium">{attendanceStats.averageHoursPerDay}h</p>
               </div>
               <CalendarDays className="w-8 h-8 text-primary" />
             </div>
@@ -279,68 +327,65 @@ export function AttendanceLeave() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-primary" />
-                Recent Attendance
+                Attendance Records
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {mockAttendanceData.map((record, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 rounded-lg border border-border/50 transition-colors">
-                    <div className="flex items-center gap-4">
-                      <div className="text-center">
-                        <p className="text-sm font-medium">{new Date(record.date).getDate()}</p>
-                        <p className="text-xs text-muted-foreground">{new Date(record.date).toLocaleDateString('en-US', { month: 'short' })}</p>
-                      </div>
-                      <div>
-                        <p className="font-medium">{new Date(record.date).toLocaleDateString('en-US', { weekday: 'long' })}</p>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>In: {record.checkIn}</span>
-                          <span>Out: {record.checkOut}</span>
-                          <span className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3" />
-                            {record.location}
-                          </span>
+              {isAttendanceLoading ? (
+                <p className="text-sm text-muted-foreground">Loading attendance records...</p>
+              ) : attendanceError ? (
+                <p className="text-sm text-red-600">{attendanceError}</p>
+              ) : attendanceRecords.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No attendance records found.</p>
+              ) : (
+                <div className="space-y-4">
+                  {attendanceRecords.map((record) => {
+                    const dateObj = new Date(record.date);
+                    const dayLabel = Number.isNaN(dateObj.getTime())
+                      ? '-'
+                      : dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+                    const dayNumber = Number.isNaN(dateObj.getTime()) ? '-' : dateObj.getDate();
+                    const monthLabel = Number.isNaN(dateObj.getTime())
+                      ? '-'
+                      : dateObj.toLocaleDateString('en-US', { month: 'short' });
+                    const workedHours = getWorkedHours(record);
+
+                    return (
+                      <div key={record.id} className="flex items-center justify-between p-4 rounded-lg border border-border/50 transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className="text-center">
+                            <p className="text-sm font-medium">{dayNumber}</p>
+                            <p className="text-xs text-muted-foreground">{monthLabel}</p>
+                          </div>
+                          <div>
+                            <p className="font-medium">{record.employee_name || 'Unknown Employee'}</p>
+                            <p className="text-sm text-muted-foreground">{dayLabel}</p>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span>In: {record.time_in || '-'}</span>
+                              <span>Out: {record.time_out || '-'}</span>
+                              <span className="flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                {record.location || '-'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="text-sm font-medium">{workedHours}h</p>
+                            <p className="text-xs text-muted-foreground">Hours</p>
+                          </div>
+                          {getStatusBadge(record.status_label || record.status || 'Unknown')}
                         </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="text-sm font-medium">{record.hours}h</p>
-                        <p className="text-xs text-muted-foreground">Hours</p>
-                      </div>
-                      {getStatusBadge(record.status)}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Quick Clock In/Out */}
-          <Card className="border-0 shadow-lg bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Button className="h-20 flex-col gap-2" variant="outline">
-                  <CheckCircle className="w-6 h-6 text-primary" />
-                  Clock In
-                  <span className="text-xs text-muted-foreground">09:00 AM</span>
-                </Button>
-                <Button className="h-20 flex-col gap-2" variant="outline">
-                  <XCircle className="w-6 h-6 text-primary" />
-                  Clock Out
-                  <span className="text-xs text-muted-foreground">05:30 PM</span>
-                </Button>
-                <Button className="h-20 flex-col gap-2" variant="outline">
-                  <Coffee className="w-6 h-6 text-primary" />
-                  Break
-                  <span className="text-xs text-muted-foreground">15 min</span>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          
         </TabsContent>
 
         <TabsContent value="leave" className="space-y-6">

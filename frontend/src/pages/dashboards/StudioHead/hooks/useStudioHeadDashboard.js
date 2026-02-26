@@ -5,6 +5,11 @@ import {
   getAllUsers,
   getPendingUsers,
   updateUserAccount,
+  makeLeader,
+  removeLeader,
+  getGroups,
+  createGroup,
+  disbandGroup,
 } from '../services/studioHeadApi';
 
 export function useStudioHeadDashboard() {
@@ -21,6 +26,10 @@ export function useStudioHeadDashboard() {
   const [usersError, setUsersError] = useState('');
   const [userActionById, setUserActionById] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Groups
+  const [groups, setGroups] = useState([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
 
   // role selection per pending user
   const [roleByUserId, setRoleByUserId] = useState({});
@@ -69,6 +78,18 @@ export function useStudioHeadDashboard() {
       setUsersError('Failed to load users.');
     } finally {
       setUsersLoading(false);
+    }
+  }
+
+  async function fetchGroups() {
+    try {
+      setGroupsLoading(true);
+      const data = await getGroups();
+      setGroups(Array.isArray(data) ? data : []);
+    } catch (e) {
+      setMessage('Failed to load groups.');
+    } finally {
+      setGroupsLoading(false);
     }
   }
 
@@ -127,6 +148,57 @@ export function useStudioHeadDashboard() {
     }
   }
 
+  async function handleMakeLeader(userId) {
+    try {
+      setUserActionById((prev) => ({ ...prev, [userId]: true }));
+      await makeLeader(userId);
+      setMessage('User is now a leader.');
+      await fetchUsers();
+    } catch (e) {
+      setMessage(e?.response?.data?.error || 'Failed to make user a leader.');
+    } finally {
+      setUserActionById((prev) => ({ ...prev, [userId]: false }));
+    }
+  }
+
+  async function handleRemoveLeader(userId) {
+    try {
+      setUserActionById((prev) => ({ ...prev, [userId]: true }));
+      await removeLeader(userId);
+      setMessage('User is no longer a leader.');
+      await fetchUsers();
+      await fetchGroups(); // In case a group's leader was removed
+    } catch (e) {
+      setMessage(e?.response?.data?.error || 'Failed to remove leader status.');
+    } finally {
+      setUserActionById((prev) => ({ ...prev, [userId]: false }));
+    }
+  }
+
+  async function handleCreateGroup(payload) {
+    try {
+      await createGroup(payload);
+      setMessage('Group created successfully.');
+      await fetchGroups();
+      return true;
+    } catch (e) {
+      setMessage(e?.response?.data?.error || 'Failed to create group.');
+      return false;
+    }
+  }
+
+  async function handleDisbandGroup(groupId) {
+    try {
+      await disbandGroup(groupId);
+      setMessage('Group disbanded successfully.');
+      await fetchGroups();
+      return true;
+    } catch (e) {
+      setMessage(e?.response?.data?.error || 'Failed to disband group.');
+      return false;
+    }
+  }
+
   const filteredUsers = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return users;
@@ -141,6 +213,7 @@ export function useStudioHeadDashboard() {
   useEffect(() => {
     fetchPending();
     fetchUsers();
+    fetchGroups();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -173,8 +246,17 @@ export function useStudioHeadDashboard() {
     toggleUserStatus,
     removeUser,
 
+    // groups and leaders
+    groups,
+    groupsLoading,
+    handleMakeLeader,
+    handleRemoveLeader,
+    handleCreateGroup,
+    handleDisbandGroup,
+
     // refresh
     fetchPending,
     fetchUsers,
+    fetchGroups,
   };
 }

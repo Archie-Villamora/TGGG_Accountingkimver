@@ -115,6 +115,10 @@ class Todo(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'todo_type']),
+            models.Index(fields=['group', 'is_confirmed']),
+        ]
 
     def __str__(self):
         return self.task[:50]
@@ -187,6 +191,10 @@ class DepartmentTask(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['department', 'status']),
+            models.Index(fields=['deleted_at']),
+        ]
 
     def __str__(self):
         return f"{self.task[:50]} ({self.status})"
@@ -279,6 +287,9 @@ class TodoNotification(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['recipient', 'is_read']),
+        ]
 
     def __str__(self):
         return f"Notification for {self.recipient}: {self.title}"

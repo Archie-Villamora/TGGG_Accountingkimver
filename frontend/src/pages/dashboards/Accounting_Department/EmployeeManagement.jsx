@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -8,16 +9,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../../components/ui/dialog';
 import { Label } from '../../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
-import { 
-  Search, 
-  Filter, 
-  Plus, 
-  MoreVertical, 
-  Edit, 
-  Trash2, 
-  Mail, 
-  Phone, 
-  MapPin, 
+import {
+  Search,
+  Filter,
+  Plus,
+  MoreVertical,
+  Edit,
+  Trash2,
+  Mail,
+  Phone,
+  MapPin,
   Calendar,
   Users,
   UserCheck,
@@ -28,69 +29,6 @@ import {
   Upload
 } from 'lucide-react';
 
-// Mock employee data
-const mockEmployees = [
-  {
-    id: 1,
-    name: 'Sarah Johnson',
-    email: 'sarah.johnson@company.com',
-    phone: '+1 (555) 123-4567',
-    department: 'Engineering',
-    position: 'Senior Developer',
-    status: 'Active',
-    joinDate: '2022-03-15',
-    salary: 95000,
-    location: 'New York',
-    avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b1d3?w=40&h=40&fit=crop&crop=face',
-    manager: 'John Smith',
-    skills: ['React', 'Node.js', 'TypeScript'],
-  },
-  {
-    id: 2,
-    name: 'Mike Chen',
-    email: 'mike.chen@company.com',
-    phone: '+1 (555) 234-5678',
-    department: 'Product',
-    position: 'Product Manager',
-    status: 'Active',
-    joinDate: '2021-08-22',
-    salary: 110000,
-    location: 'San Francisco',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face',
-    manager: 'Jane Doe',
-    skills: ['Product Strategy', 'Analytics', 'Agile'],
-  },
-  {
-    id: 3,
-    name: 'Lisa Brown',
-    email: 'lisa.brown@company.com',
-    phone: '+1 (555) 345-6789',
-    department: 'Design',
-    position: 'UX Designer',
-    status: 'On Leave',
-    joinDate: '2023-01-10',
-    salary: 85000,
-    location: 'Austin',
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=40&h=40&fit=crop&crop=face',
-    manager: 'Alex Wilson',
-    skills: ['Figma', 'User Research', 'Prototyping'],
-  },
-  {
-    id: 4,
-    name: 'David Wilson',
-    email: 'david.wilson@company.com',
-    phone: '+1 (555) 456-7890',
-    department: 'Sales',
-    position: 'Sales Executive',
-    status: 'Active',
-    joinDate: '2020-11-05',
-    salary: 75000,
-    location: 'Chicago',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face',
-    manager: 'Sarah Miller',
-    skills: ['CRM', 'Lead Generation', 'Negotiation'],
-  },
-];
 
 const departments = ['All', 'Accounting Department', 'Design Department', 'Engineering Department', 'Planning Department', 'IT Department'];
 const statuses = ['All', 'Active', 'On Leave', 'Inactive'];
@@ -102,13 +40,54 @@ export function EmployeeManagement() {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [isAddEmployeeOpen, setIsAddEmployeeOpen] = useState(false);
 
-  const filteredEmployees = mockEmployees.filter(employee => {
+  const [employees, setEmployees] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [formData, setFormData] = useState({
+    first_name: '', last_name: '', email: '', phone: '', department: '', position: '', salary: '', startDate: ''
+  });
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+
+  const fetchEmployees = async () => {
+    setIsLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/accounts/accounting/employees/`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setEmployees(response.data);
+    } catch (error) {
+      console.error("Failed to fetch employees:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
+
+  const handleAddEmployee = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API_URL}/accounts/accounting/employees/`, formData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setIsAddEmployeeOpen(false);
+      setFormData({ first_name: '', last_name: '', email: '', phone: '', department: '', position: '', salary: '', startDate: '' });
+      fetchEmployees();
+    } catch (error) {
+      alert("Failed to add employee: " + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const filteredEmployees = employees.filter(employee => {
     const matchesSearch = employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         employee.department.toLowerCase().includes(searchTerm.toLowerCase());
+      employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      employee.department.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDepartment = selectedDepartment === 'All' || employee.department === selectedDepartment;
     const matchesStatus = selectedStatus === 'All' || employee.status === selectedStatus;
-    
+
     return matchesSearch && matchesDepartment && matchesStatus;
   });
 
@@ -118,7 +97,7 @@ export function EmployeeManagement() {
       'On Leave': 'bg-primary/10 text-primary border-primary',
       'Inactive': 'bg-red-500/10 text-red-500 border-red-500',
     };
-    
+
     return (
       <Badge className={variants[status] || 'bg-gray-100 text-gray-800'}>
         {status}
@@ -128,8 +107,8 @@ export function EmployeeManagement() {
 
   const departmentStats = departments.slice(1).map(dept => ({
     name: dept,
-    count: mockEmployees.filter(emp => emp.department === dept).length,
-    active: mockEmployees.filter(emp => emp.department === dept && emp.status === 'Active').length,
+    count: employees.filter(emp => emp.department === dept).length,
+    active: employees.filter(emp => emp.department === dept && emp.status === 'Active').length,
   }));
 
   return (
@@ -163,23 +142,23 @@ export function EmployeeManagement() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name</Label>
-                  <Input id="firstName" placeholder="Enter first name" />
+                  <Input id="firstName" value={formData.first_name} onChange={e => setFormData({ ...formData, first_name: e.target.value })} placeholder="Enter first name" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName">Last Name</Label>
-                  <Input id="lastName" placeholder="Enter last name" />
+                  <Input id="lastName" value={formData.last_name} onChange={e => setFormData({ ...formData, last_name: e.target.value })} placeholder="Enter last name" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="Enter email address" />
+                  <Input id="email" type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} placeholder="Enter email address" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone</Label>
-                  <Input id="phone" placeholder="Enter phone number" />
+                  <Input id="phone" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} placeholder="Enter phone number" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="department">Department</Label>
-                  <Select>
+                  <Select value={formData.department} onValueChange={val => setFormData({ ...formData, department: val })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select department" />
                     </SelectTrigger>
@@ -192,20 +171,20 @@ export function EmployeeManagement() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="position">Position</Label>
-                  <Input id="position" placeholder="Enter job title" />
+                  <Input id="position" value={formData.position} onChange={e => setFormData({ ...formData, position: e.target.value })} placeholder="Enter job title" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="salary">Salary</Label>
-                  <Input id="salary" type="number" placeholder="Enter salary" />
+                  <Input id="salary" type="number" value={formData.salary} onChange={e => setFormData({ ...formData, salary: e.target.value })} placeholder="Enter salary" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="startDate">Start Date</Label>
-                  <Input id="startDate" type="date" />
+                  <Input id="startDate" type="date" value={formData.startDate} onChange={e => setFormData({ ...formData, startDate: e.target.value })} />
                 </div>
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setIsAddEmployeeOpen(false)}>Cancel</Button>
-                <Button onClick={() => setIsAddEmployeeOpen(false)}>Add Employee</Button>
+                <Button onClick={handleAddEmployee}>Add Employee</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -219,7 +198,7 @@ export function EmployeeManagement() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Employees</p>
-                <p className="text-2xl font-medium">{mockEmployees.length}</p>
+                <p className="text-2xl font-medium">{employees.length}</p>
               </div>
               <Users className="w-8 h-8 text-primary" />
             </div>
@@ -230,7 +209,7 @@ export function EmployeeManagement() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Active</p>
-                <p className="text-2xl font-medium">{mockEmployees.filter(emp => emp.status === 'Active').length}</p>
+                <p className="text-2xl font-medium">{employees.filter(emp => emp.status === 'Active').length}</p>
               </div>
               <UserCheck className="w-8 h-8 text-primary" />
             </div>
@@ -241,7 +220,7 @@ export function EmployeeManagement() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">On Leave</p>
-                <p className="text-2xl font-medium">{mockEmployees.filter(emp => emp.status === 'On Leave').length}</p>
+                <p className="text-2xl font-medium">{employees.filter(emp => emp.status === 'On Leave').length}</p>
               </div>
               <UserX className="w-8 h-8 text-primary" />
             </div>
@@ -313,37 +292,37 @@ export function EmployeeManagement() {
                     <AvatarFallback>{employee.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                   </Avatar>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-medium text-sm truncate">{employee.name}</h3>
-                    <p className="text-xs text-muted-foreground truncate">{employee.position}</p>
+                    <h3 className="font-medium text-sm truncate">{employee.name || '---'}</h3>
+                    <p className="text-xs text-muted-foreground truncate">{employee.position || '---'}</p>
                   </div>
                 </div>
                 <div className="flex-shrink-0">
                   {getStatusBadge(employee.status)}
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div className="bg-background rounded-lg p-3">
                   <p className="text-xs text-muted-foreground mb-1">Total Days</p>
-                  <p className="text-2xl font-bold text-primary">22</p>
+                  <p className="text-2xl font-bold text-primary">---</p>
                 </div>
                 <div className="bg-background rounded-lg p-3">
                   <p className="text-xs text-muted-foreground mb-1">Total Hours</p>
-                  <p className="text-2xl font-bold text-primary">176</p>
+                  <p className="text-2xl font-bold text-primary">---</p>
                 </div>
                 <div className="bg-background rounded-lg p-3">
                   <p className="text-xs text-muted-foreground mb-1">On-Time</p>
-                  <p className="text-2xl font-bold text-primary">20</p>
+                  <p className="text-2xl font-bold text-primary">---</p>
                 </div>
                 <div className="bg-background rounded-lg p-3">
                   <p className="text-xs text-muted-foreground mb-1">Late</p>
-                  <p className="text-2xl font-bold text-primary">2</p>
+                  <p className="text-2xl font-bold text-primary">---</p>
                 </div>
               </div>
-              
+
               <div className="bg-background rounded-lg p-3">
                 <p className="text-xs text-muted-foreground mb-1">Total Late</p>
-                <p className="text-2xl font-bold text-primary">97m (1h)</p>
+                <p className="text-2xl font-bold text-primary">---</p>
               </div>
             </CardContent>
           </Card>
@@ -362,8 +341,8 @@ export function EmployeeManagement() {
                     <AvatarFallback>{selectedEmployee.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <DialogTitle>{selectedEmployee.name}</DialogTitle>
-                    <p className="text-muted-foreground">{selectedEmployee.position}</p>
+                    <DialogTitle>{selectedEmployee.name || '---'}</DialogTitle>
+                    <p className="text-muted-foreground">{selectedEmployee.position || '---'}</p>
                     {getStatusBadge(selectedEmployee.status)}
                   </div>
                 </div>
@@ -375,15 +354,15 @@ export function EmployeeManagement() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm">
                         <Mail className="w-4 h-4 text-muted-foreground" />
-                        {selectedEmployee.email}
+                        {selectedEmployee.email || '---'}
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <Phone className="w-4 h-4 text-muted-foreground" />
-                        {selectedEmployee.phone}
+                        {selectedEmployee.phone || '---'}
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <MapPin className="w-4 h-4 text-muted-foreground" />
-                        {selectedEmployee.location}
+                        {selectedEmployee.location || '---'}
                       </div>
                     </div>
                   </div>
@@ -392,15 +371,15 @@ export function EmployeeManagement() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 text-sm">
                         <Building className="w-4 h-4 text-muted-foreground" />
-                        {selectedEmployee.department}
+                        {selectedEmployee.department || '---'}
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <Briefcase className="w-4 h-4 text-muted-foreground" />
-                        {selectedEmployee.position}
+                        {selectedEmployee.position || '---'}
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <Calendar className="w-4 h-4 text-muted-foreground" />
-                        Joined {new Date(selectedEmployee.joinDate).toLocaleDateString()}
+                        Joined {selectedEmployee.joinDate ? new Date(selectedEmployee.joinDate).toLocaleDateString() : '---'}
                       </div>
                     </div>
                   </div>
@@ -409,18 +388,18 @@ export function EmployeeManagement() {
                   <div>
                     <h4 className="font-medium mb-2">Skills</h4>
                     <div className="flex flex-wrap gap-2">
-                      {selectedEmployee.skills.map((skill, index) => (
+                      {selectedEmployee.skills && selectedEmployee.skills.length > 0 ? selectedEmployee.skills.map((skill, index) => (
                         <Badge key={index} variant="secondary">{skill}</Badge>
-                      ))}
+                      )) : <span className="text-sm text-muted-foreground">---</span>}
                     </div>
                   </div>
                   <div>
                     <h4 className="font-medium mb-2">Manager</h4>
-                    <p className="text-sm">{selectedEmployee.manager}</p>
+                    <p className="text-sm">{selectedEmployee.manager || '---'}</p>
                   </div>
                   <div>
                     <h4 className="font-medium mb-2">Salary</h4>
-                    <p className="text-sm">${selectedEmployee.salary.toLocaleString()}</p>
+                    <p className="text-sm">{selectedEmployee.salary ? `$${selectedEmployee.salary.toLocaleString()}` : '---'}</p>
                   </div>
                 </div>
               </div>

@@ -10,7 +10,7 @@ const DASHBOARD_LINKS = [
   { id: 'approvals', label: 'User Approvals', icon: UserCheck },
   { id: 'users', label: 'Manage Users', icon: Users },
   { id: 'reviews', label: 'Design Reviews', icon: FileText },
-  { id: 'coordination', label: 'Coordination', icon: GitMerge },
+  { id: 'coordination', label: 'Coordinator Panel', icon: GitMerge },
 ];
 
 export default function StudioHeadSidebar({
@@ -40,11 +40,10 @@ export default function StudioHeadSidebar({
               key={item.id}
               type="button"
               onClick={() => onNavigate?.(item.page)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${
-                isActive
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${isActive
                   ? "bg-[#FF7120] text-white"
                   : "text-white/70 hover:text-white hover:bg-white/5"
-              }`}
+                }`}
             >
               <Icon className="h-5 w-5" />
               <span className="font-medium">{item.label}</span>
@@ -61,11 +60,10 @@ export default function StudioHeadSidebar({
               key={tab.id}
               type="button"
               onClick={() => goToDashboardTab(tab.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${
-                isActive
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${isActive
                   ? "bg-[#FF7120] text-white"
                   : "text-white/70 hover:text-white hover:bg-white/5"
-              }`}
+                }`}
             >
               <Icon className="h-5 w-5" />
               <span className="font-medium">{tab.label}</span>

@@ -9,7 +9,11 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 // Get access token from storage
 export const getAccessToken = () => {
-  return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+  return (
+    localStorage.getItem('token') ||
+    localStorage.getItem('access_token') ||
+    sessionStorage.getItem('access_token')
+  );
 };
 
 // Get refresh token from storage
@@ -19,6 +23,9 @@ export const getRefreshToken = () => {
 
 // Store tokens
 export const storeTokens = (accessToken, refreshToken, rememberMe = false) => {
+  // Keep compatibility with App.jsx which reads "token"
+  localStorage.setItem('token', accessToken);
+
   if (rememberMe) {
     localStorage.setItem('access_token', accessToken);
     localStorage.setItem('refresh_token', refreshToken);
@@ -30,6 +37,7 @@ export const storeTokens = (accessToken, refreshToken, rememberMe = false) => {
 
 // Clear tokens
 export const clearTokens = () => {
+  localStorage.removeItem('token');
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
   sessionStorage.removeItem('access_token');
@@ -52,7 +60,8 @@ export const refreshAccessToken = async () => {
     const newAccessToken = response.data.access;
     
     // Store new token in same location as old one
-    if (localStorage.getItem('access_token')) {
+    if (localStorage.getItem('access_token') || localStorage.getItem('token')) {
+      localStorage.setItem('token', newAccessToken);
       localStorage.setItem('access_token', newAccessToken);
     } else {
       sessionStorage.setItem('access_token', newAccessToken);

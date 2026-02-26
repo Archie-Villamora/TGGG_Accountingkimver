@@ -42,15 +42,11 @@ def _notify(recipient, actor, notif_type, title, message, todo=None, dept_task=N
 
 # ─── User Profile (with is_leader) ───────────────────────────────
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def todo_profile(request):
-    """Return current user profile with is_leader and group info."""
-    user = request.user
+def _profile_payload(user):
     group_membership = TaskGroupMember.objects.filter(user=user).select_related('group').first()
     led_group = TaskGroup.objects.filter(leader=user).first()
 
-    data = {
+    return {
         'id': user.id,
         'email': user.email,
         'username': user.username,
@@ -64,7 +60,60 @@ def todo_profile(request):
         'is_leader': getattr(user, 'is_leader', False),
         'group_id': group_membership.group_id if group_membership else (led_group.id if led_group else None),
     }
-    return Response(data)
+
+
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+def todo_profile(request):
+    """Return or update current user profile with is_leader and group info."""
+    user = request.user
+
+    if request.method == 'GET':
+        return Response(_profile_payload(user))
+
+    updated_fields = []
+
+    if 'full_name' in request.data:
+        full_name = str(request.data.get('full_name') or '').strip()
+        name_parts = full_name.split(None, 1)
+        user.first_name = name_parts[0] if name_parts else ''
+        user.last_name = name_parts[1] if len(name_parts) > 1 else ''
+        updated_fields.extend(['first_name', 'last_name'])
+
+    if 'first_name' in request.data:
+        user.first_name = str(request.data.get('first_name') or '').strip()
+        updated_fields.append('first_name')
+
+    if 'last_name' in request.data:
+        user.last_name = str(request.data.get('last_name') or '').strip()
+        updated_fields.append('last_name')
+
+    if 'email' in request.data:
+        next_email = str(request.data.get('email') or '').strip().lower()
+        if not next_email:
+            return Response({'error': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if CustomUser.objects.filter(email=next_email).exclude(id=user.id).exists():
+            return Response({'error': 'Email is already in use.'}, status=status.HTTP_400_BAD_REQUEST)
+        user.email = next_email
+        updated_fields.append('email')
+
+    if updated_fields:
+        user.save(update_fields=sorted(set(updated_fields)))
+
+    return Response(_profile_payload(user))
+
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def todo_profile_password(request):
+    password = str(request.data.get('password') or '')
+    if len(password) < 6:
+        return Response({'error': 'Password must be at least 6 characters.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user = request.user
+    user.set_password(password)
+    user.save(update_fields=['password'])
+    return Response({'success': True})
 
 
 # ─── Todos CRUD ──────────────────────────────────────────────────

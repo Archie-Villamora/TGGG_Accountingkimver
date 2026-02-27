@@ -12,6 +12,7 @@ import {
 import PublicNavigation from '../Public_Dashboard/PublicNavigation';
 import JuniorDesignerSidebar from './components/JuniorDesignerSidebar';
 import LocationAttendance from '../../../components/attendance/LocationAttendance';
+import WorkDocCard from '../../../components/attendance/WorkDocCard';
 
 const SECTION_KEYS = new Set(['overview', 'attendance']);
 const MOBILE_SECTION_TABS = [
@@ -38,15 +39,15 @@ export default function JuniorDesignerDashboard({ user, onNavigate }) {
     { date: '2026-02-08', in: '08:12', out: '17:00', late: '12', hours: '7h 48m', note: 'Prepared drawing set and annotated details.' },
   ];
 
-    const stats = useMemo(() => {
-      const latest = attendanceRows[0];
-      const lateMinutes = latest?.late ?? '0';
-      return [
-        { label: "Today's Status", value: attendanceReady ? 'Ready to Time In' : 'Location Required', tone: attendanceReady ? 'good' : 'warn', icon: MapPin },
-        { label: 'Late Minutes (Latest)', value: lateMinutes, tone: lateMinutes === '0' ? 'good' : 'warn', icon: Clock },
-        { label: 'Total Hours (Latest)', value: latest?.hours ?? '-', tone: 'neutral', icon: FileText },
-      ];
-    }, [attendanceReady]);
+  const stats = useMemo(() => {
+    const latest = attendanceRows[0];
+    const lateMinutes = latest?.late ?? '0';
+    return [
+      { label: "Today's Status", value: attendanceReady ? 'Ready to Time In' : 'Location Required', tone: attendanceReady ? 'good' : 'warn', icon: MapPin },
+      { label: 'Late Minutes (Latest)', value: lateMinutes, tone: lateMinutes === '0' ? 'good' : 'warn', icon: Clock },
+      { label: 'Total Hours (Latest)', value: latest?.hours ?? '-', tone: 'neutral', icon: FileText },
+    ];
+  }, [attendanceReady]);
 
   const cardClass = 'rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.22)]';
 
@@ -149,16 +150,7 @@ export default function JuniorDesignerDashboard({ user, onNavigate }) {
           onStatusChange={({ ready }) => setAttendanceReady(ready)}
         />
 
-        <div className={`${cardClass} p-4 sm:p-6 space-y-3`}>
-          <h3 className="text-white font-semibold">Work Documentation</h3>
-          <textarea
-            rows={5}
-            value={workDoc}
-            onChange={(e) => setWorkDoc(e.target.value)}
-            placeholder="What design work did you accomplish today?"
-            className="w-full rounded-xl border border-white/15 bg-[#00273C]/60 px-3 py-2 text-sm text-white placeholder:text-white/45 outline-none resize-none"
-          />
-        </div>
+        <WorkDocCard value={workDoc} onChange={setWorkDoc} cardClass={cardClass} />
       </div>
 
       <div className={cardClass}>

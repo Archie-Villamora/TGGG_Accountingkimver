@@ -11,6 +11,7 @@ import {
   ChevronDownIcon,
 } from "lucide-react";
 import LocationAttendance from "../../../components/attendance/LocationAttendance";
+import WorkDocCard from "../../../components/attendance/WorkDocCard";
 
 const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
   const isStudioHeadMode = user?.role === "studio_head" || user?.role === "admin";
@@ -148,9 +149,9 @@ const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
                       <ShieldCheck className="h-3.5 w-3.5 mr-1 inline" />
                       Attendance & Work Logs
                     </Badge>
-          <Badge tone={locationReady ? "good" : "warn"}>
-            {locationReady ? "Location Ready" : "Location Needed"}
-          </Badge>
+                    <Badge tone={locationReady ? "good" : "warn"}>
+                      {locationReady ? "Location Ready" : "Location Needed"}
+                    </Badge>
                   </div>
 
                   <p className="mt-3 text-white/50 text-sm leading-relaxed">
@@ -207,52 +208,7 @@ const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
                 onStatusChange={({ ready }) => setLocationReady(ready)}
               />
 
-              {/* Work Documentation Card */}
-              <div className={`${cardClass} p-4 sm:p-6`}>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className={sectionTitle}>Work Documentation</h3>
-                    <p className="mt-1 text-white/50 text-sm">
-                      Optional in the morning, recommended before Time Out.
-                    </p>
-                  </div>
-                  <Badge tone="neutral">
-                    <FileText className="h-3.5 w-3.5 mr-1 inline" />
-                    Daily Log
-                  </Badge>
-                </div>
-
-                <div className="mt-5 space-y-3">
-                  <label className="block text-white/60 text-sm font-semibold">
-                    What did you accomplish today?
-                  </label>
-
-                  <div className="rounded-xl border border-white/10 bg-[#00273C]/60 overflow-hidden">
-                    {/* Toolbar (visual only) */}
-                    <div className="flex items-center gap-1 px-2 py-2 border-b border-white/10 overflow-x-auto">
-                      {["B", "I", "U", "1-2-3", "•••", "Tx"].map((t) => (
-                        <button
-                          key={t}
-                          type="button"
-                          className="shrink-0 px-2 py-1 rounded-lg text-xs font-semibold text-white/60 hover:text-white hover:bg-white/10 transition"
-                          onClick={() => { }}
-                        >
-                          {t}
-                        </button>
-                      ))}
-                    </div>
-
-                    <textarea
-                      className="w-full bg-transparent border-none outline-none resize-none text-sm text-white/90 placeholder:text-white/40 p-3"
-                      placeholder="Example: Completed database design and implemented user authentication system..."
-                      rows={5}
-                      value={workDoc}
-                      onChange={(e) => setWorkDoc(e.target.value)}
-                    />
-                  </div>
-
-                </div>
-              </div>
+              <WorkDocCard value={workDoc} onChange={setWorkDoc} cardClass={cardClass} />
             </div>
 
             {/* History */}

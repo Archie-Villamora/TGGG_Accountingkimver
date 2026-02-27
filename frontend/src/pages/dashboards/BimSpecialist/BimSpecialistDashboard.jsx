@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import PublicNavigation from '../Public_Dashboard/PublicNavigation';
 import BimSpecialistSidebar from './components/BimSpecialistSidebar';
+import WorkDocCard from '../../../components/attendance/WorkDocCard';
 
 const SECTION_META = {
   overview: {
@@ -215,16 +216,7 @@ export default function BimSpecialistDashboard({ user, onNavigate }) {
           onStatusChange={({ ready }) => setAttendanceReady(ready)}
         />
 
-        <div className={`${cardClass} p-4 sm:p-6 space-y-3`}>
-          <h3 className="text-white font-semibold">Work Documentation</h3>
-          <textarea
-            rows={5}
-            value={workDoc}
-            onChange={(e) => setWorkDoc(e.target.value)}
-            placeholder="What did you accomplish today?"
-            className="w-full rounded-xl border border-white/15 bg-[#00273C]/60 px-3 py-2 text-sm text-white placeholder:text-white/45 outline-none resize-none"
-          />
-        </div>
+        <WorkDocCard value={workDoc} onChange={setWorkDoc} cardClass={cardClass} />
       </div>
 
       <div className={cardClass}>

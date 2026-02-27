@@ -12,6 +12,7 @@ import {
 import PublicNavigation from '../Public_Dashboard/PublicNavigation';
 import SiteEngineerSidebar from './components/SiteEngineerSidebar';
 import LocationAttendance from '../../../components/attendance/LocationAttendance';
+import WorkDocCard from '../../../components/attendance/WorkDocCard';
 
 const SECTION_KEYS = new Set(['overview', 'attendance']);
 const MOBILE_SECTION_TABS = [
@@ -32,20 +33,20 @@ export default function SiteEngineerDashboard({ user, onNavigate }) {
     const requested = params.get('section');
     if (requested && SECTION_KEYS.has(requested)) setActiveSection(requested);
   }, [location.search]);
-    const attendanceRows = [
-      { date: '2026-02-09', in: '08:00', out: '17:00', late: '0', hours: '8h 0m', note: 'Field checks and site coordination completed.' },
-      { date: '2026-02-08', in: '08:09', out: '17:00', late: '9', hours: '7h 51m', note: 'Updated reports and reviewed material schedules.' },
-    ];
+  const attendanceRows = [
+    { date: '2026-02-09', in: '08:00', out: '17:00', late: '0', hours: '8h 0m', note: 'Field checks and site coordination completed.' },
+    { date: '2026-02-08', in: '08:09', out: '17:00', late: '9', hours: '7h 51m', note: 'Updated reports and reviewed material schedules.' },
+  ];
 
-    const stats = useMemo(() => {
-      const latest = attendanceRows[0];
-      const lateMinutes = latest?.late ?? '0';
-      return [
-        { label: "Today's Status", value: attendanceReady ? 'Ready to Time In' : 'Location Required', tone: attendanceReady ? 'good' : 'warn', icon: MapPin },
-        { label: 'Late Minutes (Latest)', value: lateMinutes, tone: lateMinutes === '0' ? 'good' : 'warn', icon: Clock },
-        { label: 'Total Hours (Latest)', value: latest?.hours ?? '-', tone: 'neutral', icon: FileText },
-      ];
-    }, [attendanceReady]);
+  const stats = useMemo(() => {
+    const latest = attendanceRows[0];
+    const lateMinutes = latest?.late ?? '0';
+    return [
+      { label: "Today's Status", value: attendanceReady ? 'Ready to Time In' : 'Location Required', tone: attendanceReady ? 'good' : 'warn', icon: MapPin },
+      { label: 'Late Minutes (Latest)', value: lateMinutes, tone: lateMinutes === '0' ? 'good' : 'warn', icon: Clock },
+      { label: 'Total Hours (Latest)', value: latest?.hours ?? '-', tone: 'neutral', icon: FileText },
+    ];
+  }, [attendanceReady]);
 
   const cardClass = 'rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.22)]';
 
@@ -148,16 +149,7 @@ export default function SiteEngineerDashboard({ user, onNavigate }) {
           onStatusChange={({ ready }) => setAttendanceReady(ready)}
         />
 
-        <div className={`${cardClass} p-4 sm:p-6 space-y-3`}>
-          <h3 className="text-white font-semibold">Work Documentation</h3>
-          <textarea
-            rows={5}
-            value={workDoc}
-            onChange={(e) => setWorkDoc(e.target.value)}
-            placeholder="What site work did you accomplish today?"
-            className="w-full rounded-xl border border-white/15 bg-[#00273C]/60 px-3 py-2 text-sm text-white placeholder:text-white/45 outline-none resize-none"
-          />
-        </div>
+        <WorkDocCard value={workDoc} onChange={setWorkDoc} cardClass={cardClass} />
       </div>
 
       <div className={cardClass}>

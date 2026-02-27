@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, LayoutTemplate, SquareCheckBig, Plus, Search } from 'lucide-react';
+import { Users, UsersRound, LayoutTemplate, SquareCheckBig, Plus, Search, Crown, Trash2 } from 'lucide-react';
 import { colors, styles } from '../studioHeadStyles';
 
 function StatCard({ title, value, icon: Icon }) {
@@ -89,9 +89,17 @@ export default function CoordinatorPanel({
                     {assignableUsers.map((u) => (
                         <div key={u.id} className="bg-[#001f35] rounded-xl border border-white/5 p-4 flex items-center justify-between">
                             <div className="flex items-center gap-4">
-                                <div className="h-10 w-10 rounded-full bg-cyan-900/50 flex items-center justify-center text-cyan-400 font-bold border border-cyan-500/30">
-                                    {u.first_name?.[0] || u.email[0].toUpperCase()}
-                                </div>
+                                {u.profile_picture ? (
+                                    <img
+                                        src={u.profile_picture}
+                                        alt={u.first_name || u.email}
+                                        className="h-10 w-10 rounded-full object-cover border border-cyan-500/30"
+                                    />
+                                ) : (
+                                    <div className="h-10 w-10 rounded-full bg-cyan-900/50 flex items-center justify-center text-cyan-400 font-bold border border-cyan-500/30">
+                                        {u.first_name?.[0] || u.email[0].toUpperCase()}
+                                    </div>
+                                )}
                                 <div>
                                     <div className="text-white font-medium text-sm">
                                         {u.first_name || u.last_name ? `${u.first_name} ${u.last_name}` : u.email}
@@ -100,12 +108,12 @@ export default function CoordinatorPanel({
                                         <span className="capitalize">{u.role?.replace('_', ' ')}</span>
                                         {u.is_leader && (
                                             <span className="flex items-center gap-1 text-orange-400 bg-orange-400/10 px-2 py-0.5 rounded text-[10px] font-semibold">
-                                                <span className="text-xs">👑</span> Leader
+                                                <Crown size={10} /> Leader
                                             </span>
                                         )}
                                         {u.department_name && (
                                             <span className="flex items-center gap-1 text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded text-[10px]">
-                                                👥 {u.department_name}
+                                                <UsersRound size={10} /> {u.department_name}
                                             </span>
                                         )}
                                     </div>
@@ -165,15 +173,15 @@ export default function CoordinatorPanel({
                                     disabled={loadingAction === `disband-${g.id}`}
                                     className="px-3 py-1.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 text-sm hover:bg-red-500/20 transition-colors flex items-center gap-2 disabled:opacity-50"
                                 >
-                                    🗑️ Disband
+                                    <Trash2 size={14} /> Disband
                                 </button>
                             </div>
 
                             <div className="mt-4 text-sm">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-orange-400">👑 Leader:</span>
+                                    <span className="text-orange-400 flex items-center gap-1"><Crown size={14} /> Leader:</span>
                                     <span className="text-white font-medium">
-                                        {g.leader ? `${g.leader.first_name || ''} ${g.leader.last_name || g.leader.email}` : 'Unassigned'}
+                                        {g.leader ? (g.leader.full_name || g.leader.email) : 'Unassigned'}
                                     </span>
                                 </div>
                                 <div className="flex gap-2">
@@ -181,7 +189,7 @@ export default function CoordinatorPanel({
                                     <div className="flex flex-wrap gap-2 flex-1">
                                         {g.members?.map(m => (
                                             <span key={m.user.id} className="text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded text-xs">
-                                                {m.user.first_name || m.user.last_name ? `${m.user.first_name} ${m.user.last_name}` : m.user.email}
+                                                {m.user.full_name || m.user.email}
                                             </span>
                                         )) || <span className="text-gray-500 text-xs">None</span>}
                                     </div>

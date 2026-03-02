@@ -8,6 +8,34 @@ import './WorkDocEditor.css';
  * Shared Work Documentation card with rich text editing + attachments.
  * Drop-in replacement for the plain textarea cards across all role dashboards.
  */
+const CustomToolbar = ({ id, onAttach }) => (
+    <div id={id} className="border-b border-white/10 px-2.5 py-2 flex items-center bg-transparent">
+        <div className="flex items-center flex-wrap">
+            <span className="ql-formats mr-2 hidden sm:inline-flex">
+                <button className="ql-bold" />
+                <button className="ql-italic" />
+                <button className="ql-underline" />
+            </span>
+            <span className="ql-formats mr-2">
+                <button className="ql-list" value="ordered" />
+                <button className="ql-list" value="bullet" />
+            </span>
+            <span className="ql-formats">
+                <button className="ql-clean" />
+            </span>
+            <span className="w-px h-4 bg-white/10 mx-1 hidden sm:block"></span>
+            <button
+                type="button"
+                onClick={onAttach}
+                className="flex items-center justify-center p-1.5 rounded-md hover:bg-white/10 group transition"
+                title="Attach file (Max 3)"
+            >
+                <Paperclip className="h-[18px] w-[18px] text-white/50 group-hover:text-[#FF7120] transition-colors" />
+            </button>
+        </div>
+    </div>
+);
+
 export default function WorkDocCard({
     value = '',
     onChange,
@@ -16,25 +44,54 @@ export default function WorkDocCard({
 }) {
     const [attachments, setAttachments] = useState([]);
     const fileInputRef = useRef(null);
+    const toolbarId = useMemo(() => `toolbar-${Math.random().toString(36).substr(2, 9)}`, []);
 
     const quillModules = useMemo(() => ({
-        toolbar: [
-            ['bold', 'italic', 'underline'],
-            [{ list: 'ordered' }, { list: 'bullet' }],
-            ['clean'],
-        ],
-    }), []);
+        toolbar: {
+            container: `#${toolbarId}`
+        }
+    }), [toolbarId]);
+
+    const handleAttachClick = () => {
+        if (attachments.length >= 3) {
+            alert("You can only upload a maximum of 3 attachments.");
+            return;
+        }
+        fileInputRef.current?.click();
+    };
 
     const quillFormats = ['bold', 'italic', 'underline', 'list', 'bullet'];
 
     const handleFileDrop = (e) => {
         e.preventDefault();
         const files = Array.from(e.dataTransfer?.files || e.target?.files || []);
-        if (files.length) setAttachments((prev) => [...prev, ...files]);
+
+        if (files.length) {
+            setAttachments((prev) => {
+                const combined = [...prev, ...files];
+                if (combined.length > 3) {
+                    alert("Maximum 3 attachments allowed.");
+                    return combined.slice(0, 3);
+                }
+                return combined;
+            });
+        }
+
+        // Reset input so choosing same file again works
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
     };
 
     const removeAttachment = (index) => {
         setAttachments((prev) => prev.filter((_, i) => i !== index));
+    };
+
+    const getFilePreview = (file) => {
+        if (file.type.startsWith('image/')) {
+            return URL.createObjectURL(file);
+        }
+        return null; // Return null if not image, we'll render icon instead
     };
 
     return (
@@ -42,9 +99,6 @@ export default function WorkDocCard({
             {/* Header */}
             <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                    <div className="grid place-items-center h-10 w-10 rounded-xl bg-blue-500/15 text-blue-300 shrink-0">
-                        <PenLine className="h-5 w-5" />
-                    </div>
                     <div>
                         <h3 className="text-white font-semibold tracking-tight text-[clamp(0.95rem,2.4vw,1.1rem)]">
                             Work Documentation
@@ -67,7 +121,47 @@ export default function WorkDocCard({
                 </label>
 
                 {/* Rich Text Editor */}
-                <div className="work-doc-editor rounded-xl border border-white/10 bg-[#00273C]/60 overflow-hidden flex-1 flex flex-col">
+                <div className="work-doc-editor rounded-xl border border-white/10 bg-[#00273C]/60 overflow-hidden flex-1 flex flex-col relative"
+                    onDrop={handleFileDrop}
+                    onDragOver={(e) => e.preventDefault()}
+                >
+                    <CustomToolbar id={toolbarId} onAttach={handleAttachClick} />
+
+                    {/* Inline Attachments Preview Map */}
+                    {attachments.length > 0 && (
+                        <div className="px-4 py-3 border-b border-white/10 bg-black/10 flex flex-wrap gap-3">
+                            {attachments.map((file, i) => {
+                                const isImage = file.type.startsWith('image/');
+                                const previewUrl = isImage ? URL.createObjectURL(file) : null;
+                                return (
+                                    <div
+                                        key={i}
+                                        className="relative group rounded-lg overflow-hidden border border-white/10 bg-[#001f35] flex items-center justify-center h-14 w-20 sm:w-24 shrink-0 transition hover:border-[#FF7120]/50"
+                                        title={file.name}
+                                    >
+                                        {isImage ? (
+                                            <img src={previewUrl} alt={file.name} className="h-full w-full object-cover" />
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center p-2 text-white/50">
+                                                <FileText className="h-5 w-5 mb-1" />
+                                                <span className="text-[0.6rem] font-semibold truncate w-full text-center">{file.name}</span>
+                                            </div>
+                                        )}
+
+                                        {/* Remove Hover Button */}
+                                        <button
+                                            type="button"
+                                            onClick={() => removeAttachment(i)}
+                                            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 p-1 rounded-full bg-red-500/80 text-white hover:bg-red-500 transition-all shadow-sm"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
                     <ReactQuill
                         theme="snow"
                         value={value}
@@ -76,53 +170,20 @@ export default function WorkDocCard({
                         formats={quillFormats}
                         placeholder={placeholder}
                     />
+
+                    {/* Hidden input accessible via paperclip toolbar button */}
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        className="hidden"
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.webp"
+                        onChange={handleFileDrop}
+                    />
                 </div>
 
-                {/* Attachments */}
-                <div className="space-y-2">
-                    <p className="text-white/50 text-sm font-semibold italic">Attachments (Optional)</p>
-
-                    {attachments.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-2">
-                            {attachments.map((file, i) => (
-                                <div
-                                    key={i}
-                                    className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70"
-                                >
-                                    <Paperclip className="h-3 w-3 text-white/40" />
-                                    <span className="max-w-[120px] truncate">{file.name}</span>
-                                    <button
-                                        type="button"
-                                        onClick={() => removeAttachment(i)}
-                                        className="p-0.5 rounded hover:bg-white/10 text-white/40 hover:text-red-400 transition"
-                                    >
-                                        <X className="h-3 w-3" />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    <div
-                        className="rounded-xl border-2 border-dashed border-[#FF7120]/30 bg-[#FF7120]/[0.03] hover:bg-[#FF7120]/[0.06] hover:border-[#FF7120]/50 transition cursor-pointer flex items-center justify-center gap-2 py-3.5"
-                        onClick={() => fileInputRef.current?.click()}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={handleFileDrop}
-                    >
-                        <Paperclip className="h-4 w-4 text-[#FF7120]/60" />
-                        <span className="text-sm text-white/50 font-medium">
-                            Attach files (PDF, Word, Excel, Images)
-                        </span>
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            multiple
-                            className="hidden"
-                            accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.webp"
-                            onChange={handleFileDrop}
-                        />
-                    </div>
-                </div>
+                {/* Map Portal Target */}
+                <div id="map-preview-portal"></div>
 
                 <p className="text-white/35 text-xs">You can check out anytime</p>
             </div>

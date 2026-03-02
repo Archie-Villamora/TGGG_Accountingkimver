@@ -76,6 +76,8 @@ export function DashboardOverview({ user }) {
     attendanceRate: mockData.attendanceRate,
     engagementScore: mockData.engagementScore,
     performanceRating: mockData.performanceRating,
+    payrollCount: 0,
+    avgNetPay: 0,
   });
   const [loading, setLoading] = useState(false);
 
@@ -136,6 +138,10 @@ export function DashboardOverview({ user }) {
           return Number.isFinite(val) ? sum + val : sum;
         }, 0);
 
+        const payrollCount = payroll.length || 0;
+        const avgNetPay =
+          payrollCount > 0 ? Math.round((monthlyPayroll / payrollCount) * 100) / 100 : 0;
+
         setMetrics((prev) => ({
           ...prev,
           totalEmployees: totalEmployees || prev.totalEmployees,
@@ -144,6 +150,8 @@ export function DashboardOverview({ user }) {
           newHires: newHires || prev.newHires,
           attendanceRate: attendanceRate || prev.attendanceRate,
           monthlyPayroll: monthlyPayroll || prev.monthlyPayroll,
+          payrollCount,
+          avgNetPay: avgNetPay || prev.avgNetPay,
         }));
       } catch (error) {
         console.error('Failed to load dashboard overview metrics:', error);
@@ -207,12 +215,15 @@ export function DashboardOverview({ user }) {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Attendance Rate</p>
-                <p className="text-2xl font-medium">{metrics.attendanceRate}%</p>
+                <p className="text-sm text-muted-foreground">On Leave</p>
+                <p className="text-2xl font-medium">{metrics.onLeave}</p>
               </div>
-              <Clock className="h-8 w-8 text-primary" />
+              <CalendarDays className="h-8 w-8 text-primary" />
             </div>
-            <Progress value={metrics.attendanceRate} className="mt-2" />
+            <div className="flex items-center text-xs text-muted-foreground mt-2">
+              <ArrowDownRight className="w-3 h-3 mr-1 text-primary" />
+              Tracking current leave load
+            </div>
           </CardContent>
         </Card>
 
@@ -220,18 +231,16 @@ export function DashboardOverview({ user }) {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Monthly Payroll</p>
+                <p className="text-sm text-muted-foreground">Avg Net Pay</p>
                 <p className="text-2xl font-medium">
-                  {metrics.monthlyPayroll >= 1_000_000
-                    ? `$${(metrics.monthlyPayroll / 1_000_000).toFixed(1)}M`
-                    : `$${metrics.monthlyPayroll.toLocaleString()}`}
+                  ${metrics.avgNetPay.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </p>
               </div>
               <DollarSign className="h-8 w-8 text-primary" />
             </div>
             <div className="flex items-center text-xs text-muted-foreground mt-2">
               <ArrowUpRight className="w-3 h-3 mr-1 text-primary" />
-              +3.2% from last month
+              Based on recent payslips
             </div>
           </CardContent>
         </Card>
@@ -240,12 +249,15 @@ export function DashboardOverview({ user }) {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Engagement Score</p>
-                <p className="text-2xl font-medium">{metrics.engagementScore}%</p>
+                <p className="text-sm text-muted-foreground">Recent Payslips</p>
+                <p className="text-2xl font-medium">{metrics.payrollCount}</p>
               </div>
-              <Heart className="h-8 w-8 text-primary" />
+              <CheckCircle className="h-8 w-8 text-primary" />
             </div>
-            <Progress value={metrics.engagementScore} className="mt-2" />
+            <div className="flex items-center text-xs text-muted-foreground mt-2">
+              <ArrowUpRight className="w-3 h-3 mr-1 text-primary" />
+              Pulled from payroll history
+            </div>
           </CardContent>
         </Card>
       </div>

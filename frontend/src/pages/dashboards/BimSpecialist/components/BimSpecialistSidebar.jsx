@@ -3,12 +3,12 @@ import { Home, Calendar, FolderKanban, Clock, CheckSquare } from 'lucide-react';
 const SECTION_LINKS = [
   { id: 'overview', label: 'Dashboard', icon: Home, section: 'overview' },
   { id: 'attendance', label: 'Attendance', icon: Calendar, section: 'attendance' },
-  { id: 'documentation', label: 'Documentation', icon: FolderKanban, section: 'documentation' },
+  { id: 'overtime', label: 'Overtime & Leave', icon: Clock, page: 'overtime' },
+  { id: 'todo', label: 'Todo', icon: CheckSquare, page: 'todo' },
 ];
 
 const PAGE_LINKS = [
-  { id: 'overtime', label: 'Overtime & Leave', icon: Clock, page: 'overtime' },
-  { id: 'todo', label: 'Todo', icon: CheckSquare, page: 'todo' },
+  { id: 'documentation', label: 'Documentation', icon: FolderKanban, section: 'documentation' },
 ];
 
 export default function BimSpecialistSidebar({

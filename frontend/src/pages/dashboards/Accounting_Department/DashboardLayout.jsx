@@ -81,7 +81,7 @@ const tabMeta = {
   },
 };
 
-export function DashboardLayout({ activeTab, setActiveTab, children, onLogout }) {
+export function DashboardLayout({ activeTab, setActiveTab, children, onLogout, onNavigate }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [notificationFilter, setNotificationFilter] = useState('all');
   const [sortOrder, setSortOrder] = useState('newest');
@@ -357,25 +357,26 @@ export function DashboardLayout({ activeTab, setActiveTab, children, onLogout })
             </aside>
 
             <main className="flex-1 min-w-0">
-              <div className={cardClass}>
-                <div className="p-6 border-b border-white/10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-col gap-5">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <h1 className="text-2xl font-semibold text-white">{currentTab.title}</h1>
+                    <p className="text-xs uppercase tracking-[0.2em] text-[#8fb4d9]">Accounting Department</p>
+                    <h1 className="text-2xl font-semibold text-white mt-1">{currentTab.title}</h1>
                     <p className="text-white/60 text-sm mt-1">{currentTab.description}</p>
                   </div>
-                  <div className="relative w-full md:w-80">
+                  <div className="relative w-full md:w-96">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/45" />
                     <input
                       type="text"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       placeholder="Search..."
-                      className="h-10 w-full rounded-xl border border-white/15 bg-[#00273C]/60 pl-10 pr-4 text-sm text-white placeholder:text-white/45 outline-none focus:border-[#FF7120]/70 focus:ring-2 focus:ring-[#FF7120]/25"
+                      className="h-11 w-full rounded-full border border-white/10 bg-white/5 pl-10 pr-4 text-sm text-white placeholder:text-white/45 outline-none focus:border-[#FF7120]/70 focus:ring-2 focus:ring-[#FF7120]/25"
                     />
                   </div>
                 </div>
 
-                <div className="p-6">
+                <div className="rounded-3xl bg-[#0b2234]/60 border border-white/5 p-5 shadow-[0_18px_48px_rgba(0,0,0,0.35)]">
                   {children}
                 </div>
               </div>

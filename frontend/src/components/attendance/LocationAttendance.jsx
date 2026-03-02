@@ -1,10 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle, MapPin, XCircle } from "lucide-react";
+import {
+  CheckCircle,
+  MapPin,
+  XCircle,
+  Clock,
+  LogIn,
+  LogOut,
+  Building2,
+  HardHat,
+  Navigation,
+  AlertCircle,
+  Info,
+} from "lucide-react";
 import attendanceLocations from "../../configs/attendanceLocations";
 
 const RADIO_OPTIONS = [
-  { value: "office", label: "Office" },
-  { value: "construction", label: "Construction Site or Outside Meeting" },
+  { value: "office", label: "Office", icon: Building2, hint: "Inside the office geofence" },
+  { value: "construction", label: "Construction / Outside", icon: HardHat, hint: "Field work — no range check" },
 ];
 
 const toRad = (value) => (value * Math.PI) / 180;
@@ -21,20 +33,24 @@ const calculateDistanceMeters = (lat1, lng1, lat2, lng2) => {
   return earthRadius * c;
 };
 
-const StatusChip = ({ success, text }) => {
-  const base = "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold border";
-  if (success) {
-    return (
-      <div className={`${base} bg-emerald-500/10 text-emerald-300 border-emerald-500/20`}>
-        <CheckCircle className="h-4 w-4" />
-        <span>{text}</span>
-      </div>
-    );
-  }
+/* ── Status chip — larger, clearer, with primary + secondary text ── */
+const StatusChip = ({ success, primaryText, secondaryText }) => {
+  const base =
+    "flex items-start gap-2.5 rounded-xl px-3.5 py-2.5 text-[0.8rem] leading-snug font-medium border w-full";
+  const Icon = success ? CheckCircle : XCircle;
+  const colors = success
+    ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
+    : "bg-red-500/10 text-red-300 border-red-500/20";
+
   return (
-    <div className={`${base} bg-red-500/10 text-red-300 border-red-500/20`}>
-      <XCircle className="h-4 w-4" />
-      <span>{text}</span>
+    <div className={`${base} ${colors}`}>
+      <Icon className="h-4 w-4 mt-0.5 shrink-0" />
+      <div className="min-w-0">
+        <span className="block font-semibold">{primaryText}</span>
+        {secondaryText && (
+          <span className="block text-[0.7rem] opacity-70 mt-0.5">{secondaryText}</span>
+        )}
+      </div>
     </div>
   );
 };
@@ -43,7 +59,7 @@ const LocationAttendance = ({
   role,
   className = "rounded-2xl border border-white/10 bg-[#001f35]/70 p-4 sm:p-6 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.22)]",
   title = "Attendance",
-  description = "Answer the office mode and capture location to enable Time In/Out.",
+  description = "Select your work mode, then capture your location to enable Time In / Out.",
   onStatusChange,
 }) => {
   const [mode, setMode] = useState("office");
@@ -151,94 +167,162 @@ const LocationAttendance = ({
     }, 1000);
   };
 
-  const renderLocationRow = (label, location, error, handler, distance, rangeOk) => (
-    <div>
-      <p className="text-white/60 text-sm font-semibold">{label}</p>
-      {location && rangeOk && (
-        <StatusChip
-          success
-          text={`Captured (${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)})`}
-        />
-      )}
-      {location && !rangeOk && (
-        <StatusChip
-          success={false}
-          text={`Outside ${officeLabel} radius (${distance ? distance.toFixed(0) : "-"}m)`}
-        />
-      )}
-      {error && <StatusChip success={false} text={error} />}
-      {!location && !error && (
-        <StatusChip success={false} text="Location not captured yet" />
-      )}
-      <button
-        type="button"
-        onClick={handler}
-        className="mt-2 w-full rounded-xl border border-[#FF7120]/40 bg-[#FF7120]/10 px-4 py-2 text-sm font-semibold text-[#FF7120] hover:bg-[#FF7120]/20 transition"
+  /* ── Location section renderer — now with accent border + icon ── */
+  const renderLocationSection = (
+    label,
+    SectionIcon,
+    accentColor,
+    location,
+    error,
+    handler,
+    distance,
+    rangeOk
+  ) => {
+    const borderAccent =
+      accentColor === "emerald"
+        ? "border-l-emerald-400/60"
+        : "border-l-amber-400/60";
+
+    return (
+      <div
+        className={`rounded-xl border border-white/8 bg-white/[0.03] border-l-[3px] ${borderAccent} p-4 space-y-3`}
       >
-        Scan location now
-      </button>
-    </div>
-  );
+        {/* Section header */}
+        <div className="flex items-center gap-2.5">
+          <div
+            className={`grid place-items-center h-8 w-8 rounded-lg ${accentColor === "emerald"
+              ? "bg-emerald-500/15 text-emerald-300"
+              : "bg-amber-500/15 text-amber-300"
+              }`}
+          >
+            <SectionIcon className="h-4 w-4" />
+          </div>
+          <p className="text-white font-semibold text-[0.95rem] tracking-tight">
+            {label}
+          </p>
+        </div>
+
+        {/* Status display */}
+        <div className="space-y-2">
+          {location && rangeOk && (
+            <StatusChip
+              success
+              primaryText="Location captured successfully"
+              secondaryText={`Coords: ${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}${location.accuracy ? ` · Accuracy: ±${Math.round(location.accuracy)}m` : ""
+                }`}
+            />
+          )}
+          {location && !rangeOk && (
+            <StatusChip
+              success={false}
+              primaryText={`Outside ${officeLabel} radius`}
+              secondaryText={`You are ${distance ? distance.toFixed(0) : "—"}m away (max ${officeConfig.radius}m)`}
+            />
+          )}
+          {error && (
+            <StatusChip success={false} primaryText="Location error" secondaryText={error} />
+          )}
+          {!location && !error && (
+            <StatusChip
+              success={false}
+              primaryText="Waiting for location"
+              secondaryText="Tap the button below to capture your position"
+            />
+          )}
+        </div>
+
+        {/* Capture button */}
+        <button
+          type="button"
+          onClick={handler}
+          className="w-full flex items-center justify-center gap-2 rounded-xl border border-[#FF7120]/40 bg-[#FF7120]/10 px-4 py-2.5 text-sm font-semibold text-[#FF7120] hover:bg-[#FF7120]/20 active:scale-[0.98] transition"
+        >
+          <Navigation className="h-4 w-4" />
+          {location ? "Re-capture Location" : "Capture My Location"}
+        </button>
+      </div>
+    );
+  };
 
   return (
     <div className={className}>
+      {/* ── Card header ── */}
       <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h3 className="text-white font-semibold text-lg">{title}</h3>
-          <p className="text-white/60 text-sm">{description}</p>
+        <div className="flex items-center gap-3">
+          <div className="grid place-items-center h-10 w-10 rounded-xl bg-[#FF7120]/15 text-[#FF7120] shrink-0">
+            <Clock className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="text-white font-semibold text-lg leading-tight">{title}</h3>
+            <p className="text-white/55 text-sm mt-0.5">{description}</p>
+          </div>
         </div>
-        <div className="text-right">
-          <p className="text-white/80 text-xs uppercase tracking-[0.3em]">Mode</p>
-          <p className="text-white/60 text-sm">{mode === "office" ? "Office" : "Construction Site or Outside Meeting"}</p>
+
+        {/* Current mode badge */}
+        <div className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 shrink-0">
+          {mode === "office" ? (
+            <Building2 className="h-3.5 w-3.5" />
+          ) : (
+            <HardHat className="h-3.5 w-3.5" />
+          )}
+          {mode === "office" ? "Office Mode" : "Field Mode"}
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 lg:grid-cols-2">
-        {RADIO_OPTIONS.map((option) => (
-          <label
-            key={option.value}
-            className={`cursor-pointer rounded-xl border px-3 py-2 text-sm font-semibold transition ${
-              mode === option.value
-                ? "border-[#FF7120]/70 bg-[#FF7120]/10 text-white"
-                : "border-white/15 bg-transparent text-white/60 hover:border-white/40"
-            }`}
-          >
-            <input
-              type="radio"
-              name="attendance-mode"
-              value={option.value}
-              className="hidden"
-              checked={mode === option.value}
-              onChange={() => setMode(option.value)}
-            />
-            {option.label}
-          </label>
-        ))}
+      {/* ── Mode selector ── */}
+      <div className="mt-5">
+        <p className="text-white/50 text-xs font-semibold uppercase tracking-widest mb-2.5">
+          Work Mode
+        </p>
+        <div className="grid gap-3 lg:grid-cols-2">
+          {RADIO_OPTIONS.map((option) => {
+            const OptionIcon = option.icon;
+            const isActive = mode === option.value;
+            return (
+              <label
+                key={option.value}
+                className={`cursor-pointer rounded-xl border px-4 py-3 transition flex items-center gap-3 ${isActive
+                  ? "border-[#FF7120]/70 bg-[#FF7120]/10 text-white shadow-[0_0_16px_rgba(255,113,32,0.08)]"
+                  : "border-white/12 bg-transparent text-white/55 hover:border-white/30 hover:text-white/70"
+                  }`}
+              >
+                <input
+                  type="radio"
+                  name="attendance-mode"
+                  value={option.value}
+                  className="hidden"
+                  checked={isActive}
+                  onChange={() => setMode(option.value)}
+                />
+                <div
+                  className={`grid place-items-center h-8 w-8 rounded-lg shrink-0 ${isActive
+                    ? "bg-[#FF7120]/20 text-[#FF7120]"
+                    : "bg-white/5 text-white/40"
+                    }`}
+                >
+                  <OptionIcon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <span className="block text-sm font-semibold leading-tight">{option.label}</span>
+                  <span className="block text-[0.7rem] opacity-60 mt-0.5">{option.hint}</span>
+                </div>
+              </label>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        {renderLocationRow(
-          "Time In Location",
-          locationIn,
-          locationInError,
-          () => requestCoordinates(setLocationIn, setLocationInError),
-          officeDistanceIn,
-          inRangeIn
-        )}
-        {renderLocationRow(
-          "Time Out Location",
-          locationOut,
-          locationOutError,
-          () => requestCoordinates(setLocationOut, setLocationOutError),
-          officeDistanceOut,
-          inRangeOut
-        )}
-      </div>
-
-      <div className="mt-4 space-y-2">
+      {/* ── Map section ── */}
+      <div className="mt-6 space-y-2.5">
         <div className="flex items-center justify-between">
-          <p className="text-white text-sm font-semibold">Map view</p>
-          <p className="text-xs text-white/60 uppercase tracking-[0.3em]">Live</p>
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-white/50" />
+            <p className="text-white text-sm font-semibold">Location Preview</p>
+          </div>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[0.65rem] font-semibold text-emerald-300 uppercase tracking-wider">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Live
+          </span>
         </div>
         <div className="rounded-2xl border border-white/10 bg-black/40 overflow-hidden">
           <iframe
@@ -249,14 +333,42 @@ const LocationAttendance = ({
             referrerPolicy="no-referrer"
           />
         </div>
-        <p className="text-xs text-white/50">
-          {locationIn || locationOut
-            ? "Showing the captured coordinates. Drag or zoom to inspect the point."
-            : `Displaying ${officeLabel} as a reference area before capture.`}
-        </p>
+        <div className="flex items-start gap-2 text-xs text-white/45">
+          <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+          <p>
+            {locationIn || locationOut
+              ? "Showing your captured coordinates on the map. Drag or zoom to inspect."
+              : `Showing ${officeLabel} as a reference area. Capture your location to update the marker.`}
+          </p>
+        </div>
       </div>
 
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+      {/* ── Time In / Time Out location sections ── */}
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        {renderLocationSection(
+          "Time In Location",
+          LogIn,
+          "emerald",
+          locationIn,
+          locationInError,
+          () => requestCoordinates(setLocationIn, setLocationInError),
+          officeDistanceIn,
+          inRangeIn
+        )}
+        {renderLocationSection(
+          "Time Out Location",
+          LogOut,
+          "amber",
+          locationOut,
+          locationOutError,
+          () => requestCoordinates(setLocationOut, setLocationOutError),
+          officeDistanceOut,
+          inRangeOut
+        )}
+      </div>
+
+      {/* ── Action buttons ── */}
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
         <button
           type="button"
           disabled={!canTimeIn || processing === "in"}
@@ -264,12 +376,13 @@ const LocationAttendance = ({
             handleTimeAction("in");
           }}
           className={[
-            "w-full sm:w-auto rounded-xl px-5 py-3 font-semibold text-white transition shadow-[0_12px_24px_rgba(0,0,0,0.22)]",
+            "w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 font-semibold text-white transition shadow-[0_12px_24px_rgba(0,0,0,0.22)]",
             !canTimeIn || processing === "in"
               ? "bg-white/10 text-white/40 cursor-not-allowed"
-              : "bg-[#FF7120] hover:brightness-95",
+              : "bg-[#FF7120] hover:brightness-95 active:scale-[0.98]",
           ].join(" ")}
         >
+          <LogIn className="h-4 w-4" />
           {processing === "in" ? "Processing..." : "Time In"}
         </button>
         <button
@@ -279,25 +392,30 @@ const LocationAttendance = ({
             handleTimeAction("out");
           }}
           className={[
-            "w-full sm:w-auto rounded-xl px-5 py-3 font-semibold text-white transition shadow-[0_12px_24px_rgba(0,0,0,0.22)]",
+            "w-full sm:w-auto flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 font-semibold text-white transition shadow-[0_12px_24px_rgba(0,0,0,0.22)]",
             !canTimeOut || processing === "out"
               ? "bg-white/10 text-white/40 cursor-not-allowed"
-              : "bg-[#FF7120] hover:brightness-95",
+              : "bg-[#FF7120] hover:brightness-95 active:scale-[0.98]",
           ].join(" ")}
         >
+          <LogOut className="h-4 w-4" />
           {processing === "out" ? "Processing..." : "Time Out"}
         </button>
       </div>
 
-      <div className="mt-3 text-xs text-white/50">
+      {/* ── Footer info ── */}
+      <div className="mt-4 flex items-start gap-2 rounded-lg border border-white/6 bg-white/[0.02] px-3 py-2.5 text-xs text-white/45">
+        <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-white/35" />
         {mode === "office" ? (
           <p>
-            Geofence radius <strong>{officeConfig.radius}m</strong> around {officeLabel}. You can time in and out when your
-            location is within range.
+            Geofence radius <strong className="text-white/60">{officeConfig.radius}m</strong> around{" "}
+            <strong className="text-white/60">{officeLabel}</strong>. You must be within range to
+            time in and out.
           </p>
         ) : (
           <p>
-            Tracking on construction site or outside meeting: location is required, but range checks are skipped.
+            Field mode — your location is recorded for tracking, but distance checks are not
+            applied.
           </p>
         )}
       </div>

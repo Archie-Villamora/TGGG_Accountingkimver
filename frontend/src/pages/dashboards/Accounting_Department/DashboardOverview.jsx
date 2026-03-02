@@ -284,14 +284,14 @@ export function DashboardOverview({ user }) {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">On Leave</p>
+                <p className="text-sm text-muted-foreground">On Leave Today</p>
                 <p className="text-2xl font-medium">{metrics.onLeave}</p>
               </div>
               <CalendarDays className="h-8 w-8 text-primary" />
             </div>
             <div className="flex items-center text-xs text-muted-foreground mt-2">
               <ArrowDownRight className="w-3 h-3 mr-1 text-primary" />
-              Tracking current leave load
+              Based on active roster
             </div>
           </CardContent>
         </Card>

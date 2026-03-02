@@ -318,7 +318,6 @@ export function AttendanceLeave() {
         <TabsList className="grid w-full grid-cols-3 max-w-md">
           <TabsTrigger value="attendance">Attendance</TabsTrigger>
           <TabsTrigger value="leave">Leave Requests</TabsTrigger>
-          <TabsTrigger value="calendar">Calendar</TabsTrigger>
         </TabsList>
 
         <TabsContent value="attendance" className="space-y-6">

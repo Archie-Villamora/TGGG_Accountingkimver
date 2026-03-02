@@ -55,6 +55,12 @@
   stroke: #FF7120;
 }
 
+/* Custom Attachment Button */
+.work-doc-editor .ql-toolbar button.ql-attachment svg {
+  display: none !important;
+  /* Hide quill default icon if it injects one */
+}
+
 /* Editor body */
 .work-doc-editor .ql-editor {
   color: rgba(255, 255, 255, 0.9);
@@ -62,8 +68,18 @@
   line-height: 1.7;
   padding: 14px;
   flex: 1;
-  min-height: 80px;
+  min-height: 100px;
+  max-height: 100px;
   overflow-y: auto;
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.work-doc-editor .ql-editor::-webkit-scrollbar {
+  display: none;
 }
 
 .work-doc-editor .ql-editor.ql-blank::before {
@@ -96,22 +112,4 @@
 
 .work-doc-editor .ql-picker-item:hover {
   color: #FF7120 !important;
-}
-
-/* Scrollbar */
-.work-doc-editor .ql-editor::-webkit-scrollbar {
-  width: 6px;
-}
-
-.work-doc-editor .ql-editor::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.work-doc-editor .ql-editor::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
-}
-
-.work-doc-editor .ql-editor::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
 }

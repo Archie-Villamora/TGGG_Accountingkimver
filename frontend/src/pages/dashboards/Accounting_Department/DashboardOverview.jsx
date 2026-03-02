@@ -26,9 +26,7 @@ import {
   Coffee,
   ArrowUpRight,
   ArrowDownRight,
-  Plus,
-  MessageSquare,
-  Heart
+  MessageSquare
 } from 'lucide-react';
 
 // Mock data for the dashboard
@@ -80,6 +78,10 @@ export function DashboardOverview({ user }) {
     avgNetPay: 0,
   });
   const [loading, setLoading] = useState(false);
+  const [activities, setActivities] = useState([]);
+  const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [topPerformers, setTopPerformers] = useState([]);
+  const [events, setEvents] = useState(mockData.upcomingEvents);
 
   const userName =
     user?.full_name ||
@@ -96,18 +98,22 @@ export function DashboardOverview({ user }) {
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
       try {
-        const [employeesRes, attendanceRes, payrollRes] = await Promise.all([
+        const [employeesRes, attendanceRes, payrollRes, eventsRes, overtimeRes] = await Promise.all([
           axios.get(`${API_URL}/accounts/accounting/employees/`, {
             headers,
             params: { active_only: false },
           }),
           axios.get(`${API_URL}/attendance/all/`, { headers }),
           axios.get(`${API_URL}/payroll/recent/`, { headers }),
+          axios.get(`${API_URL}/attendance/events/`, { headers, params: { upcoming: true } }),
+          axios.get(`${API_URL}/attendance/overtime/`, { headers }),
         ]);
 
         const employees = employeesRes.data || [];
         const attendance = attendanceRes.data || [];
         const payroll = payrollRes.data || [];
+        const eventsData = eventsRes.data || [];
+        const overtime = overtimeRes.data || [];
 
         const totalEmployees = employees.length;
         const activeEmployees = employees.filter(
@@ -153,6 +159,48 @@ export function DashboardOverview({ user }) {
           payrollCount,
           avgNetPay: avgNetPay || prev.avgNetPay,
         }));
+
+        // Recent Activities from attendance logs (latest 8)
+        const sortedAttendance = [...attendance].sort((a, b) =>
+          new Date(b.date) - new Date(a.date)
+        );
+        const recentActivities = sortedAttendance.slice(0, 8).map((rec, idx) => ({
+          id: rec.id || idx,
+          user: rec.employee_name || 'Unknown',
+          action: (rec.status_label || rec.status || 'Status').replace(/_/g, ' '),
+          time: rec.time_in || rec.created_at || rec.date,
+          type: rec.status || 'attendance',
+        }));
+        setActivities(recentActivities);
+
+        // Pending approvals from overtime requests lacking management signature
+        const pending = (overtime || []).filter(
+          (o) => !o.management_signature && !o.approval_date
+        ).slice(0, 5);
+        setPendingApprovals(pending.map((o) => ({
+          id: o.id,
+          type: 'Overtime Request',
+          employee: o.employee_name || o.full_name || 'Unknown',
+          status: 'pending',
+        })));
+
+        // Top performers by attendance presence count
+        const counts = {};
+        attendance.forEach((rec) => {
+          if (['present', 'late'].includes((rec.status || '').toLowerCase())) {
+            const key = rec.employee_id || rec.employee_name || rec.employee_email;
+            if (!key) return;
+            if (!counts[key]) counts[key] = { name: rec.employee_name || rec.employee_email || 'Unknown', count: 0 };
+            counts[key].count += 1;
+          }
+        });
+        const performers = Object.values(counts)
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 3)
+          .map((p) => ({ ...p, score: p.count }));
+        setTopPerformers(performers.length ? performers : mockData.topPerformers);
+
+        setEvents(eventsData.length ? eventsData : mockData.upcomingEvents);
       } catch (error) {
         console.error('Failed to load dashboard overview metrics:', error);
       } finally {
@@ -274,7 +322,7 @@ export function DashboardOverview({ user }) {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {mockData.recentActivities.map((activity) => (
+              {activities.map((activity) => (
                 <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg transition-colors">
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                     {activity.type === 'leave' && <CalendarDays className="w-4 h-4 text-primary" />}
@@ -303,11 +351,11 @@ export function DashboardOverview({ user }) {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {mockData.topPerformers.map((performer, index) => (
+              {topPerformers.map((performer, index) => (
                 <div key={performer.name} className="flex items-center gap-3">
                   <div className="relative">
                     <Avatar className="w-10 h-10">
-                      <AvatarImage src={performer.avatar} alt={performer.name} />
+                      {performer.avatar && <AvatarImage src={performer.avatar} alt={performer.name} />}
                       <AvatarFallback>{performer.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                     </Avatar>
                     <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center text-xs text-primary-foreground font-medium">
@@ -316,10 +364,10 @@ export function DashboardOverview({ user }) {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium">{performer.name}</p>
-                    <p className="text-xs text-muted-foreground">{performer.role}</p>
+                    <p className="text-xs text-muted-foreground">Attendance days: {performer.score}</p>
                   </div>
                   <Badge variant="secondary" className="bg-primary/10 text-primary border-primary">
-                    {performer.score}%
+                    {performer.score}
                   </Badge>
                 </div>
               ))}
@@ -336,14 +384,14 @@ export function DashboardOverview({ user }) {
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-5 h-5 text-primary" />
-                Pending Approvals
+                Pending Overtime Approvals
               </div>
-              <Badge variant="secondary">{mockData.pendingApprovals.length}</Badge>
+              <Badge variant="secondary">{pendingApprovals.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {mockData.pendingApprovals.map((approval) => (
+              {pendingApprovals.map((approval) => (
                 <div key={approval.id} className="flex items-center justify-between p-3 rounded-lg border border-border/50">
                   <div>
                     <p className="text-sm font-medium">{approval.type}</p>
@@ -373,7 +421,7 @@ export function DashboardOverview({ user }) {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {mockData.upcomingEvents.map((event) => (
+              {events.map((event) => (
                 <div key={event.id} className="flex items-start gap-3 p-3 rounded-lg border border-border/50">
                   <div className="w-2 h-2 rounded-full bg-primary mt-2"></div>
                   <div className="flex-1">
@@ -383,12 +431,11 @@ export function DashboardOverview({ user }) {
                   <Badge 
                     variant="outline" 
                     className={
-                      event.type === 'deadline' ? 'border-primary text-primary' :
-                      event.type === 'workshop' ? 'border-primary text-primary' :
+                      event.event_type === 'holiday' || event.is_holiday ? 'border-red-400 text-red-400' :
                       'border-primary text-primary'
                     }
                   >
-                    {event.type}
+                    {event.event_type || (event.is_holiday ? 'holiday' : 'event')}
                   </Badge>
                 </div>
               ))}
@@ -396,33 +443,6 @@ export function DashboardOverview({ user }) {
           </CardContent>
         </Card>
       </div>
-
-      {/* Quick Actions */}
-      <Card className="border-0 shadow-lg bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Button variant="outline" className="h-20 flex-col gap-2">
-              <Plus className="w-6 h-6" />
-              Add Employee
-            </Button>
-            <Button variant="outline" className="h-20 flex-col gap-2">
-              <Clock className="w-6 h-6" />
-              View Attendance
-            </Button>
-            <Button variant="outline" className="h-20 flex-col gap-2">
-              <DollarSign className="w-6 h-6" />
-              Process Payroll
-            </Button>
-            <Button variant="outline" className="h-20 flex-col gap-2">
-              <TrendingUp className="w-6 h-6" />
-              Run Reports
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

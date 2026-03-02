@@ -87,6 +87,32 @@ class Leave(models.Model):
         return f"{self.employee.email} - {self.leave_type} ({self.start_date} to {self.end_date})"
 
 
+class CalendarEvent(models.Model):
+    """Company calendar events and holidays controlled by Studio Head/Admin."""
+
+    EVENT_TYPES = [
+        ('event', 'Event'),
+        ('holiday', 'Holiday'),
+        ('downtime', 'No Work Day'),
+    ]
+
+    title = models.CharField(max_length=200)
+    date = models.DateField()
+    event_type = models.CharField(max_length=20, choices=EVENT_TYPES, default='event')
+    description = models.TextField(blank=True)
+    is_holiday = models.BooleanField(default=False)
+    created_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, related_name='created_events')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['date', 'title']
+        unique_together = ('title', 'date')
+
+    def __str__(self):
+        return f"{self.title} on {self.date} ({self.event_type})"
+
+
 class OvertimeRequest(models.Model):
     employee = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='overtime_requests')
     employee_name = models.CharField(max_length=255, blank=True)

@@ -6,7 +6,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Attendance, Leave, OvertimeRequest
+from .models import Attendance, Leave, OvertimeRequest, CalendarEvent
 
 # Create your views here.
 
@@ -193,6 +193,77 @@ def all_attendance_records(request):
         .order_by('-date', '-created_at')
     )
     return Response([_serialize_attendance(record) for record in records])
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def calendar_events(request):
+    """
+    GET: list all events (optionally filter by upcoming)
+    POST: create event (Studio Head/Admin only)
+    """
+    if request.method == 'GET':
+        only_upcoming = request.query_params.get('upcoming') == 'true'
+        qs = CalendarEvent.objects.all()
+        if only_upcoming:
+            qs = qs.filter(date__gte=date.today())
+        qs = qs.order_by('date', 'title')[:100]
+        return Response([
+            {
+                'id': event.id,
+                'title': event.title,
+                'date': event.date,
+                'event_type': event.event_type,
+                'is_holiday': event.is_holiday,
+                'description': event.description,
+                'created_by': event.created_by_id,
+            }
+            for event in qs
+        ])
+
+    # POST
+    if request.user.role not in ['studio_head', 'admin']:
+        return Response({'error': 'Only Studio Head or Admin can add events.'}, status=status.HTTP_403_FORBIDDEN)
+
+    title = (request.data.get('title') or '').strip()
+    event_date_raw = request.data.get('date')
+    event_type = (request.data.get('event_type') or 'event').strip().lower()
+    description = (request.data.get('description') or '').strip()
+    is_holiday = bool(request.data.get('is_holiday') or event_type == 'holiday')
+
+    if not title:
+        return Response({'error': 'Title is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    if not event_date_raw:
+        return Response({'error': 'Date is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        event_date = date.fromisoformat(str(event_date_raw))
+    except ValueError:
+        return Response({'error': 'Invalid date. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if event_type not in dict(CalendarEvent.EVENT_TYPES):
+        event_type = 'event'
+
+    event, _ = CalendarEvent.objects.update_or_create(
+        title=title,
+        date=event_date,
+        defaults={
+          'event_type': event_type,
+          'is_holiday': is_holiday,
+          'description': description,
+          'created_by': request.user,
+        }
+    )
+
+    return Response({
+        'id': event.id,
+        'title': event.title,
+        'date': event.date,
+        'event_type': event.event_type,
+        'is_holiday': event.is_holiday,
+        'description': event.description,
+        'created_by': event.created_by_id,
+    }, status=status.HTTP_201_CREATED)
 
 
 @api_view(['POST'])

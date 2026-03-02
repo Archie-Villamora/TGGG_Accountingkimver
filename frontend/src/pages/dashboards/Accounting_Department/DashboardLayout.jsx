@@ -18,29 +18,20 @@ import {
   Bell,
   Check,
   Clock,
-  Calendar,
   DollarSign,
   Home,
   LogOut,
   Menu,
   Search,
+  Settings,
   User,
   Users,
-  CheckSquare,
-  FolderKanban,
 } from 'lucide-react';
 
 const menuItems = [
-  { id: 'personal_attendance', label: 'Attendance', icon: Calendar },
-  { id: 'personal_overtime', label: 'Overtime & Leave', icon: Clock },
-  { id: 'personal_todo', label: 'Todo', icon: CheckSquare },
-
-  { id: 'divider', label: 'divider' },
-  
   { id: 'dashboard', label: 'Dashboard', icon: Home },
   { id: 'employees', label: 'Employees', icon: Users },
-  { id: 'attendance', label: 'Attendance Management', icon: Calendar },
-  { id: 'overtime', label: 'Overtime & Leave Management', icon: Clock },
+  { id: 'attendance', label: 'Attendance', icon: Clock },
   { id: 'payroll', label: 'Payroll', icon: DollarSign },
 ];
 
@@ -49,29 +40,13 @@ const tabMeta = {
     title: 'Accounting Dashboard',
     description: 'Monitor finance, staff records, and operational updates.',
   },
-  personal_attendance: {
-    title: 'Attendance',
-    description: 'View your own attendance logs and status.',
-  },
-  personal_overtime: {
-    title: 'Overtime & Leave',
-    description: 'Submit or review your overtime and leave.',
-  },
-  personal_todo: {
-    title: 'Todo',
-    description: 'Track your personal tasks.',
-  },
   employees: {
     title: 'Employee Management',
     description: 'Manage employee records and profile information.',
   },
   attendance: {
-    title: 'Attendance Management',
+    title: 'Attendance & Leave',
     description: 'Track attendance logs, absences, and leave requests.',
-  },
-  overtime: {
-    title: 'Overtime & Leave Management',
-    description: 'Review overtime requests and leave activity.',
   },
   payroll: {
     title: 'Payroll Management',
@@ -83,7 +58,7 @@ const tabMeta = {
   },
 };
 
-export function DashboardLayout({ activeTab, setActiveTab, children, onLogout, onNavigate }) {
+export function DashboardLayout({ activeTab, setActiveTab, children, onLogout }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [notificationFilter, setNotificationFilter] = useState('all');
   const [sortOrder, setSortOrder] = useState('newest');
@@ -138,7 +113,7 @@ export function DashboardLayout({ activeTab, setActiveTab, children, onLogout, o
               <SheetTrigger asChild>
                 <button
                   type="button"
-                  className="md:hidden border border-[#FF7120] text-[#FF7120] rounded-full w-9 h-9 flex items-center justify-center hover:bg-[#FF7120] hover:text-white transition-all"
+                  className="lg:hidden border border-[#FF7120] text-[#FF7120] rounded-full w-9 h-9 flex items-center justify-center hover:bg-[#FF7120] hover:text-white transition-all"
                 >
                   <Menu className="h-4 w-4" />
                 </button>
@@ -155,12 +130,9 @@ export function DashboardLayout({ activeTab, setActiveTab, children, onLogout, o
                 </div>
                 <div className="p-4">
                   <nav className="space-y-2">
-                  {menuItems.map((item) => {
-                    if (item.id === 'divider') {
-                      return <div key="divider" className="border-t border-white/10 my-3" />;
-                    }
-                    const Icon = item.icon;
-                    const isActive = activeTab === item.id;
+                    {menuItems.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = activeTab === item.id;
                       return (
                         <button
                           key={item.id}
@@ -308,10 +280,10 @@ export function DashboardLayout({ activeTab, setActiveTab, children, onLogout, o
                 </div>
                 <div className="p-2">
                   <button
-                    onClick={() => onNavigate?.('profile')}
+                    onClick={() => setActiveTab('settings')}
                     className="w-full rounded-lg px-3 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/10 hover:text-white"
                   >
-                    Profile
+                    Settings
                   </button>
                   <button
                     onClick={onLogout}
@@ -326,23 +298,20 @@ export function DashboardLayout({ activeTab, setActiveTab, children, onLogout, o
         </div>
       </header>
 
-      <div className="relative pt-28 px-4 pb-14 sm:px-6">
+      <div className="relative pt-28 px-6 pb-10">
         <div className="max-w-[1600px] mx-auto">
           <div className="flex gap-6">
-            <aside className="w-64 min-w-[14rem] shrink-0 hidden md:block">
+            <aside className="w-64 shrink-0 hidden lg:block">
               <div className={`${cardClass} p-4 sticky top-24`}>
                 <nav className="space-y-2">
                   {menuItems.map((item) => {
-                    if (item.id === 'divider') {
-                      return <div key="divider" className="border-t border-white/10 my-3" />;
-                    }
                     const Icon = item.icon;
                     const isActive = activeTab === item.id;
                     return (
                       <button
                         key={item.id}
                         type="button"
-                        onClick={() => onSelectMenuItem(item.id)}
+                        onClick={() => setActiveTab(item.id)}
                         className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${
                           isActive
                             ? 'bg-[#FF7120] text-white'
@@ -359,16 +328,25 @@ export function DashboardLayout({ activeTab, setActiveTab, children, onLogout, o
             </aside>
 
             <main className="flex-1 min-w-0">
-              <div className="flex flex-col gap-5">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className={cardClass}>
+                <div className="p-6 border-b border-white/10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-[#8fb4d9]">Accounting Department</p>
-                    <h1 className="text-2xl font-semibold text-white mt-1">{currentTab.title}</h1>
+                    <h1 className="text-2xl font-semibold text-white">{currentTab.title}</h1>
                     <p className="text-white/60 text-sm mt-1">{currentTab.description}</p>
+                  </div>
+                  <div className="relative w-full md:w-80">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/45" />
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Search..."
+                      className="h-10 w-full rounded-xl border border-white/15 bg-[#00273C]/60 pl-10 pr-4 text-sm text-white placeholder:text-white/45 outline-none focus:border-[#FF7120]/70 focus:ring-2 focus:ring-[#FF7120]/25"
+                    />
                   </div>
                 </div>
 
-                <div className="mt-1">
+                <div className="p-6">
                   {children}
                 </div>
               </div>

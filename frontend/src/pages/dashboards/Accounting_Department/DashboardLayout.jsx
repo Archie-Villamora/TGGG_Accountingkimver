@@ -18,7 +18,6 @@ import {
   Bell,
   Check,
   Clock,
-  Calendar,
   DollarSign,
   Home,
   LogOut,
@@ -27,16 +26,14 @@ import {
   Settings,
   User,
   Users,
-  CheckSquare,
-  FolderKanban,
 } from 'lucide-react';
 
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
-  { id: 'attendance', label: 'Attendance', icon: Calendar },
-  { id: 'overtime', label: 'Overtime & Leave', icon: Clock },
-  { id: 'todo', label: 'Todo', icon: CheckSquare },
-  { id: 'documentation', label: 'Documentation', icon: FolderKanban },
+  { id: 'employees', label: 'Employees', icon: Users },
+  { id: 'attendance', label: 'Attendance Management', icon: Clock },
+  { id: 'overtime', label: 'Overtime & Leave Management', icon: DollarSign },
+  { id: 'payroll', label: 'Payroll', icon: DollarSign },
 ];
 
 const tabMeta = {
@@ -49,20 +46,16 @@ const tabMeta = {
     description: 'Manage employee records and profile information.',
   },
   attendance: {
-    title: 'Attendance & Leave',
+    title: 'Attendance Management',
     description: 'Track attendance logs, absences, and leave requests.',
   },
   overtime: {
-    title: 'Overtime & Leave',
+    title: 'Overtime & Leave Management',
     description: 'Review overtime requests and leave activity.',
   },
-  todo: {
-    title: 'Todo',
-    description: 'Tasks and reminders for accounting operations.',
-  },
-  documentation: {
-    title: 'Documentation',
-    description: 'View accounting documentation and guides.',
+  payroll: {
+    title: 'Payroll Management',
+    description: 'Review salary processing and payroll activity.',
   },
   settings: {
     title: 'Settings',

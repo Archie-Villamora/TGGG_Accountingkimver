@@ -214,7 +214,7 @@ export function DashboardOverview({ user }) {
           .sort((a, b) => b.count - a.count)
           .slice(0, 3)
           .map((p) => ({ ...p, score: p.count }));
-        setTopPerformers(performers.length ? performers : mockData.topPerformers);
+        setTopPerformers(performers);
 
         const today = new Date().toISOString().slice(0, 10);
         const upcomingEvents = (eventsData || [])
@@ -372,6 +372,9 @@ export function DashboardOverview({ user }) {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
+              {topPerformers.length === 0 && (
+                <p className="text-sm text-muted-foreground">No attendance data available yet.</p>
+              )}
               {topPerformers.map((performer, index) => (
                 <div key={performer.name} className="flex items-center gap-3">
                   <div className="relative">

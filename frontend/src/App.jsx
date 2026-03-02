@@ -926,7 +926,7 @@ export default function App() {
         case 'employees':
           return <EmployeeManagement />;
         case 'personal_attendance':
-          return <AttendanceDashboard user={user} token={localStorage.getItem('token')} onLogout={handleLogout} onNavigate={handleNavigate} />;
+          return <StudioHeadAttendance user={user} token={localStorage.getItem('token')} onLogout={handleLogout} onNavigate={handleNavigate} />;
         case 'personal_overtime':
           return <EmployeeOvertimePage user={user} token={localStorage.getItem('token')} onLogout={handleLogout} onNavigate={handleNavigate} />;
         case 'personal_todo':

@@ -40,7 +40,6 @@ const menuItems = [
   { id: 'attendance', label: 'Attendance Management', icon: Calendar },
   { id: 'overtime', label: 'Overtime & Leave Management', icon: Clock },
   { id: 'payroll', label: 'Payroll', icon: DollarSign },
-  { id: 'documentation', label: 'Documentation', icon: FolderKanban },
 ];
 
 const tabMeta = {

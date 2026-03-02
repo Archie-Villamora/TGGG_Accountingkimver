@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import PublicNavigation from '../Public_Dashboard/PublicNavigation';
-import { Home, UserCheck, Users, FileText, GitMerge } from 'lucide-react';
+import { Home, UserCheck, Users, FileText, GitMerge, Calendar } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import OverviewPanel from './components/OverviewPanel';
 import PendingApprovalsPanel from './components/PendingApprovalsPanel';
@@ -9,6 +9,7 @@ import CoordinatorPanel from './components/CoordinatorPanel';
 import MessageBanner from './components/MessageBanner';
 import StudioHeadSidebar from './components/StudioHeadSidebar';
 import { useStudioHeadDashboard } from './hooks/useStudioHeadDashboard';
+import EventsPanel from './components/EventsPanel';
 
 const TABS = [
   { id: 'overview', label: 'Overview', icon: Home },
@@ -16,6 +17,7 @@ const TABS = [
   { id: 'users', label: 'Manage Users', icon: Users },
   { id: 'reviews', label: 'Design Reviews', icon: FileText },
   { id: 'coordination', label: 'Coordinator Panel', icon: GitMerge },
+  { id: 'events', label: 'Calendar / Events', icon: Calendar },
 ];
 
 export default function StudioHeadDashboard({ user, onLogout, onNavigate }) {
@@ -145,6 +147,10 @@ export default function StudioHeadDashboard({ user, onLogout, onNavigate }) {
                       onDisbandGroup={handleDisbandGroup}
                       loadingAction={userActionById}
                     />
+                  )}
+
+                  {activeTab === 'events' && (
+                    <EventsPanel user={user} />
                   )}
                 </div>
               </div>

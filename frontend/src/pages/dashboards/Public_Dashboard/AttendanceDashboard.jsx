@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import PublicNavigation from "./PublicNavigation";
 import StudioHeadSidebar from "../StudioHead/components/StudioHeadSidebar";
 import {
@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import LocationAttendance from "../../../components/attendance/LocationAttendance";
 import WorkDocCard from "../../../components/attendance/WorkDocCard";
+import axios from "axios";
 
 const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
   const isStudioHeadMode = user?.role === "studio_head" || user?.role === "admin";
@@ -22,6 +23,34 @@ const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
   const [workDoc, setWorkDoc] = useState("");
   const [locationReady, setLocationReady] = useState(false);
   const [expandedWorkIdx, setExpandedWorkIdx] = useState(null);
+  const [isHoliday, setIsHoliday] = useState(false);
+  const [events, setEvents] = useState([]);
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      const token = localStorage.getItem("token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      try {
+        const res = await axios.get(
+          `${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/attendance/events/`,
+          { headers, params: { upcoming: true } }
+        );
+        const data = res.data || [];
+        setEvents(data);
+        const todayHoliday = data.some(
+          (ev) =>
+            ev.date === selectedDate && (ev.is_holiday || ev.event_type === "holiday" || ev.event_type === "downtime")
+        );
+        setIsHoliday(todayHoliday);
+        if (todayHoliday) {
+          setLocationReady(false);
+        }
+      } catch (err) {
+        console.error("Failed to load events", err);
+      }
+    };
+    fetchEvents();
+  }, [selectedDate]);
 
   // Mock data (keep yours / replace with API)
   const attendanceData = [
@@ -57,12 +86,18 @@ const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
 
   const stats = useMemo(() => {
     const isLate = (latest?.late?.total ?? "0") !== "0";
+    const todayStatus = isHoliday
+      ? "Holiday / No Work"
+      : locationReady
+        ? "Ready to Time In"
+        : "Location Required";
+    const todayTone = isHoliday ? "neutral" : locationReady ? "good" : "warn";
     return [
       {
         label: "Today's Status",
-        value: locationReady ? "Ready to Time In" : "Location Required",
+        value: todayStatus,
         icon: MapPin,
-        tone: locationReady ? "good" : "warn",
+        tone: todayTone,
       },
       {
         label: "Late Minutes (Latest)",
@@ -202,11 +237,22 @@ const AttendanceDashboard = ({ user, onLogout, onNavigate }) => {
 
             {/* Forms */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              <LocationAttendance
-                role={user?.role}
-                className={`${cardClass} p-4 sm:p-6`}
-                onStatusChange={({ ready }) => setLocationReady(ready)}
-              />
+              <div className={`${cardClass} p-4 sm:p-6`}>
+                {isHoliday ? (
+                  <div className="space-y-3 text-white">
+                    <h3 className="text-xl font-semibold text-white">Today is marked as a holiday / no work day.</h3>
+                    <p className="text-white/70 text-sm">
+                      Attendance is disabled. Enjoy your time off!
+                    </p>
+                  </div>
+                ) : (
+                  <LocationAttendance
+                    role={user?.role}
+                    className="p-0"
+                    onStatusChange={({ ready }) => setLocationReady(ready)}
+                  />
+                )}
+              </div>
 
               <WorkDocCard value={workDoc} onChange={setWorkDoc} cardClass={cardClass} />
             </div>

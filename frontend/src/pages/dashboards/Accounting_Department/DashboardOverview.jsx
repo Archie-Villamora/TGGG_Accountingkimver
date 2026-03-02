@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
 import {
   Avatar,
   AvatarFallback,
@@ -25,9 +26,7 @@ import {
   Coffee,
   ArrowUpRight,
   ArrowDownRight,
-  Plus,
-  MessageSquare,
-  Heart
+  MessageSquare
 } from 'lucide-react';
 
 // Mock data for the dashboard
@@ -63,23 +62,195 @@ const mockData = {
   ]
 };
 
-export function DashboardOverview() {
+export function DashboardOverview({ user }) {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+
+  const [metrics, setMetrics] = useState({
+    totalEmployees: mockData.totalEmployees,
+    activeEmployees: mockData.activeEmployees,
+    onLeave: mockData.onLeave,
+    newHires: mockData.newHires,
+    monthlyPayroll: mockData.monthlyPayroll,
+    attendanceRate: mockData.attendanceRate,
+    engagementScore: mockData.engagementScore,
+    performanceRating: mockData.performanceRating,
+    payrollCount: 0,
+    avgNetPay: 0,
+  });
+  const [loading, setLoading] = useState(false);
+  const [activities, setActivities] = useState([]);
+  const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [topPerformers, setTopPerformers] = useState([]);
+  const [events, setEvents] = useState(mockData.upcomingEvents);
+
+  const userName =
+    user?.full_name ||
+    [user?.first_name, user?.last_name].filter(Boolean).join(' ') ||
+    user?.username ||
+    'there';
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchOverview = async () => {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+      try {
+        const [employeesRes, attendanceRes, payrollRes, eventsRes, overtimeRes] = await Promise.all([
+          axios.get(`${API_URL}/accounts/accounting/employees/`, {
+            headers,
+            params: { active_only: false },
+          }),
+          axios.get(`${API_URL}/attendance/all/`, { headers }),
+          axios.get(`${API_URL}/payroll/recent/`, { headers }),
+          axios.get(`${API_URL}/attendance/events/`, { headers, params: { upcoming: true } }),
+          axios.get(`${API_URL}/attendance/overtime/`, { headers }),
+        ]);
+
+        const employees = employeesRes.data || [];
+        const attendance = attendanceRes.data || [];
+        const payroll = payrollRes.data || [];
+        const eventsData = eventsRes.data || [];
+        const overtime = overtimeRes.data || [];
+
+        const employeeIndex = new Map();
+        employees.forEach((emp) => {
+          const key = emp.id || emp.user_id || emp.email;
+          if (!key) return;
+          employeeIndex.set(key, {
+            name: emp.name || `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.email || 'Unknown',
+            avatar: emp.avatar,
+            role: emp.position || emp.role,
+          });
+        });
+
+        const totalEmployees = employees.length;
+        const activeEmployees = employees.filter(
+          (e) => (e.status || '').toLowerCase() === 'active' || e.is_active
+        ).length;
+        const onLeave = employees.filter(
+          (e) => (e.status || '').toLowerCase() === 'on leave'
+        ).length;
+
+        const newHires = employees.filter((e) => {
+          const joinDate = e.joinDate || e.startDate || e.date_hired;
+          if (!joinDate) return false;
+          const joined = new Date(joinDate);
+          if (Number.isNaN(joined.getTime())) return false;
+          const diffDays = (Date.now() - joined.getTime()) / (1000 * 60 * 60 * 24);
+          return diffDays <= 30;
+        }).length;
+
+        const presentOrLate = attendance.filter((r) =>
+          ['present', 'late'].includes((r.status || '').toLowerCase())
+        ).length;
+        const attendanceRate = attendance.length
+          ? Math.round((presentOrLate / attendance.length) * 1000) / 10
+          : 0;
+
+        const monthlyPayroll = payroll.reduce((sum, row) => {
+          const val = parseFloat(row.net_salary || row.netSalary || 0);
+          return Number.isFinite(val) ? sum + val : sum;
+        }, 0);
+
+        const payrollCount = payroll.length || 0;
+        const avgNetPay =
+          payrollCount > 0 ? Math.round((monthlyPayroll / payrollCount) * 100) / 100 : 0;
+
+        setMetrics((prev) => ({
+          ...prev,
+          totalEmployees: totalEmployees || prev.totalEmployees,
+          activeEmployees: activeEmployees || prev.activeEmployees,
+          onLeave,
+          newHires: newHires || prev.newHires,
+          attendanceRate: attendanceRate || prev.attendanceRate,
+          monthlyPayroll: monthlyPayroll || prev.monthlyPayroll,
+          payrollCount,
+          avgNetPay: avgNetPay || prev.avgNetPay,
+        }));
+
+        // Recent Activities from attendance logs (latest 8)
+        const sortedAttendance = [...attendance].sort((a, b) =>
+          new Date(b.date) - new Date(a.date)
+        );
+        const recentActivities = sortedAttendance.slice(0, 8).map((rec, idx) => ({
+          id: rec.id || idx,
+          user: rec.employee_name || 'Unknown',
+          action: (rec.status_label || rec.status || 'Status').replace(/_/g, ' '),
+          time: rec.time_in || rec.created_at || rec.date,
+          type: rec.status || 'attendance',
+        }));
+        setActivities(recentActivities);
+
+        // Pending approvals from overtime requests lacking management signature
+        const pending = (overtime || []).filter(
+          (o) => !o.management_signature && !o.approval_date
+        ).slice(0, 5);
+        setPendingApprovals(pending.map((o) => ({
+          id: o.id,
+          type: 'Overtime Request',
+          employee: o.employee_name || o.full_name || 'Unknown',
+          status: 'pending',
+        })));
+
+        // Top performers by attendance presence count
+        const counts = {};
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - 30);
+        attendance.forEach((rec) => {
+          const recDate = rec.date ? new Date(rec.date) : null;
+          if (recDate && recDate < cutoff) return;
+          if (['present', 'late'].includes((rec.status || '').toLowerCase())) {
+            const key = rec.employee_id || rec.employee_email || rec.employee_name;
+            if (!key) return;
+            const info = employeeIndex.get(key) || {};
+            if (!counts[key]) counts[key] = { name: info.name || rec.employee_name || 'Unknown', avatar: info.avatar, role: info.role, count: 0 };
+            counts[key].count += 1;
+          }
+        });
+        const performers = Object.values(counts)
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 3)
+          .map((p) => ({ ...p, score: p.count }));
+        setTopPerformers(performers);
+
+        const today = new Date().toISOString().slice(0, 10);
+        const upcomingEvents = (eventsData || [])
+          .filter((ev) => ev.date >= today)
+          .sort((a, b) => new Date(a.date) - new Date(b.date))
+          .slice(0, 6);
+        setEvents(upcomingEvents.length ? upcomingEvents : mockData.upcomingEvents);
+      } catch (error) {
+        console.error('Failed to load dashboard overview metrics:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOverview();
+  }, [API_URL, user]);
+
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-card via-secondary to-muted p-6 text-primary-foreground" style={{boxShadow: '0 8px 32px #001F35'}}>
         <div className="relative z-10">
-          <h1 className="text-2xl mb-2">Good morning, Alvi! </h1>
+          <h1 className="text-2xl mb-2">Good morning, {userName}!</h1>
           <p className="text-primary-foreground/80 mb-4">Here's what's happening with your team today.</p>
           <div className="flex flex-wrap gap-4">
             <Badge variant="secondary" className="bg-primary/20 text-primary border-primary">
               <Users className="w-4 h-4 mr-2" />
-              {mockData.totalEmployees} Total Employees
+              {metrics.totalEmployees} Total Employees
             </Badge>
             <Badge variant="secondary" className="bg-primary/20 text-primary border-primary">
               <UserCheck className="w-4 h-4 mr-2" />
-              {mockData.activeEmployees} Active Today
+              {metrics.activeEmployees} Active Today
             </Badge>
+          </div>
+          <div className="mt-3 text-xs text-primary-foreground/70">
+            {loading ? 'Refreshing data…' : 'Live from database'}
           </div>
         </div>
         <div className="absolute top-0 right-0 w-64 h-32 opacity-20">
@@ -98,13 +269,13 @@ export function DashboardOverview() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Employees</p>
-                <p className="text-2xl font-medium">{mockData.totalEmployees}</p>
+                <p className="text-2xl font-medium">{metrics.totalEmployees}</p>
               </div>
               <Users className="h-8 w-8 text-primary" />
             </div>
             <div className="flex items-center text-xs text-muted-foreground mt-2">
               <ArrowUpRight className="w-3 h-3 mr-1 text-primary" />
-              +{mockData.newHires} new this month
+              +{metrics.newHires} new this month
             </div>
           </CardContent>
         </Card>
@@ -113,12 +284,15 @@ export function DashboardOverview() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Attendance Rate</p>
-                <p className="text-2xl font-medium">{mockData.attendanceRate}%</p>
+                <p className="text-sm text-muted-foreground">On Leave Today</p>
+                <p className="text-2xl font-medium">{metrics.onLeave}</p>
               </div>
-              <Clock className="h-8 w-8 text-primary" />
+              <CalendarDays className="h-8 w-8 text-primary" />
             </div>
-            <Progress value={mockData.attendanceRate} className="mt-2" />
+            <div className="flex items-center text-xs text-muted-foreground mt-2">
+              <ArrowDownRight className="w-3 h-3 mr-1 text-primary" />
+              Based on active roster
+            </div>
           </CardContent>
         </Card>
 
@@ -126,14 +300,16 @@ export function DashboardOverview() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Monthly Payroll</p>
-                <p className="text-2xl font-medium">${(mockData.monthlyPayroll / 1000000).toFixed(1)}M</p>
+                <p className="text-sm text-muted-foreground">Avg Net Pay</p>
+                <p className="text-2xl font-medium">
+                  ${metrics.avgNetPay.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </p>
               </div>
               <DollarSign className="h-8 w-8 text-primary" />
             </div>
             <div className="flex items-center text-xs text-muted-foreground mt-2">
               <ArrowUpRight className="w-3 h-3 mr-1 text-primary" />
-              +3.2% from last month
+              Based on recent payslips
             </div>
           </CardContent>
         </Card>
@@ -142,12 +318,15 @@ export function DashboardOverview() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Engagement Score</p>
-                <p className="text-2xl font-medium">{mockData.engagementScore}%</p>
+                <p className="text-sm text-muted-foreground">Recent Payslips</p>
+                <p className="text-2xl font-medium">{metrics.payrollCount}</p>
               </div>
-              <Heart className="h-8 w-8 text-primary" />
+              <CheckCircle className="h-8 w-8 text-primary" />
             </div>
-            <Progress value={mockData.engagementScore} className="mt-2" />
+            <div className="flex items-center text-xs text-muted-foreground mt-2">
+              <ArrowUpRight className="w-3 h-3 mr-1 text-primary" />
+              Pulled from payroll history
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -164,7 +343,7 @@ export function DashboardOverview() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {mockData.recentActivities.map((activity) => (
+              {activities.map((activity) => (
                 <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg transition-colors">
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                     {activity.type === 'leave' && <CalendarDays className="w-4 h-4 text-primary" />}
@@ -193,11 +372,14 @@ export function DashboardOverview() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {mockData.topPerformers.map((performer, index) => (
+              {topPerformers.length === 0 && (
+                <p className="text-sm text-muted-foreground">No attendance data available yet.</p>
+              )}
+              {topPerformers.map((performer, index) => (
                 <div key={performer.name} className="flex items-center gap-3">
                   <div className="relative">
                     <Avatar className="w-10 h-10">
-                      <AvatarImage src={performer.avatar} alt={performer.name} />
+                      {performer.avatar && <AvatarImage src={performer.avatar} alt={performer.name} />}
                       <AvatarFallback>{performer.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                     </Avatar>
                     <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center text-xs text-primary-foreground font-medium">
@@ -206,10 +388,10 @@ export function DashboardOverview() {
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium">{performer.name}</p>
-                    <p className="text-xs text-muted-foreground">{performer.role}</p>
+                    <p className="text-xs text-muted-foreground">Attendance days: {performer.score}</p>
                   </div>
                   <Badge variant="secondary" className="bg-primary/10 text-primary border-primary">
-                    {performer.score}%
+                    {performer.score}
                   </Badge>
                 </div>
               ))}
@@ -226,14 +408,14 @@ export function DashboardOverview() {
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-5 h-5 text-primary" />
-                Pending Approvals
+                Pending Overtime Approvals
               </div>
-              <Badge variant="secondary">{mockData.pendingApprovals.length}</Badge>
+              <Badge variant="secondary">{pendingApprovals.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {mockData.pendingApprovals.map((approval) => (
+              {pendingApprovals.map((approval) => (
                 <div key={approval.id} className="flex items-center justify-between p-3 rounded-lg border border-border/50">
                   <div>
                     <p className="text-sm font-medium">{approval.type}</p>
@@ -263,7 +445,7 @@ export function DashboardOverview() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {mockData.upcomingEvents.map((event) => (
+              {events.map((event) => (
                 <div key={event.id} className="flex items-start gap-3 p-3 rounded-lg border border-border/50">
                   <div className="w-2 h-2 rounded-full bg-primary mt-2"></div>
                   <div className="flex-1">
@@ -273,12 +455,11 @@ export function DashboardOverview() {
                   <Badge 
                     variant="outline" 
                     className={
-                      event.type === 'deadline' ? 'border-primary text-primary' :
-                      event.type === 'workshop' ? 'border-primary text-primary' :
+                      event.event_type === 'holiday' || event.is_holiday ? 'border-red-400 text-red-400' :
                       'border-primary text-primary'
                     }
                   >
-                    {event.type}
+                    {event.event_type || (event.is_holiday ? 'holiday' : 'event')}
                   </Badge>
                 </div>
               ))}
@@ -286,33 +467,6 @@ export function DashboardOverview() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Quick Actions */}
-      <Card className="border-0 shadow-lg bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Button variant="outline" className="h-20 flex-col gap-2">
-              <Plus className="w-6 h-6" />
-              Add Employee
-            </Button>
-            <Button variant="outline" className="h-20 flex-col gap-2">
-              <Clock className="w-6 h-6" />
-              View Attendance
-            </Button>
-            <Button variant="outline" className="h-20 flex-col gap-2">
-              <DollarSign className="w-6 h-6" />
-              Process Payroll
-            </Button>
-            <Button variant="outline" className="h-20 flex-col gap-2">
-              <TrendingUp className="w-6 h-6" />
-              Run Reports
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

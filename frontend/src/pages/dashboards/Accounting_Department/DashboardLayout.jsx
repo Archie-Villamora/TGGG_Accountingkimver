@@ -376,7 +376,7 @@ export function DashboardLayout({ activeTab, setActiveTab, children, onLogout, o
                   </div>
                 </div>
 
-                <div className="rounded-3xl bg-[#0b2234]/60 border border-white/5 p-5 shadow-[0_18px_48px_rgba(0,0,0,0.35)]">
+                <div className="mt-1">
                   {children}
                 </div>
               </div>

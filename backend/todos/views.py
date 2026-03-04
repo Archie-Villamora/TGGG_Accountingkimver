@@ -1,10 +1,13 @@
+"""
+DRF ViewSets for todos app.
+Thin views layer - routing only, business logic in services.py
+"""
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.db.models import Q
 
 from accounts.models import CustomUser
 from .models import (
@@ -16,96 +19,35 @@ from .serializers import (
     DepartmentTaskSerializer, DepartmentTaskStatsSerializer,
     UserMiniSerializer, TodoNotificationSerializer
 )
+from .services import (
+    TodoService, GroupService, DepartmentTaskService,
+    UserProfileService, NotificationService
+)
 
 
-def _actor_name(user):
-    """Return a display name for a user."""
-    if user.first_name or user.last_name:
-        return f"{user.first_name} {user.last_name}".strip()
-    return user.email
-
-
-def _notify(recipient, actor, notif_type, title, message, todo=None, dept_task=None):
-    """Create a TodoNotification. Skips if recipient == actor."""
-    if recipient and actor and recipient.id == actor.id:
-        return None
-    return TodoNotification.objects.create(
-        recipient=recipient,
-        actor=actor,
-        type=notif_type,
-        title=title,
-        message=message,
-        todo=todo,
-        department_task=dept_task,
-    )
-
-
-# ─── User Profile (with is_leader) ───────────────────────────────
-
-def _profile_payload(user):
-    group_membership = TaskGroupMember.objects.filter(user=user).select_related('group').first()
-    led_group = TaskGroup.objects.filter(leader=user).first()
-
-    return {
-        'id': user.id,
-        'email': user.email,
-        'username': user.username,
-        'full_name': f"{user.first_name} {user.last_name}".strip() if (user.first_name or user.last_name) else user.email,
-        'first_name': user.first_name,
-        'last_name': user.last_name,
-        'role': user.role,
-        'department': user.department.name if user.department else None,
-        'department_id': user.department_id,
-        'profile_picture': user.profile_picture,
-        'is_leader': getattr(user, 'is_leader', False),
-        'group_id': group_membership.group_id if group_membership else (led_group.id if led_group else None),
-    }
-
+# ─────────────────────────────────── Profile Endpoints ───────────────────────
 
 @api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
 def todo_profile(request):
-    """Return or update current user profile with is_leader and group info."""
-    user = request.user
-
+    """Get or update current user profile."""
     if request.method == 'GET':
-        return Response(_profile_payload(user))
-
-    updated_fields = []
-
-    if 'full_name' in request.data:
-        full_name = str(request.data.get('full_name') or '').strip()
-        name_parts = full_name.split(None, 1)
-        user.first_name = name_parts[0] if name_parts else ''
-        user.last_name = name_parts[1] if len(name_parts) > 1 else ''
-        updated_fields.extend(['first_name', 'last_name'])
-
-    if 'first_name' in request.data:
-        user.first_name = str(request.data.get('first_name') or '').strip()
-        updated_fields.append('first_name')
-
-    if 'last_name' in request.data:
-        user.last_name = str(request.data.get('last_name') or '').strip()
-        updated_fields.append('last_name')
-
-    if 'email' in request.data:
-        next_email = str(request.data.get('email') or '').strip().lower()
-        if not next_email:
-            return Response({'error': 'Email is required.'}, status=status.HTTP_400_BAD_REQUEST)
-        if CustomUser.objects.filter(email=next_email).exclude(id=user.id).exists():
-            return Response({'error': 'Email is already in use.'}, status=status.HTTP_400_BAD_REQUEST)
-        user.email = next_email
-        updated_fields.append('email')
-
-    if updated_fields:
-        user.save(update_fields=sorted(set(updated_fields)))
-
-    return Response(_profile_payload(user))
+        payload = UserProfileService.get_profile_payload(request.user)
+        return Response(payload)
+    
+    # PUT
+    try:
+        user = UserProfileService.update_profile(request.user, request.data)
+        payload = UserProfileService.get_profile_payload(user)
+        return Response(payload)
+    except ValueError as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
 def todo_profile_password(request):
+    """Update user password."""
     password = str(request.data.get('password') or '')
     if len(password) < 6:
         return Response({'error': 'Password must be at least 6 characters.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -116,127 +58,25 @@ def todo_profile_password(request):
     return Response({'success': True})
 
 
-# ─── Todos CRUD ──────────────────────────────────────────────────
+# ─────────────────────────────────── Todo Endpoints ───────────────────────────
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def todos_list_create(request):
     """List or create todos."""
     if request.method == 'GET':
-        return _list_todos(request)
-    return _create_todo(request)
-
-
-def _list_todos(request):
-    user = request.user
-    todo_type = request.query_params.get('type', 'personal')
-
-    opt = ('group', 'assigned_to', 'assigned_by', 'suggested_by', 'user')
-
-    if todo_type == 'personal':
-        todos = Todo.objects.select_related(*opt).filter(user=user, todo_type='personal')
-    elif todo_type == 'team':
-        # Get all confirmed group/assigned todos for the user's group
-        user_group_ids = list(
-            TaskGroupMember.objects.filter(user=user).values_list('group_id', flat=True)
-        )
-        # Also include groups the user leads
-        led_group_ids = list(
-            TaskGroup.objects.filter(leader=user).values_list('id', flat=True)
-        )
-        all_group_ids = list(set(user_group_ids + led_group_ids))
-
-        todos = Todo.objects.select_related(*opt).filter(
-            Q(group_id__in=all_group_ids, is_confirmed=True) |
-            Q(assigned_to=user, todo_type='assigned')
-        )
-    elif todo_type == 'group':
-        # For manage tab: show all group todos so MemberStats can calculate correctly
-        # The frontend will filter this list down to pending tasks for the task cards.
-        led_group_ids = list(
-            TaskGroup.objects.filter(leader=user).values_list('id', flat=True)
-        )
-        todos = Todo.objects.select_related(*opt).filter(
-            group_id__in=led_group_ids
-        )
-    else:
-        todos = Todo.objects.select_related(*opt).filter(user=user)
-
-    serializer = TodoSerializer(todos, many=True)
-    return Response(serializer.data)
-
-
-def _create_todo(request):
-    user = request.user
-    data = request.data
-
-    todo = Todo(
-        user=user,
-        task=data.get('task', ''),
-        description=data.get('description', ''),
-        todo_type=data.get('todo_type', 'personal'),
-        start_date=data.get('start_date'),
-        deadline=data.get('deadline'),
-    )
-
-    if todo.todo_type == 'group':
-        group_id = data.get('group_id')
-        if not group_id:
-            return Response({'error': 'group_id is required for group todos.'}, status=status.HTTP_400_BAD_REQUEST)
-        group = get_object_or_404(TaskGroup, id=group_id)
-        todo.group = group
-
-        # If user is the leader, auto-confirm; else it's a suggestion
-        if group.leader_id == user.id:
-            todo.is_confirmed = True
-            todo.assigned_by = user
-        else:
-            todo.is_confirmed = False
-            todo.suggested_by = user
-
-    elif todo.todo_type == 'assigned':
-        assigned_to_id = data.get('assigned_to')
-        if not assigned_to_id:
-            return Response({'error': 'assigned_to is required.'}, status=status.HTTP_400_BAD_REQUEST)
-        todo.assigned_to_id = assigned_to_id
-        todo.assigned_by = user
-        todo.is_confirmed = True
-        todo.date_assigned = timezone.now()
-
-        # Also set group if user leads a group
-        led_group = TaskGroup.objects.filter(leader=user).first()
-        if led_group:
-            todo.group = led_group
-
-    elif todo.todo_type == 'personal':
-        todo.is_confirmed = True
-
-    todo.save()
-
-    # ── Notifications ──
-    task_preview = todo.task[:60]
-    name = _actor_name(user)
-    # Member suggests a task → notify leader
-    if todo.todo_type == 'group' and not todo.is_confirmed and todo.group and todo.group.leader:
-        _notify(
-            recipient=todo.group.leader, actor=user,
-            notif_type='task_suggested',
-            title='Task Suggested for Approval',
-            message=f'{name} suggested a new team task: "{task_preview}"',
-            todo=todo,
-        )
-    # Task assigned → notify assignee
-    if todo.todo_type == 'assigned' and todo.assigned_to:
-        _notify(
-            recipient=todo.assigned_to, actor=user,
-            notif_type='task_assigned',
-            title='New Task Assigned to You',
-            message=f'{name} assigned you a task: "{task_preview}"',
-            todo=todo,
-        )
-
-    serializer = TodoSerializer(todo)
-    return Response(serializer.data, status=status.HTTP_201_CREATED)
+        todo_type = request.query_params.get('type', 'personal')
+        todos = TodoService.list_todos(request.user, todo_type)
+        serializer = TodoSerializer(todos, many=True)
+        return Response(serializer.data)
+    
+    # POST
+    try:
+        todo = TodoService.create_todo(request.user, request.data)
+        serializer = TodoSerializer(todo)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    except (ValueError, PermissionError) as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['PUT', 'DELETE'])
@@ -246,48 +86,21 @@ def todo_detail(request, todo_id):
     todo = get_object_or_404(Todo, id=todo_id)
 
     if request.method == 'PUT':
-        completed = request.data.get('completed')
-        if completed is not None:
-            # For group/assigned tasks: member marks pending, leader confirms
-            if todo.todo_type in ('group', 'assigned') and todo.is_confirmed:
-                if todo.user_id != request.user.id and todo.assigned_to_id != request.user.id:
-                    # Check if the user is in the group
-                    if not todo.group or not (
-                        todo.group.leader_id == request.user.id or
-                        TaskGroupMember.objects.filter(group=todo.group, user=request.user).exists()
-                    ):
-                        return Response({'error': 'Not authorized.'}, status=status.HTTP_403_FORBIDDEN)
-
-                # If user is a member (not leader), set pending
-                if todo.group and todo.group.leader_id != request.user.id:
-                    todo.pending_completion = True
-                    todo.save()
-                    # Notify leader about pending completion
-                    if todo.group.leader:
-                        _notify(
-                            recipient=todo.group.leader, actor=request.user,
-                            notif_type='completion_requested',
-                            title='Completion Pending Approval',
-                            message=f'{_actor_name(request.user)} marked "{todo.task[:60]}" as complete — awaiting your confirmation',
-                            todo=todo,
-                        )
-                    return Response(TodoSerializer(todo).data)
-
-            todo.completed = completed
-            todo.save()
-        return Response(TodoSerializer(todo).data)
+        try:
+            completed = request.data.get('completed')
+            if completed is not None:
+                todo = TodoService.update_todo_completion(todo, request.user, completed)
+            serializer = TodoSerializer(todo)
+            return Response(serializer.data)
+        except PermissionError as e:
+            return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
 
     elif request.method == 'DELETE':
-        # Only owner, group leader, or assigned_by can delete
-        can_delete = (
-            todo.user_id == request.user.id or
-            (todo.group and todo.group.leader_id == request.user.id) or
-            todo.assigned_by_id == request.user.id
-        )
-        if not can_delete:
-            return Response({'error': 'Not authorized.'}, status=status.HTTP_403_FORBIDDEN)
-        todo.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        try:
+            TodoService.delete_todo(todo, request.user)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except PermissionError as e:
+            return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
 
 
 @api_view(['POST'])
@@ -295,50 +108,12 @@ def todo_detail(request, todo_id):
 def todo_confirm(request, todo_id):
     """Leader confirms a suggested group todo."""
     todo = get_object_or_404(Todo, id=todo_id)
-    user = request.user
-
-    if not todo.group or todo.group.leader_id != user.id:
-        return Response({'error': 'Only the group leader can confirm.'}, status=status.HTTP_403_FORBIDDEN)
-
-    # Update with any edits from the leader
-    data = request.data
-    if data.get('task'):
-        todo.task = data['task']
-    if data.get('description') is not None:
-        todo.description = data['description']
-    if data.get('start_date'):
-        todo.start_date = data['start_date']
-    if data.get('deadline'):
-        todo.deadline = data['deadline']
-    if data.get('assigned_to'):
-        todo.assigned_to_id = data['assigned_to']
-        todo.todo_type = 'assigned'
-        todo.date_assigned = timezone.now()
-
-    todo.is_confirmed = True
-    todo.assigned_by = user
-    todo.save()
-
-    # Notify the suggester that their task was confirmed
-    if todo.suggested_by:
-        _notify(
-            recipient=todo.suggested_by, actor=user,
-            notif_type='task_confirmed',
-            title='Your Suggested Task Was Approved',
-            message=f'Your task suggestion "{todo.task[:60]}" was approved by {_actor_name(user)}',
-            todo=todo,
-        )
-    # If assigned to someone, notify assignee
-    if todo.assigned_to:
-        _notify(
-            recipient=todo.assigned_to, actor=user,
-            notif_type='task_assigned',
-            title='New Task Assigned to You',
-            message=f'{_actor_name(user)} assigned you a task: "{todo.task[:60]}"',
-            todo=todo,
-        )
-
-    return Response(TodoSerializer(todo).data)
+    try:
+        todo = TodoService.confirm_todo(todo, request.user, request.data)
+        serializer = TodoSerializer(todo)
+        return Response(serializer.data)
+    except PermissionError as e:
+        return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
 
 
 @api_view(['POST'])
@@ -346,61 +121,28 @@ def todo_confirm(request, todo_id):
 def todo_confirm_completion(request, todo_id):
     """Leader confirms a member's completion request."""
     todo = get_object_or_404(Todo, id=todo_id)
-    user = request.user
-
-    if not todo.group or todo.group.leader_id != user.id:
-        return Response({'error': 'Only the group leader can confirm completion.'}, status=status.HTTP_403_FORBIDDEN)
-
-    todo.completed = True
-    todo.pending_completion = False
-    todo.save()
-
-    # Notify task owner that completion was confirmed
-    task_owner = todo.assigned_to or todo.user
-    _notify(
-        recipient=task_owner, actor=user,
-        notif_type='completion_confirmed',
-        title='Task Completion Confirmed',
-        message=f'{_actor_name(user)} confirmed completion of "{todo.task[:60]}" — great job!',
-        todo=todo,
-    )
-
-    return Response(TodoSerializer(todo).data)
+    try:
+        todo = TodoService.confirm_completion(todo, request.user)
+        serializer = TodoSerializer(todo)
+        return Response(serializer.data)
+    except PermissionError as e:
+        return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def todo_reject_completion(request, todo_id):
-    """Leader rejects a member's completion request."""
+    """Reject a member's completion request."""
     todo = get_object_or_404(Todo, id=todo_id)
-    user = request.user
-
-    # Leader can reject anyone's; member can only reject/cancel their own
-    is_leader = todo.group and todo.group.leader_id == user.id
-    is_owner = todo.assigned_to_id == user.id or todo.user_id == user.id
-    is_coordinator = user.role == 'site_coordinator'
-
-    if not (is_leader or is_owner or is_coordinator):
-        return Response({'error': 'Only the group leader or assignee can reject completion.'}, status=status.HTTP_403_FORBIDDEN)
-
-    todo.pending_completion = False
-    todo.save()
-
-    # If the leader or coordinator rejected it, notify the owner. If the owner canceled, no notification is needed.
-    if is_leader or is_coordinator:
-        task_owner = todo.assigned_to or todo.user
-        _notify(
-            recipient=task_owner, actor=user,
-            notif_type='completion_rejected',
-            title='Task Completion Rejected',
-            message=f'{_actor_name(user)} rejected your completion of "{todo.task[:60]}" — please review and retry',
-            todo=todo,
-        )
-
-    return Response(TodoSerializer(todo).data)
+    try:
+        todo = TodoService.reject_completion(todo, request.user)
+        serializer = TodoSerializer(todo)
+        return Response(serializer.data)
+    except PermissionError as e:
+        return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
 
 
-# ─── Groups ──────────────────────────────────────────────────────
+# ─────────────────────────────────── Group Endpoints ──────────────────────────
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
@@ -411,59 +153,25 @@ def groups_list_create(request):
         serializer = TaskGroupSerializer(groups, many=True)
         return Response(serializer.data)
 
-    # POST — create group
-    user = request.user
-    name = request.data.get('name', '').strip()
-    description = request.data.get('description', '')
-    leader_id = request.data.get('leader_id')
-
-    if not name:
-        return Response({'error': 'Group name is required.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    is_privileged = user.role in ['studio_head', 'admin'] or user.is_staff
-
-    target_leader = user
-    if leader_id and is_privileged:
-        target_leader = get_object_or_404(CustomUser, id=leader_id)
-
-    # Leaders can only create/lead one group (if not privileged creating for someone else)
-    if not is_privileged and getattr(user, 'is_leader', False) and TaskGroup.objects.filter(leader=user).exists():
-        return Response({'error': 'You already lead a group.'}, status=status.HTTP_400_BAD_REQUEST)
-        
-    # Check if target leader already leads a group
-    if target_leader and TaskGroup.objects.filter(leader=target_leader).exists():
-        return Response({'error': 'The selected user already leads another group.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    group = TaskGroup.objects.create(
-        name=name,
-        description=description,
-        leader=target_leader,
-        created_by=user
-    )
-    
-    # If a target leader was assigned, ensure they have is_leader = True
-    if target_leader and not getattr(target_leader, 'is_leader', False):
-        target_leader.is_leader = True
-        target_leader.save(update_fields=['is_leader'])
-
-    serializer = TaskGroupSerializer(group)
-    return Response(serializer.data, status=status.HTTP_201_CREATED)
+    # POST
+    try:
+        group = GroupService.create_group(request.user, request.data)
+        serializer = TaskGroupSerializer(group)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    except ValueError as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def group_delete(request, group_id):
-    """Delete a group (leader or coordinator only)."""
+    """Delete a group."""
     group = get_object_or_404(TaskGroup, id=group_id)
-    user = request.user
-
-    is_coordinator = user.role == 'site_coordinator'
-    is_privileged = user.role in ['studio_head', 'admin'] or user.is_staff
-    if group.leader_id != user.id and not is_coordinator and not is_privileged:
-        return Response({'error': 'Not authorized.'}, status=status.HTTP_403_FORBIDDEN)
-
-    group.delete()
-    return Response(status=status.HTTP_204_NO_CONTENT)
+    try:
+        GroupService.delete_group(group, request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    except PermissionError as e:
+        return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
 
 
 @api_view(['POST'])
@@ -476,15 +184,12 @@ def group_add_member(request, group_id):
     if not user_id:
         return Response({'error': 'user_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    target_user = get_object_or_404(CustomUser, id=user_id)
-
-    # Check if user is already in a group
-    if TaskGroupMember.objects.filter(user=target_user).exists():
-        return Response({'error': 'User is already in a group.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    TaskGroupMember.objects.create(group=group, user=target_user)
-    serializer = TaskGroupSerializer(group)
-    return Response(serializer.data)
+    try:
+        GroupService.add_member(group, user_id)
+        serializer = TaskGroupSerializer(group)
+        return Response(serializer.data)
+    except ValueError as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['DELETE'])
@@ -496,12 +201,12 @@ def group_remove_member(request, group_id, user_id):
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-# ─── User Management for Todos ───────────────────────────────────
+# ─────────────────────────────────── User Management ──────────────────────────
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def available_users(request):
-    """Get users not currently in any group."""
+    """Get users not in any group."""
     in_group_ids = TaskGroupMember.objects.values_list('user_id', flat=True)
     leader_ids = TaskGroup.objects.values_list('leader_id', flat=True)
     excluded_ids = set(list(in_group_ids) + [i for i in leader_ids if i] + [request.user.id])
@@ -514,7 +219,7 @@ def available_users(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def list_interns(request):
-    """List interns (for coordinator leader management)."""
+    """List all interns."""
     interns = CustomUser.objects.filter(role='intern', is_active=True)
     data = [
         {
@@ -559,18 +264,16 @@ def remove_leader(request, user_id):
     return Response({'message': f'{target} is no longer a leader.'})
 
 
-# ─── Department Tasks ─────────────────────────────────────────────
+# ─────────────────────────────────── Department Tasks ─────────────────────────
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def department_tasks_list_create(request):
     """List or create department tasks."""
-    user = request.user
-
     if request.method == 'GET':
-        if user.department:
+        if request.user.department:
             tasks = DepartmentTask.objects.filter(
-                department=user.department,
+                department=request.user.department,
                 deleted_at__isnull=True
             ).select_related('suggested_by', 'grabbed_by', 'completed_by', 'department')
         else:
@@ -578,29 +281,13 @@ def department_tasks_list_create(request):
         serializer = DepartmentTaskSerializer(tasks, many=True)
         return Response(serializer.data)
 
-    # POST — create department task
-    if not user.department:
-        return Response({'error': 'You must belong to a department.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    task_name = request.data.get('task', '').strip()
-    if not task_name:
-        return Response({'error': 'Task name is required.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    dept_task = DepartmentTask.objects.create(
-        task=task_name,
-        description=request.data.get('description', ''),
-        department=user.department,
-        suggested_by=user,
-        start_date=request.data.get('start_date'),
-        deadline=request.data.get('deadline'),
-        priority=request.data.get('priority'),
-    )
-
-    # Refresh stats
-    DepartmentTaskStats.refresh_for_department(user.department_id)
-
-    serializer = DepartmentTaskSerializer(dept_task)
-    return Response(serializer.data, status=status.HTTP_201_CREATED)
+    # POST
+    try:
+        task = DepartmentTaskService.create_task(request.user, request.data)
+        serializer = DepartmentTaskSerializer(task)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    except ValueError as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['DELETE'])
@@ -610,7 +297,6 @@ def department_task_delete(request, task_id):
     task = get_object_or_404(DepartmentTask, id=task_id, deleted_at__isnull=True)
     task.deleted_at = timezone.now()
     task.save()
-
     DepartmentTaskStats.refresh_for_department(task.department_id)
     return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -620,29 +306,12 @@ def department_task_delete(request, task_id):
 def department_task_grab(request, task_id):
     """Grab a department task."""
     task = get_object_or_404(DepartmentTask, id=task_id, deleted_at__isnull=True)
-    user = request.user
-
-    if task.status != 'suggested':
-        return Response({'error': 'Task is not available to grab.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    task.status = 'grabbed'
-    task.grabbed_by = user
-    task.grabbed_at = timezone.now()
-    task.save()
-
-    # Notify the suggester that their task was grabbed
-    if task.suggested_by:
-        _notify(
-            recipient=task.suggested_by, actor=user,
-            notif_type='dept_task_grabbed',
-            title='Dept. Task Grabbed',
-            message=f'{_actor_name(user)} grabbed your department task: "{task.task[:60]}"',
-            dept_task=task,
-        )
-
-    DepartmentTaskStats.refresh_for_department(task.department_id)
-    serializer = DepartmentTaskSerializer(task)
-    return Response(serializer.data)
+    try:
+        task = DepartmentTaskService.grab_task(task, request.user)
+        serializer = DepartmentTaskSerializer(task)
+        return Response(serializer.data)
+    except ValueError as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
@@ -650,29 +319,12 @@ def department_task_grab(request, task_id):
 def department_task_complete(request, task_id):
     """Complete a department task."""
     task = get_object_or_404(DepartmentTask, id=task_id, deleted_at__isnull=True)
-    user = request.user
-
-    if task.status != 'grabbed':
-        return Response({'error': 'Task must be grabbed first.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    task.status = 'completed'
-    task.completed_by = user
-    task.completed_at = timezone.now()
-    task.save()
-
-    # Notify the suggester that their task was completed
-    if task.suggested_by:
-        _notify(
-            recipient=task.suggested_by, actor=user,
-            notif_type='dept_task_completed',
-            title='Dept. Task Completed',
-            message=f'{_actor_name(user)} completed your department task: "{task.task[:60]}"',
-            dept_task=task,
-        )
-
-    DepartmentTaskStats.refresh_for_department(task.department_id)
-    serializer = DepartmentTaskSerializer(task)
-    return Response(serializer.data)
+    try:
+        task = DepartmentTaskService.complete_task(task, request.user)
+        serializer = DepartmentTaskSerializer(task)
+        return Response(serializer.data)
+    except ValueError as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
@@ -680,39 +332,20 @@ def department_task_complete(request, task_id):
 def department_task_abandon(request, task_id):
     """Abandon a grabbed department task."""
     task = get_object_or_404(DepartmentTask, id=task_id, deleted_at__isnull=True)
-
-    if task.status != 'grabbed':
-        return Response({'error': 'Only grabbed tasks can be abandoned.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    abandoner = request.user
-    # Reset task back to suggested so it can be grabbed again
-    task.status = 'suggested'
-    task.grabbed_by = None
-    task.grabbed_at = None
-    task.abandoned_at = timezone.now()
-    task.save()
-
-    # Notify the suggester that their task was abandoned
-    if task.suggested_by:
-        _notify(
-            recipient=task.suggested_by, actor=abandoner,
-            notif_type='dept_task_abandoned',
-            title='Dept. Task Abandoned',
-            message=f'{_actor_name(abandoner)} abandoned your department task: "{task.task[:60]}"',
-            dept_task=task,
-        )
-
-    DepartmentTaskStats.refresh_for_department(task.department_id)
-    serializer = DepartmentTaskSerializer(task)
-    return Response(serializer.data)
+    try:
+        task = DepartmentTaskService.abandon_task(task, request.user)
+        serializer = DepartmentTaskSerializer(task)
+        return Response(serializer.data)
+    except ValueError as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-# ─── Notifications ────────────────────────────────────────────────
+# ─────────────────────────────────── Notifications ──────────────────────────
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def notifications_list(request):
-    """List current user's notifications (newest first, max 50)."""
+    """List current user's notifications."""
     notifications = TodoNotification.objects.filter(
         recipient=request.user
     ).select_related('actor')[:50]
@@ -723,7 +356,7 @@ def notifications_list(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def notification_mark_read(request, notif_id):
-    """Mark a single notification as read."""
+    """Mark single notification as read."""
     notif = get_object_or_404(TodoNotification, id=notif_id, recipient=request.user)
     notif.is_read = True
     notif.save()
@@ -733,6 +366,6 @@ def notification_mark_read(request, notif_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def notifications_mark_all_read(request):
-    """Mark all of the current user's notifications as read."""
+    """Mark all notifications as read."""
     TodoNotification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
     return Response({'status': 'ok'})

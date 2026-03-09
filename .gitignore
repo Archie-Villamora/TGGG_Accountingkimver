@@ -14,16 +14,27 @@ backend/*.pyc
 
 # production
 /build
+frontend/build
 
 # misc
+.vscode/
 .DS_Store
+.env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
+# Markdown files (except README)
+*.md
+!README.md
+
 # Amazon Q rules
 .amazonq/
+
+#antigravity
+.agent/
+
 
 npm-debug.log*
 yarn-debug.log*

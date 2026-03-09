@@ -2,12 +2,19 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils import timezone
 
+
+# Updated roles for the new flow
 ROLE_CHOICES = [
-    ('admin', 'Administrator'),
-    ('manager', 'Manager'),
-    ('supervisor', 'Supervisor'),
-    ('employee', 'Employee'),
+    ('studio_head', 'Studio Head'),
+    ('admin', 'Admin'),
+    ('accounting', 'Accounting'),
+    ('bim_specialist', 'BIM Specialist'),
     ('intern', 'Intern'),
+    ('junior_architect', 'Junior Architect'),
+    ('president', 'President'),
+    ('site_engineer', 'Site Engineer'),
+    ('site_coordinator', 'Site Coordinator'),
+    ('ceo', 'CEO'),
 ]
 
 PERMISSION_CHOICES = [
@@ -15,8 +22,6 @@ PERMISSION_CHOICES = [
     ('edit_attendance', 'Edit Attendance'),
     ('view_payroll', 'View Payroll'),
     ('edit_payroll', 'Edit Payroll'),
-    ('view_employees', 'View Employees'),
-    ('edit_employees', 'Edit Employees'),
     ('view_reports', 'View Reports'),
     ('manage_roles', 'Manage Roles'),
     ('manage_permissions', 'Manage Permissions'),
@@ -54,12 +59,14 @@ class Department(models.Model):
 
 class CustomUser(AbstractUser):
     email = models.EmailField(unique=True)
+    employee_id = models.CharField(max_length=50, unique=True, blank=True, null=True)
+    profile_picture = models.URLField(max_length=500, blank=True, null=True)
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True)
     role = models.CharField(max_length=50, choices=ROLE_CHOICES, blank=True, null=True)
     permissions = models.JSONField(default=list, blank=True)
     phone_number = models.CharField(max_length=20, blank=True, null=True)
-    employee_id = models.CharField(max_length=50, unique=True, blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    is_leader = models.BooleanField(default=False)
     date_hired = models.DateField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -70,6 +77,10 @@ class CustomUser(AbstractUser):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['department', 'role']),
+            models.Index(fields=['is_active']),
+        ]
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}" if self.first_name else self.email

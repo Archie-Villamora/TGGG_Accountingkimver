@@ -138,7 +138,7 @@ export default function WorkDocCard({
                 <div className="mt-5 space-y-4 flex-1 flex flex-col animate-[fadeIn_0.2s_ease-out]">
                     <label className="block text-white/60 text-sm font-semibold">
                         What did you accomplish today?{' '}
-                        <span className="font-normal text-white/40">(Optional for morning)</span>
+                        <span className="font-normal text-white/40">(Required for Time Out)</span>
                     </label>
 
                     {/* Rich Text Editor */}

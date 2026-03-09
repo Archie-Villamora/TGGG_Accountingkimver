@@ -15,7 +15,50 @@ import WorkDocCard from "../../../components/attendance/WorkDocCard";
 import useMyAttendance from "../../../hooks/useMyAttendance";
 import { getEvents } from "../../../services/attendanceService";
 import { TableSkeleton, CardSkeleton } from "../../../components/SkeletonLoader";
+const formatTime12 = (t) => {
+  if (!t) return '-';
+  const [h, m] = t.split(':').map(Number);
+  if (Number.isNaN(h)) return t;
+  const period = h >= 12 ? 'PM' : 'AM';
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${period}`;
+};
 
+const calcMinutes = (timeIn, timeOut) => {
+  if (!timeIn || !timeOut) return 0;
+  const [inH, inM] = timeIn.split(':').map(Number);
+  const [outH, outM] = timeOut.split(':').map(Number);
+  if ([inH, inM, outH, outM].some((v) => Number.isNaN(v))) return 0;
+  const m = outH * 60 + outM - (inH * 60 + inM);
+  return m > 0 ? m : 0;
+};
+const formatLateDeduction = (decimalHours) => {
+  if (!decimalHours || decimalHours === 0) return '0';
+  const hours = Math.floor(decimalHours);
+  const mins = Math.round((decimalHours - hours) * 60);
+  if (hours === 0) return `${mins}m`;
+  if (mins === 0) return `${hours}h`;
+  return `${hours}h ${mins}m`;
+};
+
+const buildLateBreakdown = (am, pm, ot) => {
+  const parts = [];
+  if (am?.is_late) parts.push(`AM: -${formatLateDeduction(am.late_deduction_hours)}`);
+  if (pm?.is_late) parts.push(`PM: -${formatLateDeduction(pm.late_deduction_hours)}`);
+  if (ot?.is_late) parts.push(`OT: -${formatLateDeduction(ot.late_deduction_hours)}`);
+  return parts.join(' | ');
+};
+const groupByDate = (rows) => {
+  const groups = {};
+  rows.forEach((row) => {
+    const d = row.date;
+    if (!groups[d]) groups[d] = { date: d, morning: null, afternoon: null, overtime: null };
+    if (row.session_type === 'morning') groups[d].morning = row;
+    else if (row.session_type === 'afternoon') groups[d].afternoon = row;
+    else if (row.session_type === 'overtime') groups[d].overtime = row;
+    else if (!groups[d].morning) groups[d].morning = row;
+  });
+  return Object.values(groups).sort((a, b) => b.date.localeCompare(a.date));
+};
 const AttendanceDashboard = ({
   user,
   onLogout,
@@ -323,13 +366,13 @@ const AttendanceDashboard = ({
               )}
 
               <div className="max-h-[520px] overflow-auto">
-                <table className="w-full min-w-[720px] border-collapse">
+                <table className="w-full min-w-[1200px] border-collapse">
                   <thead className="sticky top-0 z-10">
                     <tr className="bg-[#001a2b] border-b border-white/10">
-                      {["Date", "Time In", "Time Out", "Status", "Location", "Notes", "Hours"].map((h) => (
+                      {["DATE", "AM IN", "AM OUT", "PM IN", "PM OUT", "OT IN", "OT OUT", "TOTAL HOURS", "LATE DEDUCTION", "LOCATION", "NOTES"].map((h) => (
                         <th
                           key={h}
-                          className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-white/60 whitespace-nowrap"
+                          className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider text-white/60 whitespace-nowrap"
                         >
                           {h}
                         </th>
@@ -340,54 +383,79 @@ const AttendanceDashboard = ({
                   <tbody>
                     {attendanceLoading && (
                       <tr>
-                        <td colSpan={7} className="px-6 py-4">
+                        <td colSpan={11} className="px-6 py-4">
                           <TableSkeleton />
                         </td>
                       </tr>
                     )}
                     {!attendanceLoading && attendanceData.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="px-6 py-4 text-white/60 text-sm">
+                        <td colSpan={11} className="px-6 py-4 text-white/60 text-sm">
                           No attendance records yet.
                         </td>
                       </tr>
                     )}
-                    {attendanceData.map((record, index) => {
-                      const isLate = record?.status === "late";
-                      const hours = computeHours(record);
-                      return (
-                        <tr
-                          key={record.id || index}
-                          className={[
-                            "border-b border-white/5",
-                            index % 2 === 0 ? "bg-black/10" : "bg-transparent",
-                            "hover:bg-[#FF7120]/5 transition",
-                          ].join(" ")}
-                        >
-                          <td className="px-6 py-4 text-white/90 text-sm whitespace-nowrap">
-                            {record.date}
-                          </td>
-                          <td className="px-6 py-4 text-white/85 text-sm whitespace-nowrap">
-                            {record.time_in || "-"}
-                          </td>
-                          <td className="px-6 py-4 text-white/85 text-sm whitespace-nowrap">
-                            {record.time_out || "-"}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <Badge tone={isLate ? "warn" : "good"}>{record.status_label || record.status}</Badge>
-                          </td>
-                          <td className="px-6 py-4 text-white/70 text-sm whitespace-nowrap">
-                            {record.location || "—"}
-                          </td>
-                          <td className="px-6 py-4 text-white/85 text-sm">
-                            {record.notes || "—"}
-                          </td>
-                          <td className="px-6 py-4 text-emerald-300 text-sm font-semibold whitespace-nowrap">
-                            {hours}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {(() => {
+                      const daily = groupByDate(attendanceData);
+                      return daily.map((day, index) => {
+                        const am = day.morning;
+                        const pm = day.afternoon;
+                        const ot = day.overtime;
+
+                        const totalMins =
+                          calcMinutes(am?.time_in, am?.time_out) +
+                          calcMinutes(pm?.time_in, pm?.time_out) +
+                          calcMinutes(ot?.time_in, ot?.time_out);
+                        const totalHours = totalMins > 0 ? `${Math.floor(totalMins / 60)}h ${totalMins % 60}m` : '-';
+
+                        const totalDeduction =
+                          parseFloat(am?.late_deduction_hours || 0) +
+                          parseFloat(pm?.late_deduction_hours || 0) +
+                          parseFloat(ot?.late_deduction_hours || 0);
+                        const anyLate = am?.is_late || pm?.is_late || ot?.is_late;
+
+                        const address = am?.clock_in_address || pm?.clock_in_address || ot?.clock_in_address ||
+                          am?.location || pm?.location || ot?.location || '—';
+
+                        const allNotes = [am?.notes, pm?.notes, ot?.notes].filter(Boolean).join(' | ');
+
+                        return (
+                          <tr
+                            key={day.date}
+                            className={[
+                              "border-b border-white/5",
+                              index % 2 === 0 ? "bg-black/10" : "bg-transparent",
+                              "hover:bg-[#FF7120]/5 transition",
+                            ].join(" ")}
+                          >
+                            <td className="px-4 py-4 text-white/90 text-sm whitespace-nowrap">{day.date}</td>
+                            <td className="px-4 py-4 text-white/85 text-sm whitespace-nowrap">{formatTime12(am?.time_in)}</td>
+                            <td className="px-4 py-4 text-white/85 text-sm whitespace-nowrap">{formatTime12(am?.time_out)}</td>
+                            <td className="px-4 py-4 text-white/85 text-sm whitespace-nowrap">{formatTime12(pm?.time_in)}</td>
+                            <td className="px-4 py-4 text-white/85 text-sm whitespace-nowrap">{formatTime12(pm?.time_out)}</td>
+                            <td className="px-4 py-4 text-white/85 text-sm whitespace-nowrap">{formatTime12(ot?.time_in)}</td>
+                            <td className="px-4 py-4 text-white/85 text-sm whitespace-nowrap">{formatTime12(ot?.time_out)}</td>
+                            <td className="px-4 py-4 text-emerald-300 text-sm font-semibold whitespace-nowrap">{totalHours}</td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold">
+                              {anyLate ? (
+                                <div className="flex flex-col gap-1">
+                                  <span className="text-[#FF7120] font-bold">-{formatLateDeduction(totalDeduction)}</span>
+                                  <span className="text-white/50 text-xs">{buildLateBreakdown(am, pm, ot)}</span>
+                                </div>
+                              ) : (
+                                <span className="text-emerald-300">On time</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-4 text-white/70 text-sm max-w-[180px]">
+                              <span className="truncate block" title={address}>{address}</span>
+                            </td>
+                            <td className="px-4 py-4 text-white/85 text-sm">
+                              {allNotes || '—'}
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
                   </tbody>
                 </table>
               </div>

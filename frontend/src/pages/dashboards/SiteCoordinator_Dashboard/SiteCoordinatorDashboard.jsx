@@ -11,6 +11,51 @@ import WorkDocCard from '../../../components/attendance/WorkDocCard';
 import useMyAttendance from '../../../hooks/useMyAttendance';
 import { TableSkeleton } from '../../../components/SkeletonLoader';
 
+const formatTime12 = (t) => {
+  if (!t) return '-';
+  const [h, m] = t.split(':').map(Number);
+  if (Number.isNaN(h)) return t;
+  const period = h >= 12 ? 'PM' : 'AM';
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${period}`;
+};
+
+const calcMinutes = (timeIn, timeOut) => {
+  if (!timeIn || !timeOut) return 0;
+  const [inH, inM] = timeIn.split(':').map(Number);
+  const [outH, outM] = timeOut.split(':').map(Number);
+  if ([inH, inM, outH, outM].some((v) => Number.isNaN(v))) return 0;
+  const m = outH * 60 + outM - (inH * 60 + inM);
+  return m > 0 ? m : 0;
+};
+const formatLateDeduction = (decimalHours) => {
+  if (!decimalHours || decimalHours === 0) return '0';
+  const hours = Math.floor(decimalHours);
+  const mins = Math.round((decimalHours - hours) * 60);
+  if (hours === 0) return `${mins}m`;
+  if (mins === 0) return `${hours}h`;
+  return `${hours}h ${mins}m`;
+};
+
+const buildLateBreakdown = (am, pm, ot) => {
+  const parts = [];
+  if (am?.is_late) parts.push(`AM: -${formatLateDeduction(am.late_deduction_hours)}`);
+  if (pm?.is_late) parts.push(`PM: -${formatLateDeduction(pm.late_deduction_hours)}`);
+  if (ot?.is_late) parts.push(`OT: -${formatLateDeduction(ot.late_deduction_hours)}`);
+  return parts.join(' | ');
+};
+const groupByDate = (rows) => {
+  const groups = {};
+  rows.forEach((row) => {
+    const d = row.date;
+    if (!groups[d]) groups[d] = { date: d, morning: null, afternoon: null, overtime: null };
+    if (row.session_type === 'morning') groups[d].morning = row;
+    else if (row.session_type === 'afternoon') groups[d].afternoon = row;
+    else if (row.session_type === 'overtime') groups[d].overtime = row;
+    else if (!groups[d].morning) groups[d].morning = row;
+  });
+  return Object.values(groups).sort((a, b) => b.date.localeCompare(a.date));
+};
+
 export default function SiteCoordinatorDashboard({ user, onNavigate }) {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [workDoc, setWorkDoc] = useState('');
@@ -83,14 +128,13 @@ export default function SiteCoordinatorDashboard({ user, onNavigate }) {
                   "OT IN",
                   "OT OUT",
                   "TOTAL HOURS",
-                  "LATE (MIN)",
+                  "LATE DEDUCTION",
+                  "LOCATION",
                   "WORK DONE",
-                  "ATTACHMENTS",
-                  "PHOTO",
                 ].map((h) => (
                   <th
                     key={h}
-                    className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-white/50 whitespace-nowrap"
+                    className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider text-white/50 whitespace-nowrap"
                   >
                     {h}
                   </th>
@@ -100,129 +144,103 @@ export default function SiteCoordinatorDashboard({ user, onNavigate }) {
             <tbody>
               {attendanceLoading && (
                 <tr>
-                  <td colSpan={12} className="px-6 py-4">
+                  <td colSpan={11} className="px-6 py-4">
                     <TableSkeleton />
                   </td>
                 </tr>
               )}
               {!attendanceLoading && attendanceRows.length === 0 && (
                 <tr>
-                  <td colSpan={12} className="px-6 py-4 text-white/60 text-sm text-center">
+                  <td colSpan={11} className="px-6 py-4 text-white/60 text-sm text-center">
                     No attendance records yet.
                   </td>
                 </tr>
               )}
-              {attendanceRows.map((row, index) => {
-                const isLate = row?.status === "late";
+              {(() => {
+                const daily = groupByDate(attendanceRows);
+                return daily.map((day, index) => {
+                  const am = day.morning;
+                  const pm = day.afternoon;
+                  const ot = day.overtime;
 
-                const hours = (() => {
-                  if (!row.time_in || !row.time_out) return '-';
-                  const [inH, inM] = row.time_in.split(':').map(Number);
-                  const [outH, outM] = row.time_out.split(':').map(Number);
-                  if ([inH, inM, outH, outM].some((v) => Number.isNaN(v))) return '-';
-                  const mins = outH * 60 + outM - (inH * 60 + inM);
-                  if (mins <= 0) return '-';
-                  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
-                })();
+                  const totalMins =
+                    calcMinutes(am?.time_in, am?.time_out) +
+                    calcMinutes(pm?.time_in, pm?.time_out) +
+                    calcMinutes(ot?.time_in, ot?.time_out);
+                  const totalHours = totalMins > 0 ? `${Math.floor(totalMins / 60)}h ${totalMins % 60}m` : '-';
 
-                // Formatting times
-                const [inH, inM] = row.time_in ? row.time_in.split(':') : [];
-                let formattedAmIn = '-'; let formattedPmOut = '-';
-                if (inH) formattedAmIn = `${inH > 12 ? inH - 12 : inH}:${inM} ${inH >= 12 ? 'PM' : 'AM'}`;
-                const [outH, outM] = row.time_out ? row.time_out.split(':') : [];
-                if (outH) formattedPmOut = `${outH > 12 ? outH - 12 : outH}:${outM} ${outH >= 12 ? 'PM' : 'AM'}`;
+                  const totalDeduction =
+                    parseFloat(am?.late_deduction_hours || 0) +
+                    parseFloat(pm?.late_deduction_hours || 0) +
+                    parseFloat(ot?.late_deduction_hours || 0);
+                  const anyLate = am?.is_late || pm?.is_late || ot?.is_late;
 
-                // Fallbacks
-                const amOut = row.time_in && row.time_out ? '12:00 PM' : '-';
-                const pmIn = row.time_in && row.time_out ? '01:00 PM' : '-';
+                  const address = am?.clock_in_address || pm?.clock_in_address || ot?.clock_in_address ||
+                    am?.location || pm?.location || ot?.location || '-';
 
-                return (
-                  <React.Fragment key={row.id || index}>
-                    <tr
-                      className={[
-                        "border-b border-white/5",
-                        index % 2 === 0 ? "bg-[#00273C]" : "bg-[#001f35]",
-                        "hover:bg-[#FF7120]/5 transition",
-                      ].join(" ")}
-                    >
-                      <td className="px-6 py-4 text-white/90 text-sm whitespace-nowrap">
-                        {row.date}
-                      </td>
-                      <td className="px-6 py-4 text-white/85 text-sm whitespace-nowrap">
-                        {formattedAmIn}
-                      </td>
-                      <td className="px-6 py-4 text-white/85 text-sm whitespace-nowrap">
-                        {amOut}
-                      </td>
-                      <td className="px-6 py-4 text-white/85 text-sm whitespace-nowrap">
-                        {pmIn}
-                      </td>
-                      <td className="px-6 py-4 text-white/85 text-sm whitespace-nowrap">
-                        {formattedPmOut}
-                      </td>
-                      <td className="px-6 py-4 text-white/85 text-sm whitespace-nowrap">
-                        -
-                      </td>
-                      <td className="px-6 py-4 text-white/85 text-sm whitespace-nowrap">
-                        -
-                      </td>
-                      <td className="px-6 py-4 text-emerald-400 text-sm font-semibold whitespace-nowrap">
-                        {hours}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold">
-                        {isLate ? (
-                          <div className="flex flex-col gap-1 text-[#FF7120]">
-                            <span>M: Late</span>
-                            <span>Total: Late</span>
-                          </div>
-                        ) : (
-                          <span className="text-white/85">-</span>
-                        )}
-                      </td>
+                  const allNotes = [am?.notes, pm?.notes, ot?.notes].filter(Boolean).join(' | ');
 
-                      <td className="px-6 py-4 text-white/85 text-sm max-w-[200px]">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate">{row.notes || '-'}</span>
-                          {row.notes && (
-                            <button
-                              className="shrink-0 p-1 px-2 text-[10px] rounded bg-[#FF7120] text-white hover:bg-[#e0611b] transition"
-                              onClick={() =>
-                                setExpandedWorkIdx((v) => (v === index ? null : index))
-                              }
-                              type="button"
-                              aria-label="Toggle work done details"
-                            >
-                              ...
-                            </button>
+                  return (
+                    <React.Fragment key={day.date}>
+                      <tr
+                        className={[
+                          "border-b border-white/5",
+                          index % 2 === 0 ? "bg-[#00273C]" : "bg-[#001f35]",
+                          "hover:bg-[#FF7120]/5 transition",
+                        ].join(" ")}
+                      >
+                        <td className="px-4 py-4 text-white/90 text-sm whitespace-nowrap">{day.date}</td>
+                        <td className="px-4 py-4 text-white/85 text-sm whitespace-nowrap">{formatTime12(am?.time_in)}</td>
+                        <td className="px-4 py-4 text-white/85 text-sm whitespace-nowrap">{formatTime12(am?.time_out)}</td>
+                        <td className="px-4 py-4 text-white/85 text-sm whitespace-nowrap">{formatTime12(pm?.time_in)}</td>
+                        <td className="px-4 py-4 text-white/85 text-sm whitespace-nowrap">{formatTime12(pm?.time_out)}</td>
+                        <td className="px-4 py-4 text-white/85 text-sm whitespace-nowrap">{formatTime12(ot?.time_in)}</td>
+                        <td className="px-4 py-4 text-white/85 text-sm whitespace-nowrap">{formatTime12(ot?.time_out)}</td>
+                        <td className="px-4 py-4 text-emerald-400 text-sm font-semibold whitespace-nowrap">{totalHours}</td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold">
+                          {anyLate ? (
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[#FF7120] font-bold">-{formatLateDeduction(totalDeduction)}</span>
+                              <span className="text-white/50 text-xs">{buildLateBreakdown(am, pm, ot)}</span>
+                            </div>
+                          ) : (
+                            <span className="text-emerald-300">On time</span>
                           )}
-                        </div>
-                      </td>
-
-                      <td className="px-6 py-4 text-white/60 text-sm whitespace-nowrap">
-                        -
-                      </td>
-                      <td className="px-6 py-4 text-white/60 text-sm whitespace-nowrap">
-                        -
-                      </td>
-                    </tr>
-
-                    {expandedWorkIdx === index && (
-                      <tr className="border-b border-white/5 bg-[#001a2b]">
-                        <td colSpan={12} className="px-6 py-4">
-                          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-                            <p className="text-white/50 text-xs font-semibold uppercase tracking-wider">
-                              WORK DONE (FULL)
-                            </p>
-                            <p className="mt-2 text-white/90 text-sm leading-relaxed">
-                              {row.notes}
-                            </p>
+                        </td>
+                        <td className="px-4 py-4 text-white/70 text-sm max-w-[180px]">
+                          <span className="truncate block" title={address}>{address}</span>
+                        </td>
+                        <td className="px-4 py-4 text-white/85 text-sm max-w-[180px]">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate">{allNotes || '-'}</span>
+                            {allNotes && (
+                              <button
+                                className="shrink-0 p-1 px-2 text-[10px] rounded bg-[#FF7120] text-white hover:bg-[#e0611b] transition"
+                                onClick={() => setExpandedWorkIdx((v) => (v === index ? null : index))}
+                                type="button"
+                                aria-label="Toggle work done details"
+                              >
+                                ...
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })}
+
+                      {expandedWorkIdx === index && (
+                        <tr className="border-b border-white/5 bg-[#001a2b]">
+                          <td colSpan={11} className="px-6 py-4">
+                            <div className="rounded-xl border border-white/10 bg-black/20 p-4">
+                              <p className="text-white/50 text-xs font-semibold uppercase tracking-wider">WORK DONE (FULL)</p>
+                              <p className="mt-2 text-white/90 text-sm leading-relaxed whitespace-pre-line">{allNotes}</p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                });
+              })()}
             </tbody>
           </table>
           {attendanceError && <p className="mt-3 text-xs text-red-200">{attendanceError}</p>}

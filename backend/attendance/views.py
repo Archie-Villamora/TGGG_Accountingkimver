@@ -627,27 +627,35 @@ def approve_overtime_request(request, request_id):
 def upload_work_documentation(request, attendance_id):
     """
     Upload work documentation files for an attendance record.
+    Files are uploaded directly to Supabase bucket.
+    Only the work_doc_note is saved in Django.
     
     Expected POST data:
-    - file: File object (required if updating)
-    - work_doc_note: Text note about work completed (required if no files)
+    - file: File object (optional)
+    - work_doc_note: Text note about work completed (optional but at least one required)
     """
     try:
         record = Attendance.objects.get(id=attendance_id, employee=request.user)
     except Attendance.DoesNotExist:
         return Response({'error': 'Attendance record not found.'}, status=status.HTTP_404_NOT_FOUND)
     
-    # Check if note is provided
+    # Check if note or file is provided
     work_doc_note = (request.data.get('work_doc_note') or '').strip()
-    if not work_doc_note:
-        return Response({'error': 'Work documentation note is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    has_file = 'file' in request.FILES
     
-    # Save note to record
-    record.work_doc_note = work_doc_note
+    if not work_doc_note and not has_file:
+        return Response(
+            {'error': 'Either a work documentation note or file is required.'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Save note to record if provided
+    if work_doc_note:
+        record.work_doc_note = work_doc_note
     
     # Handle file upload if present
-    uploaded_files = []
-    if 'file' in request.FILES:
+    uploaded_file_info = None
+    if has_file:
         uploaded_file = request.FILES['file']
         
         # Upload to Supabase
@@ -661,28 +669,69 @@ def upload_work_documentation(request, attendance_id):
         if not result.get('success'):
             return Response({'error': result.get('error')}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Store file path and metadata
-        file_data = {
+        # File uploaded successfully - we don't save metadata to DB
+        # Files will be queried directly from Supabase bucket when needed
+        uploaded_file_info = {
             'filename': result['filename'],
-            'file_path': result['file_path'],
             'file_url': result['file_url'],
-            'uploaded_at': result['uploaded_at']
         }
-        
-        record.work_doc_file_paths.append(file_data)
+    
+    # Update timestamps only if we have doc content
+    if work_doc_note or has_file:
         record.work_doc_uploaded_at = timezone.now()
         record.work_doc_uploaded_by = request.user
-        uploaded_files.append(file_data)
     
-    # Save record
+    # Save record (only note, not file metadata)
     record.save()
     
     return Response({
         'success': True,
         'message': 'Work documentation saved successfully',
         'work_doc_note': record.work_doc_note,
-        'uploaded_files': uploaded_files,
-        'file_count': len(record.work_doc_file_paths)
+        'uploaded_file': uploaded_file_info,
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_work_documentation_files(request, attendance_id):
+    """
+    List all work documentation files from Supabase for an attendance record.
+    Files are queried directly from the bucket, not from database.
+    """
+    try:
+        record = Attendance.objects.get(id=attendance_id)
+    except Attendance.DoesNotExist:
+        return Response({'error': 'Attendance record not found.'}, status=status.HTTP_404_NOT_FOUND)
+    
+    # Check authorization - user can view own docs, admins can view all
+    is_admin = request.user.is_staff or request.user.is_superuser
+    is_owner = record.employee_id == request.user.id
+    
+    if not (is_admin or is_owner):
+        return Response({'error': 'Not authorized to view this documentation.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    # List files from Supabase bucket
+    result = SupabaseStorageManager.list_work_documentation_files(
+        employee_id=record.employee_id,
+        date_str=str(record.date)
+    )
+    
+    if not result.get('success'):
+        return Response({
+            'id': record.id,
+            'files': [],
+            'work_doc_note': record.work_doc_note,
+            'error': result.get('error')
+        }, status=status.HTTP_200_OK)
+    
+    return Response({
+        'id': record.id,
+        'employee_id': record.employee_id,
+        'date': record.date,
+        'work_doc_note': record.work_doc_note,
+        'files': result.get('files', []),
+        'file_count': len(result.get('files', []))
     }, status=status.HTTP_200_OK)
 
 
@@ -690,7 +739,8 @@ def upload_work_documentation(request, attendance_id):
 @permission_classes([IsAuthenticated])
 def get_work_documentation(request, attendance_id):
     """
-    Retrieve work documentation for an attendance record.
+    Retrieve work documentation note for an attendance record.
+    (Legacy endpoint - kept for compatibility)
     """
     try:
         record = Attendance.objects.get(id=attendance_id)

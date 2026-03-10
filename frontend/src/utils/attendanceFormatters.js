@@ -128,7 +128,7 @@ export const getPrimaryLocation = (am, pm, ot) => {
  * @returns {string} Combined notes or empty string
  */
 export const getCombinedNotes = (am, pm, ot) => {
-  return [am?.notes, pm?.notes, ot?.notes].filter(Boolean).join(' | ');
+  return [am?.notes, am?.work_doc_note, pm?.notes, pm?.work_doc_note, ot?.notes, ot?.work_doc_note].filter(Boolean).join(' | ');
 };
 
 /**

@@ -14,6 +14,7 @@ import useMyAttendance from '../../../hooks/useMyAttendance';
 export default function SiteCoordinatorDashboard({ user, onNavigate }) {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [workDoc, setWorkDoc] = useState('');
+  const [workDocAttachments, setWorkDocAttachments] = useState([]);
   const [attendanceReady, setAttendanceReady] = useState(false);
   const {
     records: attendanceRows,
@@ -50,11 +51,26 @@ export default function SiteCoordinatorDashboard({ user, onNavigate }) {
         <LocationAttendance
           role={user?.role}
           className={`${cardClass} p-4 sm:p-6`}
+          workDoc={workDoc}
+          workDocAttachments={workDocAttachments}
           onStatusChange={({ ready }) => setAttendanceReady(ready)}
-          onRecordSaved={refreshAttendance}
+          onRecordSaved={(attendance) => {
+            // Clear work documentation after successful clock-out (documentation saved)
+            if (!attendance?.time_in || attendance?.time_out) {
+              setWorkDoc('');
+              setWorkDocAttachments([]);
+            }
+            refreshAttendance();
+          }}
         />
 
-        <WorkDocCard value={workDoc} onChange={setWorkDoc} cardClass={cardClass} />
+        <WorkDocCard
+          value={workDoc}
+          onChange={setWorkDoc}
+          attachments={workDocAttachments}
+          onAttachmentsChange={setWorkDocAttachments}
+          cardClass={cardClass}
+        />
       </div>
 
       <AttendanceHistoryTable

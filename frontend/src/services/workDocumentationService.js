@@ -59,6 +59,25 @@ const workDocumentationService = {
   },
 
   /**
+   * Get work documentation files from Supabase bucket
+   * @param {number} attendanceId - The attendance record ID
+   * @returns {Promise<object>} Files list from Supabase
+   */
+  getWorkDocumentationFiles: async (attendanceId) => {
+    try {
+      const response = await axios.get(
+        `${API_BASE}/attendance/${attendanceId}/work-docs/files/`
+      );
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Fetch failed',
+      };
+    }
+  },
+
+  /**
    * Delete a specific work documentation file
    * @param {number} attendanceId - The attendance record ID
    * @param {number} fileIndex - The index of the file to delete

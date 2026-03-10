@@ -11,53 +11,12 @@ import {
   ChevronDownIcon,
 } from "lucide-react";
 import LocationAttendance from "../../../components/attendance/LocationAttendance";
-import WorkDocCard from "../../../components/attendance/WorkDocCard";import AttendanceHistoryTable from '../../../components/attendance/AttendanceHistoryTable';import useMyAttendance from "../../../hooks/useMyAttendance";
+import WorkDocCard from "../../../components/attendance/WorkDocCard";
+import AttendanceHistoryTable from '../../../components/attendance/AttendanceHistoryTable';
+import useMyAttendance from "../../../hooks/useMyAttendance";
 import { getEvents } from "../../../services/attendanceService";
 import { TableSkeleton, CardSkeleton } from "../../../components/SkeletonLoader";
-const formatTime12 = (t) => {
-  if (!t) return '-';
-  const [h, m] = t.split(':').map(Number);
-  if (Number.isNaN(h)) return t;
-  const period = h >= 12 ? 'PM' : 'AM';
-  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${period}`;
-};
 
-const calcMinutes = (timeIn, timeOut) => {
-  if (!timeIn || !timeOut) return 0;
-  const [inH, inM] = timeIn.split(':').map(Number);
-  const [outH, outM] = timeOut.split(':').map(Number);
-  if ([inH, inM, outH, outM].some((v) => Number.isNaN(v))) return 0;
-  const m = outH * 60 + outM - (inH * 60 + inM);
-  return m > 0 ? m : 0;
-};
-const formatLateDeduction = (decimalHours) => {
-  if (!decimalHours || decimalHours === 0) return '0';
-  const hours = Math.floor(decimalHours);
-  const mins = Math.round((decimalHours - hours) * 60);
-  if (hours === 0) return `${mins}m`;
-  if (mins === 0) return `${hours}h`;
-  return `${hours}h ${mins}m`;
-};
-
-const buildLateBreakdown = (am, pm, ot) => {
-  const parts = [];
-  if (am?.is_late) parts.push(`AM: -${formatLateDeduction(am.late_deduction_hours)}`);
-  if (pm?.is_late) parts.push(`PM: -${formatLateDeduction(pm.late_deduction_hours)}`);
-  if (ot?.is_late) parts.push(`OT: -${formatLateDeduction(ot.late_deduction_hours)}`);
-  return parts.join(' | ');
-};
-const groupByDate = (rows) => {
-  const groups = {};
-  rows.forEach((row) => {
-    const d = row.date;
-    if (!groups[d]) groups[d] = { date: d, morning: null, afternoon: null, overtime: null };
-    if (row.session_type === 'morning') groups[d].morning = row;
-    else if (row.session_type === 'afternoon') groups[d].afternoon = row;
-    else if (row.session_type === 'overtime') groups[d].overtime = row;
-    else if (!groups[d].morning) groups[d].morning = row;
-  });
-  return Object.values(groups).sort((a, b) => b.date.localeCompare(a.date));
-};
 const AttendanceDashboard = ({
   user,
   onLogout,
@@ -76,6 +35,7 @@ const AttendanceDashboard = ({
     new Date().toISOString().split("T")[0]
   );
   const [workDoc, setWorkDoc] = useState("");
+  const [workDocAttachments, setWorkDocAttachments] = useState([]);
   const [locationReady, setLocationReady] = useState(false);
   const [isHoliday, setIsHoliday] = useState(false);
   const [events, setEvents] = useState([]);
@@ -328,164 +288,29 @@ const AttendanceDashboard = ({
                     className="p-0"
                     onStatusChange={({ ready }) => setLocationReady(ready)}
                     onRecordSaved={refreshAttendance}
+                    workDoc={workDoc}
+                    workDocAttachments={workDocAttachments}
                   />
                 )}
               </div>
 
-              <WorkDocCard value={workDoc} onChange={setWorkDoc} cardClass={cardClass} />
+              <WorkDocCard
+                value={workDoc}
+                onChange={setWorkDoc}
+                attachments={workDocAttachments}
+                onAttachmentsChange={setWorkDocAttachments}
+                cardClass={cardClass}
+              />
             </div>
 
             {/* History */}
-            <div className={cardClass}>
-              <div className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/10">
-                <div>
-                  <h3 className={sectionTitle}>My Attendance History</h3>
-                  <p className="mt-1 text-white/50 text-sm">
-                    Review your logs, late minutes, and work notes.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-[#00273C]/60 px-3 py-2">
-                    <Calendar className="h-4 w-4 text-white/40" />
-                    <input
-                      type="date"
-                      value={selectedDate}
-                      onChange={(e) => setSelectedDate(e.target.value)}
-                      className="bg-transparent text-white/80 text-sm outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {attendanceError && (
-                <div className="px-6 pb-3 text-sm text-red-200">
-                  {attendanceError}
-                </div>
-              )}
-
-              <div className="max-h-[520px] overflow-auto">
-                <table className="w-full min-w-[1200px] border-collapse">
-                  <thead className="sticky top-0 z-10">
-                    <tr className="bg-[#001a2b] border-b border-white/10">
-                      {["DATE", "AM IN", "AM OUT", "PM IN", "PM OUT", "OT IN", "OT OUT", "TOTAL HOURS", "LATE DEDUCTION", "LOCATION", "NOTES", "ATTACHMENTS"].map((h) => (
-                        <th
-                          key={h}
-                          className="px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider text-white/60 whitespace-nowrap"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {attendanceLoading && (
-                      <tr>
-                        <td colSpan={12} className="px-6 py-4">
-                          <TableSkeleton />
-                        </td>
-                      </tr>
-                    )}
-                    {!attendanceLoading && attendanceData.length === 0 && (
-                      <tr>
-                        <td colSpan={12} className="px-6 py-4 text-white/60 text-sm">
-                          No attendance records yet.
-                        </td>
-                      </tr>
-                    )}
-                    {(() => {
-                      const daily = groupByDate(attendanceData);
-                      return daily.map((day, index) => {
-                        const am = day.morning;
-                        const pm = day.afternoon;
-                        const ot = day.overtime;
-
-                        const totalMins =
-                          calcMinutes(am?.time_in, am?.time_out) +
-                          calcMinutes(pm?.time_in, pm?.time_out) +
-                          calcMinutes(ot?.time_in, ot?.time_out);
-                        const totalHours = totalMins > 0 ? `${Math.floor(totalMins / 60)}h ${totalMins % 60}m` : '-';
-
-                        const totalDeduction =
-                          parseFloat(am?.late_deduction_hours || 0) +
-                          parseFloat(pm?.late_deduction_hours || 0) +
-                          parseFloat(ot?.late_deduction_hours || 0);
-                        const anyLate = am?.is_late || pm?.is_late || ot?.is_late;
-
-                        const address = am?.clock_in_address || pm?.clock_in_address || ot?.clock_in_address ||
-                          am?.location || pm?.location || ot?.location || '—';
-
-                        const allNotes = [am?.notes, pm?.notes, ot?.notes].filter(Boolean).join(' | ');
-
-                        return (
-                          <tr
-                            key={day.date}
-                            className={[
-                              "border-b border-white/5",
-                              index % 2 === 0 ? "bg-black/10" : "bg-transparent",
-                              "hover:bg-[#FF7120]/5 transition",
-                            ].join(" ")}
-                          >
-                            <td className="px-4 py-4 text-white/90 text-sm whitespace-nowrap">{day.date}</td>
-                            <td className="px-4 py-4 text-white/85 text-sm whitespace-nowrap">{formatTime12(am?.time_in)}</td>
-                            <td className="px-4 py-4 text-white/85 text-sm whitespace-nowrap">{formatTime12(am?.time_out)}</td>
-                            <td className="px-4 py-4 text-white/85 text-sm whitespace-nowrap">{formatTime12(pm?.time_in)}</td>
-                            <td className="px-4 py-4 text-white/85 text-sm whitespace-nowrap">{formatTime12(pm?.time_out)}</td>
-                            <td className="px-4 py-4 text-white/85 text-sm whitespace-nowrap">{formatTime12(ot?.time_in)}</td>
-                            <td className="px-4 py-4 text-white/85 text-sm whitespace-nowrap">{formatTime12(ot?.time_out)}</td>
-                            <td className="px-4 py-4 text-emerald-300 text-sm font-semibold whitespace-nowrap">{totalHours}</td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold">
-                              {anyLate ? (
-                                <div className="flex flex-col gap-1">
-                                  <span className="text-[#FF7120] font-bold">-{formatLateDeduction(totalDeduction)}</span>
-                                  <span className="text-white/50 text-xs">{buildLateBreakdown(am, pm, ot)}</span>
-                                </div>
-                              ) : (
-                                <span className="text-emerald-300">On time</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-4 text-white/70 text-sm max-w-[180px]">
-                              <span className="truncate block" title={address}>{address}</span>
-                            </td>
-                            <td className="px-4 py-4 text-white/85 text-sm">
-                              {allNotes || '—'}
-                            </td>
-                            <td className="px-4 py-4 text-sm whitespace-nowrap">
-                              {am?.attachment_url || pm?.attachment_url || ot?.attachment_url ? (
-                                <a
-                                  href={am?.attachment_url || pm?.attachment_url || ot?.attachment_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-blue-400 hover:text-blue-300 underline flex items-center gap-1"
-                                >
-                                  <svg
-                                    className="w-4 h-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                    />
-                                  </svg>
-                                  {am?.attachment_filename || pm?.attachment_filename || ot?.attachment_filename || 'Download'}
-                                </a>
-                              ) : (
-                                <span className="text-white/40">—</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      });
-                    })()}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <AttendanceHistoryTable
+              records={attendanceData}
+              loading={attendanceLoading}
+              error={attendanceError}
+              selectedDate={selectedDate}
+              onDateChange={setSelectedDate}
+            />
 
             {/* Footer note */}
             <p className="text-center text-white/35 text-xs pb-4">

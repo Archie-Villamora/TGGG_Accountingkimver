@@ -17,6 +17,7 @@ urlpatterns = [
     
     # Work Documentation Endpoints
     path('<int:attendance_id>/work-docs/upload/', views.upload_work_documentation, name='upload_work_documentation'),
+    path('<int:attendance_id>/work-docs/files/', views.get_work_documentation_files, name='get_work_documentation_files'),
     path('<int:attendance_id>/work-docs/', views.get_work_documentation, name='get_work_documentation'),
     path('<int:attendance_id>/work-docs/<int:file_index>/delete/', views.delete_work_documentation_file, name='delete_work_documentation_file'),
 ]

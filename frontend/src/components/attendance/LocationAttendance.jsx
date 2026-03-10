@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
-import { clockIn, clockOut, getTodayAttendance } from "../../services/attendanceService";
+import { clockIn, clockOut, getTodayAttendance, uploadWorkDocFile } from "../../services/attendanceService";
 import { useToast } from "@inspectph/react-toast-sileo";
 import {
   CheckCircle,
@@ -183,7 +183,7 @@ const LocationAttendance = ({
   const sessionEndInfo = SESSION_END_TIMES[todayRecord?.session_type] || null;
   const isBeforeSessionEnd = sessionEndInfo
     ? now.getHours() < sessionEndInfo.hour ||
-      (now.getHours() === sessionEndInfo.hour && now.getMinutes() < sessionEndInfo.minute)
+    (now.getHours() === sessionEndInfo.hour && now.getMinutes() < sessionEndInfo.minute)
     : false;
 
   // Compute remaining time string
@@ -287,9 +287,29 @@ const LocationAttendance = ({
 
       const attendance = data?.attendance || null;
       setTodayRecord(attendance);
+
+      if (!isTimeIn && attendance?.id && workDocAttachments?.length > 0) {
+        setBanner({ tone: "info", text: "Uploading attachments..." });
+        let uploadErrors = 0;
+        for (const file of workDocAttachments) {
+          try {
+            await uploadWorkDocFile(attendance.id, file);
+          } catch (uploadErr) {
+            console.error("Failed to upload file", file.name, uploadErr);
+            uploadErrors++;
+          }
+        }
+        if (uploadErrors > 0) {
+          toast.error({
+            title: "Upload Warning",
+            description: `${uploadErrors} attachment(s) failed to upload.`,
+          });
+        }
+      }
+
       toast.success({
         title: `Time ${isTimeIn ? "In" : "Out"} Recorded`,
-        description: `Your time ${isTimeIn ? "in" : "out"} has been saved successfully at ${new Date().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true })}.`,
+        description: `Your time ${isTimeIn ? "in" : "out"} has been saved successfully.`,
       });
       onRecordSaved?.(attendance);
     } catch (error) {

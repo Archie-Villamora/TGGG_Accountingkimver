@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TableSkeleton } from '../SkeletonLoader';
+import workDocumentationService from '../../services/workDocumentationService';
 import {
   formatTime12,
   groupByDate,
@@ -31,6 +32,40 @@ export default function AttendanceHistoryTable({
   onDateChange = () => { },
 }) {
   const [expandedWorkIdx, setExpandedWorkIdx] = useState(null);
+  const [filesByAttendanceId, setFilesByAttendanceId] = useState({});
+  const [filesLoading, setFilesLoading] = useState({});
+
+  // Fetch work documentation files from Supabase for each attendance record
+  useEffect(() => {
+    if (!records || records.length === 0) return;
+
+    records.forEach((record) => {
+      if (!filesByAttendanceId[record.id] && !filesLoading[record.id]) {
+        setFilesLoading((prev) => ({ ...prev, [record.id]: true }));
+        
+        workDocumentationService.getWorkDocumentationFiles(record.id)
+          .then((result) => {
+            if (result.success) {
+              setFilesByAttendanceId((prev) => ({
+                ...prev,
+                [record.id]: result.data.files || [],
+              }));
+            } else {
+              setFilesByAttendanceId((prev) => ({
+                ...prev,
+                [record.id]: [],
+              }));
+            }
+          })
+          .finally(() => {
+            setFilesLoading((prev) => ({
+              ...prev,
+              [record.id]: false,
+            }));
+          });
+      }
+    });
+  }, [records, filesByAttendanceId, filesLoading]);
 
   const cardClass = 'rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.22)]';
 
@@ -108,7 +143,13 @@ export default function AttendanceHistoryTable({
                   const anyLate = am?.is_late || pm?.is_late || ot?.is_late;
                   const address = getPrimaryLocation(am, pm, ot);
                   const allNotes = getCombinedNotes(am, pm, ot);
-                  const attachment = getPrimaryAttachment(am, pm, ot);
+                  
+                  // Get files from Supabase (first occurrence found via iterate through records)
+                  const attendanceRecord = records.find(r => r.date === day.date);
+                  const supabaseFiles = attendanceRecord ? filesByAttendanceId[attendanceRecord.id] || [] : [];
+                  const attachment = supabaseFiles.length > 0 
+                    ? { filename: supabaseFiles[0].filename, url: supabaseFiles[0].file_url }
+                    : null;
 
                   return (
                     <React.Fragment key={day.date}>

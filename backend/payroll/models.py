@@ -141,6 +141,9 @@ class PaySlip(models.Model):
     payment_method = models.CharField(max_length=50, blank=True, null=True)  # bank transfer, cash, check
     payment_date = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True, null=True)
+    payslip_image = models.BinaryField(blank=True, null=True)
+    payslip_image_filename = models.CharField(max_length=255, blank=True, null=True)
+    payslip_image_content_type = models.CharField(max_length=100, blank=True, null=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

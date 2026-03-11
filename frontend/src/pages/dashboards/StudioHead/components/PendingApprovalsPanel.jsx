@@ -28,17 +28,22 @@ export default function PendingApprovalsPanel({
 
       {!pendingLoading && pendingUsers.length > 0 && (
         <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {pendingUsers.map((u) => (
-            <PendingUserCard
-              key={u.id}
-              user={u}
-              role={roleByUserId[u.id] || 'accounting'}
-              onChangeRole={(val) => setRoleByUserId((prev) => ({ ...prev, [u.id]: val }))}
-              allowedRoles={allowedRoles}
-              onApprove={() => approveUser(u.id)}
-              loading={approvingUserId === u.id}
-            />
-          ))}
+          {pendingUsers.map((u) => {
+            const userId = u?.id ?? u?.user_id ?? u?.userId;
+            if (userId === null || userId === undefined || userId === '') return null;
+
+            return (
+              <PendingUserCard
+                key={userId}
+                user={u}
+                role={roleByUserId[userId] || 'accounting'}
+                onChangeRole={(val) => setRoleByUserId((prev) => ({ ...prev, [userId]: val }))}
+                allowedRoles={allowedRoles}
+                onApprove={() => approveUser(userId)}
+                loading={approvingUserId === userId}
+              />
+            );
+          })}
         </div>
       )}
     </div>

@@ -155,17 +155,18 @@ def generate_payslip_image(payslip_data):
     prepared_by = str(payslip_details.get('prepared_by', 'Accounting Department')).upper()
     approved_by = str(payslip_details.get('approved_by_top_management', 'Top Management')).upper()
 
-    # Exact sample dimensions scaled for high quality output
+    # Exact sample dimensions scaled for high quality output.
+    # Height is slightly extended so bottom labels are not clipped.
     scale = 2.1
     s = lambda value: int(round(value * scale))
 
-    width, height = s(960), s(757)
-    sheet_left, sheet_top, sheet_right, sheet_bottom = s(65), s(51), s(890), s(729)
+    width, height = s(960), s(804)
+    sheet_left, sheet_top, sheet_right, sheet_bottom = s(65), s(51), s(890), s(774)
 
     header_top, header_bottom = sheet_top, s(295)
     strip_top, strip_bottom = s(295), s(313)
-    body_top, body_bottom = s(313), s(627)
-    net_bar_top, net_bar_bottom = s(593), s(627)
+    body_top, body_bottom = s(313), s(641)
+    net_bar_top, net_bar_bottom = s(607), s(641)
 
     img = Image.new('RGB', (width, height), '#DEDEDE')
     draw = ImageDraw.Draw(img)
@@ -284,9 +285,11 @@ def generate_payslip_image(payslip_data):
     draw.text((right_value_x, s(580)), format_currency(company_loan), fill=black, font=row_font, anchor='ra')
 
     # Net pay strip
+    net_bar_center_y = (net_bar_top + net_bar_bottom) // 2
+    net_bar_center_x = (sheet_left + sheet_right) // 2
     draw.rectangle([(sheet_left, net_bar_top), (sheet_right, net_bar_bottom)], fill=brand_orange, outline=black, width=2)
-    draw.text((s(208), s(605)), 'SALARY NET PAY', fill=black, font=net_font)
-    draw.text((s(718), s(605)), format_currency(net_salary), fill=black, font=net_font, anchor='ra')
+    draw.text((s(205), net_bar_center_y), 'SALARY NET PAY', fill=black, font=net_font, anchor='lm')
+    draw.text((s(718), net_bar_center_y), format_currency(net_salary), fill=black, font=net_font, anchor='rm')
 
     # Signature block
     draw.text((s(70), s(656)), 'Prepared By:', fill=text_gray, font=sign_label_font)
@@ -304,7 +307,7 @@ def generate_payslip_image(payslip_data):
     draw.text((s(674), s(717)), 'Top Management', fill=text_gray, font=sign_role_font, anchor='mm')
 
     # Bottom "Approved By:" label matching sample
-    draw.text((s(70), s(751)), 'Approved By:', fill=text_gray, font=sign_label_font)
+    draw.text((s(70), s(759)), 'Approved By:', fill=text_gray, font=sign_label_font)
 
     buffer = io.BytesIO()
     img.save(buffer, format='PNG', quality=95)

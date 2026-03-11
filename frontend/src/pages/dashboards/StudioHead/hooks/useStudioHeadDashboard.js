@@ -34,6 +34,13 @@ export function useStudioHeadDashboard() {
   // role selection per pending user
   const [roleByUserId, setRoleByUserId] = useState({});
 
+  const resolveUserId = (userOrId) => {
+    if (userOrId && typeof userOrId === 'object') {
+      return userOrId.id ?? userOrId.user_id ?? userOrId.userId ?? null;
+    }
+    return userOrId ?? null;
+  };
+
   const allowedRoles = useMemo(() => ([
     { value: 'accounting', label: 'Accounting' },
     { value: 'employee', label: 'Employee' },
@@ -45,6 +52,7 @@ export function useStudioHeadDashboard() {
     { value: 'site_coordinator', label: 'Site Coordinator' },
     { value: 'studio_head', label: 'Studio Head' },
     { value: 'admin', label: 'Admin' },
+    { value: 'ceo', label: 'CEO' },
   ]), []);
 
   async function fetchPending() {
@@ -52,16 +60,27 @@ export function useStudioHeadDashboard() {
       setPendingLoading(true);
       const data = await getPendingUsers();
       const list = Array.isArray(data) ? data : (data?.users ?? []);
-      setPendingUsers(list);
+      const normalizedList = list
+        .map((u) => {
+          const id = resolveUserId(u);
+          if (id === null || id === undefined || id === '') return null;
+          return { ...u, id };
+        })
+        .filter(Boolean);
+
+      setPendingUsers(normalizedList);
 
       // initialize role defaults if missing
       setRoleByUserId((prev) => {
         const next = { ...prev };
-        for (const u of list) if (!next[u.id]) next[u.id] = 'accounting';
+        for (const u of normalizedList) {
+          const id = resolveUserId(u);
+          if (id !== null && id !== undefined && !next[id]) next[id] = 'accounting';
+        }
         return next;
       });
     } catch (e) {
-      setMessage('Failed to load pending users.');
+      setMessage(e?.response?.data?.error || 'Failed to load pending users.');
     } finally {
       setPendingLoading(false);
     }
@@ -75,7 +94,7 @@ export function useStudioHeadDashboard() {
       const list = Array.isArray(data) ? data : (data?.users ?? []);
       setUsers(list);
     } catch (e) {
-      setUsersError('Failed to load users.');
+      setUsersError(e?.response?.data?.error || 'Failed to load users.');
     } finally {
       setUsersLoading(false);
     }
@@ -94,16 +113,23 @@ export function useStudioHeadDashboard() {
   }
 
   async function approveUser(userId) {
-    const role = roleByUserId[userId] || 'accounting';
+    const resolvedUserId = resolveUserId(userId);
+
+    if (resolvedUserId === null || resolvedUserId === undefined || resolvedUserId === '') {
+      setMessage('Failed to approve user: missing user ID.');
+      return;
+    }
+
+    const role = roleByUserId[resolvedUserId] || 'accounting';
     try {
-      setApprovingUserId(userId);
+      setApprovingUserId(resolvedUserId);
       setMessage('');
-      await approvePendingUser(userId, role);
+      await approvePendingUser(resolvedUserId, role);
       setMessage('User approved successfully.');
       await fetchPending();
       await fetchUsers();
     } catch (e) {
-      setMessage('Failed to approve user.');
+      setMessage(e?.response?.data?.error || e?.message || 'Failed to approve user.');
     } finally {
       setApprovingUserId(null);
     }

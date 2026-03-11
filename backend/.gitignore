@@ -35,8 +35,8 @@ ENV/
 *~
 .DS_Store
 
-# Media files (uncomment if needed)
-# media/
+# Media files
+media/payslips/*/
 
 # Static files (uncomment if needed)
 # staticfiles/

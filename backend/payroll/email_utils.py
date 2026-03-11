@@ -2,7 +2,6 @@
 Email Utility for Payslip Delivery
 Sends payslip images via email using Django's EmailMessage
 """
-import os
 from datetime import datetime
 from django.core.mail import EmailMessage
 from django.conf import settings
@@ -50,9 +49,6 @@ def send_payslip_email(employee, payslip_data, image_buffer, image_filename):
         subject = f"Your Payslip - {employee_name}"
         
         # Email body (HTML)
-        net_salary = payslip_data.get('net_salary', 0)
-        gross_salary = payslip_data.get('gross_salary', 0)
-        deductions = payslip_data.get('deductions_total', 0)
         
         html_body = f"""
         <!DOCTYPE html>
@@ -134,23 +130,6 @@ def send_payslip_email(employee, payslip_data, image_buffer, image_filename):
                     <h2>Hello {employee_name},</h2>
                     <p>Your payslip for the period <strong>{period}</strong> is ready.</p>
                     
-                    <div class="info-box">
-                        <h3 style="margin-top: 0; color: #1e40af;">💰 Payment Summary</h3>
-                        <div class="salary-amount">₱{net_salary:,.2f}</div>
-                        <p style="margin: 0; color: #64748b;">Net Salary</p>
-                        
-                        <div style="margin-top: 20px;">
-                            <div class="detail-row">
-                                <span class="label">Gross Salary:</span>
-                                <span class="value">₱{gross_salary:,.2f}</span>
-                            </div>
-                            <div class="detail-row">
-                                <span class="label">Total Deductions:</span>
-                                <span class="value" style="color: #dc2626;">₱{deductions:,.2f}</span>
-                            </div>
-                        </div>
-                    </div>
-                    
                     <div class="attachment-note">
                         <p style="margin: 0;"><strong>📎 Your payslip image is attached to this email</strong></p>
                         <p style="margin: 5px 0 0 0; font-size: 14px;">Please download and save it for your records</p>
@@ -175,12 +154,6 @@ def send_payslip_email(employee, payslip_data, image_buffer, image_filename):
 Hello {employee_name},
 
 Your payslip for the period {period} is ready.
-
-PAYMENT SUMMARY
-Net Salary: ₱{net_salary:,.2f}
-
-Gross Salary: ₱{gross_salary:,.2f}
-Total Deductions: ₱{deductions:,.2f}
 
 Your payslip image is attached to this email. Please download and save it for your records.
 
@@ -229,57 +202,48 @@ Generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}
         }
 
 
-def save_payslip_image_and_send_email(employee, payslip_data, image_buffer, employee_id, period_str):
+def save_payslip_image_and_send_email(employee, payslip, payslip_data, image_buffer, period_str):
     """
-    Save payslip image to media folder and send via email.
+    Save payslip image to the database and send via email.
     
     Args:
         employee: CustomUser object
+        payslip: PaySlip model instance
         payslip_data: Dictionary containing payslip information
         image_buffer: BytesIO object containing the PNG image
-        employee_id: ID for organizing files
         period_str: Period string for filename (e.g., '2024-01')
     
     Returns:
         dict: {
             'image_saved': bool,
-            'image_path': str or None,
-            'image_url': str or None,
+            'image_endpoint': str or None,
             'email': dict from send_payslip_email
         }
     """
     result = {
         'image_saved': False,
-        'image_path': None,
-        'image_url': None,
+        'image_endpoint': None,
+        'storage': 'database',
         'email': None
     }
     
     try:
-        # Create directory for payslips
-        media_root = settings.MEDIA_ROOT
-        payslips_dir = os.path.join(media_root, 'payslips', str(employee_id))
-        os.makedirs(payslips_dir, exist_ok=True)
-        
-        # Generate filename
+        # Generate filename for DB metadata and email attachment name.
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         image_filename = f"payslip_{period_str}_{timestamp}.png"
-        image_path = os.path.join(payslips_dir, image_filename)
-        
-        # Save image file
+
+        # Persist image bytes in the payslip database record.
         image_buffer.seek(0)
-        with open(image_path, 'wb') as f:
-            f.write(image_buffer.read())
-        
+        image_bytes = image_buffer.read()
+        payslip.payslip_image = image_bytes
+        payslip.payslip_image_filename = image_filename
+        payslip.payslip_image_content_type = 'image/png'
+        payslip.save(update_fields=['payslip_image', 'payslip_image_filename', 'payslip_image_content_type'])
+
         result['image_saved'] = True
-        result['image_path'] = image_path
-        
-        # Generate URL
-        if hasattr(settings, 'MEDIA_URL'):
-            relative_path = f"payslips/{employee_id}/{image_filename}"
-            result['image_url'] = f"{settings.MEDIA_URL}{relative_path}"
-        
-        print(f"✅ Payslip image saved: {image_path}")
+        result['image_endpoint'] = f"/api/payroll/recent/{payslip.id}/payslip-image/"
+
+        print(f"✅ Payslip image saved to DB for payslip ID {payslip.id}")
         
         # Send email with the image
         image_buffer.seek(0)  # Reset buffer for email attachment

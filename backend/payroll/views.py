@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.db import IntegrityError, transaction
+from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -73,6 +74,7 @@ def _count_weekdays(start_date, end_date):
 def _serialize_payslip(payslip):
     employee = payslip.employee
     payslip_details = _parse_payslip_notes(payslip.notes)
+    has_payslip_image = bool(payslip.payslip_image_filename)
     return {
         'id': payslip.id,
         'employee_id': employee.id,
@@ -99,6 +101,8 @@ def _serialize_payslip(payslip):
         'payment_date': payslip.payment_date,
         'notes': payslip.notes,
         'payslip_details': payslip_details,
+        'has_payslip_image': has_payslip_image,
+        'payslip_image_endpoint': f"/api/payroll/recent/{payslip.id}/payslip-image/" if has_payslip_image else None,
         'created_at': payslip.created_at,
         'updated_at': payslip.updated_at,
     }
@@ -619,19 +623,19 @@ def process_payroll(request):
         image_buffer = generate_payslip_image(payslip_data)
         print(f"✅ Payslip image generated successfully")
         
-        # Save image and send via Email
+        # Save image to DB and send via Email
         period_str = f"{period_start.year}-{period_start.month:02d}"
-        delivery_result = save_payslip_image_and_send_email(employee, payslip_data, image_buffer, employee.id, period_str)
+        delivery_result = save_payslip_image_and_send_email(employee, payslip, payslip_data, image_buffer, period_str)
         
         image_result = {
             'success': delivery_result.get('image_saved', False),
-            'image_path': delivery_result.get('image_path'),
-            'image_url': delivery_result.get('image_url'),
+            'image_endpoint': delivery_result.get('image_endpoint'),
+            'storage': delivery_result.get('storage', 'database'),
         }
         email_result = delivery_result.get('email', {})
         
         if image_result.get('success'):
-            print(f"✅ Payslip image saved to: {image_result.get('image_path')}")
+            print(f"✅ Payslip image saved to DB endpoint: {image_result.get('image_endpoint')}")
         else:
             print(f"⚠️ Image save failed")
         
@@ -644,7 +648,7 @@ def process_payroll(request):
         print(f"⚠️ Image/Email error (non-critical): {e}")
         print(traceback.format_exc())
         # Don't fail the entire request if Image/Email fails
-        image_result = {'success': False, 'error': str(e), 'image_url': None, 'image_path': None}
+        image_result = {'success': False, 'error': str(e), 'image_endpoint': None, 'storage': 'database'}
         email_result = {'sent': False, 'error': str(e), 'message': f'Error: {str(e)}'}
 
     print(f"🔍 Preparing response...")
@@ -681,8 +685,8 @@ def process_payroll(request):
         'attendance_summary': summary,
         'image': {
             'generated': image_result.get('success', False) if image_result else False,
-            'url': image_result.get('image_url') if image_result and image_result.get('success') else None,
-            'path': image_result.get('image_path') if image_result and image_result.get('success') else None,
+            'url': image_result.get('image_endpoint') if image_result and image_result.get('success') else None,
+            'storage': image_result.get('storage', 'database') if image_result else 'database',
         },
         'email': {
             'sent': email_result.get('sent', False) if email_result else False,
@@ -772,7 +776,7 @@ def recent_payroll_records(request):
     created_to_raw = request.query_params.get('created_to')
     limit_raw = request.query_params.get('limit')
 
-    records = PaySlip.objects.select_related('employee').order_by('-created_at', '-period_end')
+    records = PaySlip.objects.select_related('employee').defer('payslip_image').order_by('-created_at', '-period_end')
 
     has_date_filter = bool(created_on_raw or created_from_raw or created_to_raw)
 
@@ -819,6 +823,27 @@ def recent_payroll_records(request):
 
     records = records[:limit]
     return Response([_serialize_payslip(record) for record in records])
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def payroll_payslip_image(request, payslip_id):
+    payslip = PaySlip.objects.select_related('employee').filter(id=payslip_id).first()
+    if not payslip:
+        return Response({'error': 'Payroll record not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    can_view = _can_manage_payroll(request.user) or request.user.id == payslip.employee_id
+    if not can_view:
+        return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
+
+    if not payslip.payslip_image:
+        return Response({'error': 'Payslip image not found for this record.'}, status=status.HTTP_404_NOT_FOUND)
+
+    content_type = payslip.payslip_image_content_type or 'image/png'
+    filename = payslip.payslip_image_filename or f'payslip_{payslip.id}.png'
+    response = HttpResponse(bytes(payslip.payslip_image), content_type=content_type)
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response
 
 
 @api_view(['GET', 'POST'])

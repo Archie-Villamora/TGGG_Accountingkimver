@@ -13,6 +13,13 @@ export async function getRecentPayroll(params = {}) {
     return data;
 }
 
+export async function getPayrollPayslipImage(payslipId) {
+    const { data } = await api.get(`/payroll/recent/${payslipId}/payslip-image/`, {
+        responseType: 'blob',
+    });
+    return data;
+}
+
 export async function getDeductions() {
     const { data } = await api.get('/payroll/deductions/');
     return data;

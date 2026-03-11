@@ -11,7 +11,23 @@ export async function getPendingUsers() {
 }
 
 export async function approvePendingUser(userId, role) {
-    const { data } = await api.post('/accounts/approve/', { user_id: userId, role });
+    const resolvedUserId = typeof userId === 'object'
+        ? (userId?.id ?? userId?.user_id ?? userId?.userId)
+        : userId;
+
+    if (resolvedUserId === undefined || resolvedUserId === null || resolvedUserId === '') {
+        throw new Error('Missing user id for approval request');
+    }
+
+    const normalizedRole = typeof role === 'string'
+        ? role.trim().toLowerCase().replace(/\s+/g, '_')
+        : role;
+
+    const { data } = await api.post('/accounts/approve/', {
+        user_id: resolvedUserId,
+        userId: resolvedUserId,
+        role: normalizedRole || 'accounting',
+    });
     return data;
 }
 

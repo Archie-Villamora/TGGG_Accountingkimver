@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   getPayrollEmployees,
   getRecentPayroll,
+  getPayrollPayslipImage,
   getDeductions,
   createDeduction,
   deleteDeduction,
@@ -355,6 +356,10 @@ export function PayrollManagement() {
   const [recentPayrollRecords, setRecentPayrollRecords] = useState([]);
   const [isLoadingPayrollData, setIsLoadingPayrollData] = useState(true);
   const [isProcessingPayroll, setIsProcessingPayroll] = useState(false);
+  const [loadingPayslipImageId, setLoadingPayslipImageId] = useState(null);
+  const [isPayslipImageViewerOpen, setIsPayslipImageViewerOpen] = useState(false);
+  const [payslipImagePreviewUrl, setPayslipImagePreviewUrl] = useState('');
+  const [selectedPayslipRecord, setSelectedPayslipRecord] = useState(null);
   const [isSavingDeduction, setIsSavingDeduction] = useState(false);
   const [isLoadingDeductions, setIsLoadingDeductions] = useState(false);
   const [payrollError, setPayrollError] = useState('');
@@ -417,6 +422,14 @@ export function PayrollManagement() {
   useEffect(() => {
     fetchPayrollData();
   }, []);
+
+  useEffect(() => (
+    () => {
+      if (payslipImagePreviewUrl) {
+        URL.revokeObjectURL(payslipImagePreviewUrl);
+      }
+    }
+  ), [payslipImagePreviewUrl]);
 
   // Helper function to calculate dates from month, year, and period
   const calculatePayrollDates = () => {
@@ -791,6 +804,50 @@ export function PayrollManagement() {
     setIsPayslipFormInitialized(false);
   };
 
+  const closePayslipImageViewer = () => {
+    setIsPayslipImageViewerOpen(false);
+    setSelectedPayslipRecord(null);
+    setPayslipImagePreviewUrl((prevUrl) => {
+      if (prevUrl) {
+        URL.revokeObjectURL(prevUrl);
+      }
+      return '';
+    });
+  };
+
+  const handleViewPayslipImage = async (record) => {
+    if (!record?.id) return;
+
+    setLoadingPayslipImageId(record.id);
+    try {
+      const imageBlob = await getPayrollPayslipImage(record.id);
+      if (!imageBlob || imageBlob.size === 0) {
+        throw new Error('Payslip image is empty.');
+      }
+
+      const objectUrl = URL.createObjectURL(imageBlob);
+      setPayslipImagePreviewUrl((prevUrl) => {
+        if (prevUrl) {
+          URL.revokeObjectURL(prevUrl);
+        }
+        return objectUrl;
+      });
+      setSelectedPayslipRecord(record);
+      setIsPayslipImageViewerOpen(true);
+    } catch (error) {
+      const statusCode = error?.response?.status;
+      const message =
+        statusCode === 404
+          ? 'Payslip image not found for this payroll record.'
+          : statusCode === 403
+            ? 'You are not authorized to view this payslip image.'
+            : 'Unable to load payslip image right now.';
+      alert(message);
+    } finally {
+      setLoadingPayslipImageId(null);
+    }
+  };
+
   const renderPayslipPrintDocument = (printWindow, payload) => {
     if (!printWindow) return;
 
@@ -1124,8 +1181,8 @@ export function PayrollManagement() {
       let successMessage = `✅ Payslip processed successfully!\n\nEmployee: ${name}\nNet Salary: ${formatCurrency(netSalary)}\n\nPayroll has been saved to the database.`;
       
       // Add Image info if available
-      if (responseData?.image?.generated && responseData?.image?.url) {
-        successMessage += `\n\n🖼️ Payslip Image: Generated\nYou can view it here: ${responseData.image.url}`;
+      if (responseData?.image?.generated) {
+        successMessage += '\n\n🖼️ Payslip Image: Saved to database.\nClick the employee\'s record in Recent Payroll Records to view it.';
       }
       
       // Add Email info if attempted
@@ -1140,14 +1197,6 @@ export function PayrollManagement() {
       }
 
       alert(successMessage);
-      
-      // If image was generated, offer to open it
-      if (responseData?.image?.generated && responseData?.image?.url) {
-        const openImage = window.confirm('Would you like to view the payslip image now?');
-        if (openImage) {
-          window.open(responseData.image.url, '_blank');
-        }
-      }
       
       await fetchPayrollData();
       setIsPayslipPreviewOpen(false);
@@ -1345,8 +1394,29 @@ export function PayrollManagement() {
             </p>
           ) : (
             <div className="space-y-3 max-h-96 overflow-y-auto">
-              {filteredPayrollRecords.map((record) => (
-                <div key={record.id} className="flex flex-col p-4 rounded-lg border border-border/50 bg-card/40 hover:bg-card/60 transition-colors cursor-pointer">
+              {filteredPayrollRecords.map((record) => {
+                const canViewImage = Boolean(record.has_payslip_image || record.payslip_image_endpoint);
+                const isLoadingImage = loadingPayslipImageId === record.id;
+
+                return (
+                <div
+                  key={record.id}
+                  className={`flex flex-col p-4 rounded-lg border border-border/50 bg-card/40 transition-colors ${canViewImage ? 'hover:bg-card/60 cursor-pointer' : 'cursor-default'}`}
+                  onClick={() => {
+                    if (canViewImage && !isLoadingImage) {
+                      handleViewPayslipImage(record);
+                    }
+                  }}
+                  role={canViewImage ? 'button' : undefined}
+                  tabIndex={canViewImage ? 0 : -1}
+                  onKeyDown={(event) => {
+                    if (!canViewImage || isLoadingImage) return;
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleViewPayslipImage(record);
+                    }
+                  }}
+                >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-4">
                       <Avatar>
@@ -1376,12 +1446,77 @@ export function PayrollManagement() {
                       <p className="font-semibold text-[#F27229]">{formatCurrency(record.net_salary)}</p>
                     </div>
                   </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {isLoadingImage
+                      ? 'Loading payslip image...'
+                      : canViewImage
+                        ? 'Click to view payslip image'
+                        : 'Payslip image unavailable for this record'}
+                  </p>
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
         </CardContent>
       </Card>
+
+      <Dialog
+        open={isPayslipImageViewerOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            closePayslipImageViewer();
+            return;
+          }
+          setIsPayslipImageViewerOpen(true);
+        }}
+      >
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Payslip Image - {selectedPayslipRecord?.employee_name || 'Employee'}
+            </DialogTitle>
+          </DialogHeader>
+
+          {payslipImagePreviewUrl ? (
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                Period: {selectedPayslipRecord?.period_start} to {selectedPayslipRecord?.period_end}
+              </div>
+              <div className="rounded-lg border border-border/60 bg-card/30 p-2 overflow-auto">
+                <img
+                  src={payslipImagePreviewUrl}
+                  alt={`Payslip for ${selectedPayslipRecord?.employee_name || 'employee'}`}
+                  className="w-full h-auto object-contain"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={closePayslipImageViewer}>Close</Button>
+                <Button
+                  onClick={() => {
+                    if (!payslipImagePreviewUrl) return;
+                    const employeeSlug = (selectedPayslipRecord?.employee_name || 'employee')
+                      .toLowerCase()
+                      .replace(/[^a-z0-9]+/g, '-')
+                      .replace(/(^-|-$)/g, '');
+                    const fallbackPeriod = selectedPayslipRecord?.period_end || selectedPayslipRecord?.id;
+                    const link = document.createElement('a');
+                    link.href = payslipImagePreviewUrl;
+                    link.download = `payslip-${employeeSlug}-${fallbackPeriod}.png`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                >
+                  Download
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No payslip image loaded.</p>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Manage Tax/Deductions Modal */}
       <Dialog open={isTaxDeductionsOpen} onOpenChange={setIsTaxDeductionsOpen}>

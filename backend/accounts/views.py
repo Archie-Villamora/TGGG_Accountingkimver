@@ -1,30 +1,96 @@
-from rest_framework import viewsets, status
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework_simplejwt.tokens import RefreshToken
+import threading
+import uuid
+
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.core.mail import send_mail
+from django.db import transaction
+from rest_framework import viewsets, status
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.parsers import MultiPartParser, FormParser
-from django.conf import settings
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
+from supabase import create_client, Client
 from .models import CustomUser, Department, ROLE_CHOICES
 from .serializers import CustomUserSerializer, PendingUserSerializer
 
-import uuid
-from supabase import create_client, Client
-from django.db import transaction
+
+def _send_approval_email_async(user_id):
+    """Send account-approval email in a background thread so the HTTP response is not delayed."""
+    try:
+        user = CustomUser.objects.get(id=user_id)
+        email_message = f"""
+Hello {user.first_name} {user.last_name},
+
+Your account has been successfully verified and approved!
+
+Account Details:
+- Email: {user.email}
+- Department: {user.department.name if user.department else 'N/A'}
+- Role: {user.get_role_display()}
+
+You can now log in to the Triple G using your email and password.
+
+If you have any questions, please contact your administrator.
+
+Best regards,
+Triple G Admin
+        """.strip()
+        send_mail(
+            subject='Your Account Has Been Verified - Triple G',
+            message=email_message,
+            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+            recipient_list=[user.email],
+            fail_silently=True,
+        )
+        print(f"✅ Approval email sent to {user.email}")
+    except Exception as e:
+        print(f"⚠️ Approval email failed for user_id={user_id}: {e}")
 
 # Create your views here.
 
-ALLOWED_ROLES = [
-    'accounting', 'employee', 'bim_specialist', 'intern', 'junior_architect',
-    'president', 'site_engineer', 'site_coordinator', 'studio_head', 'admin'
-]
-ROLE_LABEL_TO_KEY = {label.lower(): key for key, label in ROLE_CHOICES}
+ALLOWED_ROLES = sorted({key for key, _ in ROLE_CHOICES}.union({'employee'}))
+ROLE_LABEL_TO_KEY = {label.strip().lower(): key for key, label in ROLE_CHOICES}
 ROLE_FILTER_ALIASES = {
     'interns': 'intern',
     'junior designer': 'junior_architect',
 }
+ROLE_NORMALIZATION_ALIASES = {
+    'studio head': 'studio_head',
+    'site engineer': 'site_engineer',
+    'site coordinator': 'site_coordinator',
+    'junior designer': 'junior_architect',
+    'administrator': 'admin',
+}
+APPROVER_ROLES = {'studio_head', 'admin'}
+ACCOUNTING_ACCESS_ROLES = APPROVER_ROLES.union({'accounting'})
+
+
+def normalize_role_input(raw_role):
+    if raw_role is None:
+        return None
+
+    role = str(raw_role).strip()
+    if not role:
+        return None
+
+    role_lower = role.lower()
+    normalized_role = role_lower.replace(' ', '_')
+
+    if normalized_role in ALLOWED_ROLES:
+        return normalized_role
+
+    if role_lower in ROLE_LABEL_TO_KEY:
+        return ROLE_LABEL_TO_KEY[role_lower]
+
+    if role_lower in ROLE_FILTER_ALIASES:
+        return ROLE_FILTER_ALIASES[role_lower]
+
+    if role_lower in ROLE_NORMALIZATION_ALIASES:
+        return ROLE_NORMALIZATION_ALIASES[role_lower]
+
+    return normalized_role
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -43,9 +109,13 @@ def login_view(request):
         if user.check_password(password):
             if not user.is_active:
                 return Response({'error': 'Account not yet approved by Studio Head/Admin.'}, status=status.HTTP_403_FORBIDDEN)
+
+            normalized_role = normalize_role_input(user.role)
+
             # Only allow login for users with the allowed roles
-            if user.role not in ALLOWED_ROLES:
+            if normalized_role not in ALLOWED_ROLES:
                 return Response({'error': 'Your role is not permitted to login.'}, status=status.HTTP_403_FORBIDDEN)
+
             refresh = RefreshToken.for_user(user)
             return Response({
                 'success': True,
@@ -59,7 +129,7 @@ def login_view(request):
                     'employee_id': user.employee_id,
                     'department': user.department.id if user.department else None,
                     'department_name': user.department.name if user.department else None,
-                    'role': user.role if user.role else None,
+                    'role': normalized_role if normalized_role else None,
                     'role_name': user.get_role_display() if user.role else None,
                     'permissions': user.permissions or [],
                     'profile_picture': user.profile_picture or None
@@ -202,11 +272,14 @@ def get_departments(request):
 
 def _is_studio_head_or_admin(user):
     # Only studio head or admin can approve/see users
-    return user.is_staff or user.is_superuser or user.role in ['studio_head', 'admin']
+    normalized_role = normalize_role_input(getattr(user, 'role', None))
+    return user.is_staff or user.is_superuser or normalized_role in APPROVER_ROLES
+
 
 def _is_accounting_or_admin(user):
     # Accounting department staff and admins
-    return user.is_staff or user.is_superuser or user.role in ['studio_head', 'admin', 'accounting']
+    normalized_role = normalize_role_input(getattr(user, 'role', None))
+    return user.is_staff or user.is_superuser or normalized_role in ACCOUNTING_ACCESS_ROLES
 
 
 @api_view(['GET'])
@@ -224,65 +297,49 @@ def approve_user(request):
     if not _is_studio_head_or_admin(request.user):
         return Response({'error': 'Not authorized'}, status=status.HTTP_403_FORBIDDEN)
 
-    user_id = request.data.get('user_id')
-    role = request.data.get('role')
+    user_id = request.data.get('user_id') or request.data.get('userId') or request.data.get('id')
+    role = normalize_role_input(request.data.get('role'))
     permissions = request.data.get('permissions', [])
-    department_id = request.data.get('department_id')  # Optional
+    department_id = request.data.get('department_id') if 'department_id' in request.data else None
 
-    if not user_id or not role or role not in ALLOWED_ROLES:
+    if isinstance(permissions, str):
+        permissions = [permissions]
+    if not isinstance(permissions, list):
+        permissions = []
+
+    if user_id in [None, ''] or not role or role not in ALLOWED_ROLES:
         return Response({'error': 'user_id and valid role are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        return Response({'error': 'user_id must be a valid integer'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         user = CustomUser.objects.get(id=user_id)
     except CustomUser.DoesNotExist:
         return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    department = None
-    if department_id:
-        try:
-            department = Department.objects.get(id=department_id)
-        except Department.DoesNotExist:
-            return Response({'error': 'Department not found'}, status=status.HTTP_404_NOT_FOUND)
-    user.department = department
+    if 'department_id' in request.data:
+        if department_id in [None, '', 'null', 'None']:
+            user.department = None
+        else:
+            try:
+                user.department = Department.objects.get(id=department_id)
+            except Department.DoesNotExist:
+                return Response({'error': 'Department not found'}, status=status.HTTP_404_NOT_FOUND)
+
     user.role = role
     user.permissions = permissions
     user.is_active = True
     user.save()
 
-    email_sent = False
-    try:
-        email_message = f"""
-Hello {user.first_name} {user.last_name},
-
-Your account has been successfully verified and approved!
-
-Account Details:
-- Email: {user.email}
-- Department: {user.department.name if user.department else 'N/A'}
-- Role: {user.get_role_display()}
-
-You can now log in to the Triple G using your email and password.
-
-If you have any questions, please contact your administrator.
-
-Best regards,
-Triple G Admin
-        """.strip()
-        send_mail(
-            subject='Your Account Has Been Verified - Triple G',
-            message=email_message,
-            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', None),
-            recipient_list=[user.email],
-            fail_silently=False,
-        )
-        email_sent = True
-    except Exception as e:
-        email_sent = False
-        print(f"Email sending failed: {str(e)}")
+    # Send the approval email in the background so this response returns immediately.
+    threading.Thread(target=_send_approval_email_async, args=(user.id,), daemon=True).start()
 
     return Response({
         'success': True,
-        'email_sent': email_sent,
+        'email_sent': 'queued',
         'user': {
             'id': user.id,
             'email': user.email,
@@ -345,9 +402,10 @@ def manage_user(request, user_id):
         fields_updated.append('last_name')
 
     if role is not None:
-        if role not in ALLOWED_ROLES:
+        normalized_role = normalize_role_input(role)
+        if normalized_role not in ALLOWED_ROLES:
             return Response({'error': 'Invalid role'}, status=status.HTTP_400_BAD_REQUEST)
-        user.role = role
+        user.role = normalized_role
         fields_updated.append('role')
 
     if 'department_id' in request.data:

@@ -218,8 +218,8 @@ const LocationAttendance = ({
   const canTimeOut = Boolean(locationOut) && inRangeOut && !hasClockedOut && !isBeforeSessionEnd;
 
   useEffect(() => {
-    onStatusChange?.({ ready: canTimeIn || canTimeOut, locationIn, locationOut });
-  }, [canTimeIn, canTimeOut, locationIn, locationOut, onStatusChange]);
+    onStatusChange?.({ ready: canTimeIn || canTimeOut, locationIn, locationOut, isBeforeSessionEnd });
+  }, [canTimeIn, canTimeOut, locationIn, locationOut, onStatusChange, isBeforeSessionEnd]);
 
   const fallbackLocation = useMemo(
     () => ({
@@ -466,89 +466,110 @@ const LocationAttendance = ({
       {/* ── Map section for Time Out ── */}
       {hasClockedIn && !hasClockedOut && (
         <MapPortal>
-          <div className="mt-6 space-y-2.5">
-            <div className="mb-4">
-              <p className="text-white/50 text-xs font-semibold uppercase tracking-widest mb-2.5">
-                Time Out Work Mode
-              </p>
-              <div className="grid gap-3 lg:grid-cols-2 mb-4">
-                {RADIO_OPTIONS.map((option) => {
-                  const OptionIcon = option.icon;
-                  const isActive = modeOut === option.value;
-                  return (
-                    <label
-                      key={`out-${option.value}`}
-                      className={`cursor-pointer rounded-xl border px-4 py-3 transition flex items-center gap-3 ${isActive
-                        ? "border-[#FF7120]/70 bg-[#FF7120]/10 text-white shadow-[0_0_16px_rgba(255,113,32,0.08)]"
-                        : "border-white/12 bg-transparent text-white/55 hover:border-white/30 hover:text-white/70"
-                        }`}
-                    >
-                      <input
-                        type="radio"
-                        name="attendance-mode-out"
-                        value={option.value}
-                        className="hidden"
-                        checked={isActive}
-                        onChange={() => setModeOut(option.value)}
-                      />
-                      <div
-                        className={`grid place-items-center h-8 w-8 rounded-lg shrink-0 ${isActive
-                          ? "bg-[#FF7120]/20 text-[#FF7120]"
-                          : "bg-white/5 text-white/40"
-                          }`}
-                      >
-                        <OptionIcon className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <span className="block text-sm font-semibold leading-tight">{option.label}</span>
-                        <span className="block text-[0.7rem] opacity-60 mt-0.5">{option.hint}</span>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <p className="text-white text-sm font-semibold">Location Preview</p>
-              </div>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[0.65rem] font-semibold text-emerald-300 uppercase tracking-wider">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Live
-              </span>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-black/40 overflow-hidden">
-              <iframe
-                title="Attendance location map"
-                className="w-full h-60 sm:h-64 border-0"
-                src={mapSrc}
-                loading="lazy"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-            <div className="flex items-start gap-2 text-xs text-white/45">
-              <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-              <p>
-                {locationIn || locationOut
-                  ? "Showing your captured coordinates on the map. Drag or zoom to inspect."
-                  : `Showing ${officeLabel} as a reference area. Capture your location to update the marker.`}
-              </p>
-            </div>
-
-            <div className="mt-6">
-              {renderLocationSection(
-                "Time Out Location",
-                LogOut,
-                "amber",
-                locationOut,
-                locationOutError,
-                () => requestCoordinates(setLocationOut, setLocationOutError),
-                officeDistanceOut,
-                inRangeOut
+          {/* ── Lock overlay wrapper: dims + blocks interaction before session end ── */}
+            <div className={`relative ${isBeforeSessionEnd ? 'pointer-events-none select-none' : ''}`}>
+              {/* Frosted lock overlay */}
+              {isBeforeSessionEnd && (
+                <div className="absolute inset-0 z-10 rounded-2xl flex flex-col items-center justify-center gap-3 bg-[#00273C]/70 backdrop-blur-[2px]">
+                  <Clock className="h-7 w-7 text-amber-400 shrink-0" />
+                  <div className="text-center px-4">
+                    <p className="text-amber-300 font-semibold text-sm">Time Out Locked</p>
+                    <p className="text-amber-300/70 text-xs mt-1">{earlyTimeoutMessage}</p>
+                  </div>
+                </div>
               )}
+
+              <div className={isBeforeSessionEnd ? 'opacity-40' : ''}>
+                {/* Mode selector */}
+                <div className="mb-4">
+                  <p className="text-white/50 text-xs font-semibold uppercase tracking-widest mb-2.5">
+                    Time Out Work Mode
+                  </p>
+                  <div className="grid gap-3 lg:grid-cols-2 mb-4">
+                    {RADIO_OPTIONS.map((option) => {
+                      const OptionIcon = option.icon;
+                      const isActive = modeOut === option.value;
+                      return (
+                        <label
+                          key={`out-${option.value}`}
+                          className={`cursor-pointer rounded-xl border px-4 py-3 transition flex items-center gap-3 ${isActive
+                            ? "border-[#FF7120]/70 bg-[#FF7120]/10 text-white shadow-[0_0_16px_rgba(255,113,32,0.08)]"
+                            : "border-white/12 bg-transparent text-white/55 hover:border-white/30 hover:text-white/70"
+                            }`}
+                        >
+                          <input
+                            type="radio"
+                            name="attendance-mode-out"
+                            value={option.value}
+                            className="hidden"
+                            checked={isActive}
+                            onChange={() => setModeOut(option.value)}
+                            disabled={isBeforeSessionEnd}
+                          />
+                          <div
+                            className={`grid place-items-center h-8 w-8 rounded-lg shrink-0 ${isActive
+                              ? "bg-[#FF7120]/20 text-[#FF7120]"
+                              : "bg-white/5 text-white/40"
+                              }`}
+                          >
+                            <OptionIcon className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="block text-sm font-semibold leading-tight">{option.label}</span>
+                            <span className="block text-[0.7rem] opacity-60 mt-0.5">{option.hint}</span>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Map */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <p className="text-white text-sm font-semibold">Location Preview</p>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[0.65rem] font-semibold text-emerald-300 uppercase tracking-wider">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Live
+                  </span>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/40 overflow-hidden mt-2">
+                  <iframe
+                    title="Attendance location map"
+                    className="w-full h-60 sm:h-64 border-0"
+                    src={mapSrc}
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    style={{ pointerEvents: isBeforeSessionEnd ? 'none' : 'auto' }}
+                  />
+                </div>
+                <div className="flex items-start gap-2 text-xs text-white/45 mt-2">
+                  <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <p>
+                    {locationIn || locationOut
+                      ? "Showing your captured coordinates on the map. Drag or zoom to inspect."
+                      : `Showing ${officeLabel} as a reference area. Capture your location to update the marker.`}
+                  </p>
+                </div>
+
+                {/* Location capture */}
+                <div className="mt-6">
+                  {renderLocationSection(
+                    "Time Out Location",
+                    LogOut,
+                    "amber",
+                    locationOut,
+                    locationOutError,
+                    () => requestCoordinates(setLocationOut, setLocationOutError),
+                    officeDistanceOut,
+                    inRangeOut
+                  )}
+                </div>
+              </div>
             </div>
 
+            {/* Time Out button + early-timeout banner — always outside the locked zone */}
             <div className="mt-4">
               <button
                 type="button"
@@ -584,7 +605,7 @@ const LocationAttendance = ({
               </div>
             </div>
 
-          </div>
+          
         </MapPortal>
       )}
 

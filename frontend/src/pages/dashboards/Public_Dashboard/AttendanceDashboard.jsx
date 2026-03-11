@@ -37,6 +37,7 @@ const AttendanceDashboard = ({
   const [workDoc, setWorkDoc] = useState("");
   const [workDocAttachments, setWorkDocAttachments] = useState([]);
   const [locationReady, setLocationReady] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
   const [isHoliday, setIsHoliday] = useState(false);
   const [events, setEvents] = useState([]);
   const {
@@ -293,7 +294,10 @@ const AttendanceDashboard = ({
                       <LocationAttendance
                         role={user?.role}
                         className="p-0"
-                        onStatusChange={({ ready }) => setLocationReady(ready)}
+                        onStatusChange={({ ready, isBeforeSessionEnd }) => {
+                          setLocationReady(ready);
+                          setIsLocked(!!isBeforeSessionEnd);
+                        }}
                         onRecordSaved={refreshAttendance}
                         workDoc={workDoc}
                         workDocAttachments={workDocAttachments}
@@ -307,7 +311,9 @@ const AttendanceDashboard = ({
                       onChange={setWorkDoc}
                       attachments={workDocAttachments}
                       onAttachmentsChange={setWorkDocAttachments}
-                      defaultOpen={showTimeOut}
+                      defaultOpen={false}
+                      disabled={isLocked}
+                      disabledMessage={isLocked ? 'You can document your work once time out is available.' : null}
                       cardClass={cardClass}
                     />
                   </div>

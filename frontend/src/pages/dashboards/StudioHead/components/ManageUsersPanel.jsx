@@ -1,8 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
-import { styles, colors } from '../studioHeadStyles';
+import { Plus, Search, Users } from 'lucide-react';
 import UserRow from './UserRow';
 import EmptyState from './EmptyState';
 import { getDepartments } from '../services/studioHeadApi';
+
+function StatCard({ title, value, icon: Icon }) {
+  return (
+    <div className="bg-[#002035] rounded-xl p-6 border border-white/5 flex flex-col items-center justify-center gap-2">
+      <div className="text-3xl font-bold text-[#FF7120]">{value}</div>
+      <div className="text-sm text-[#FF7120] font-medium flex items-center gap-2">
+        <Icon size={16} />
+        {title}
+      </div>
+    </div>
+  );
+}
 
 export default function ManageUsersPanel({
   searchTerm,
@@ -16,11 +28,11 @@ export default function ManageUsersPanel({
   onToggleUserStatus,
   onDeleteUser,
 }) {
+  const users = Array.isArray(filteredUsers) ? filteredUsers : [];
   const [departments, setDepartments] = useState([]);
   const [departmentsLoading, setDepartmentsLoading] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [editError, setEditError] = useState('');
-  const editCardRef = useRef(null);
   const [editForm, setEditForm] = useState({
     first_name: '',
     last_name: '',
@@ -28,6 +40,7 @@ export default function ManageUsersPanel({
     department_id: '',
     date_hired: '',
   });
+  const editCardRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,14 +69,21 @@ export default function ManageUsersPanel({
     };
   }, []);
 
+  const totalUsers = users.length;
+  const activeUsers = users.filter((user) => user.is_active).length;
+  const suspendedUsers = totalUsers - activeUsers;
+  const editLoading = !!(editingUser && userActionById?.[editingUser.id]);
+
   const openEditModal = (user) => {
+    const departmentId = user.department_id ?? user.department ?? '';
+
     setEditError('');
     setEditingUser(user);
     setEditForm({
       first_name: user.first_name || '',
       last_name: user.last_name || '',
       role: user.role || 'employee',
-      department_id: user.department ?? '',
+      department_id: departmentId === '' || departmentId === null ? '' : String(departmentId),
       date_hired: user.date_hired || '',
     });
 
@@ -73,14 +93,19 @@ export default function ManageUsersPanel({
   };
 
   const closeEditEditor = () => {
-    if (editingUser && userActionById?.[editingUser.id]) return;
+    if (editingUser && userActionById?.[editingUser.id]) {
+      return;
+    }
+
     setEditError('');
     setEditingUser(null);
   };
 
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
-    if (!editingUser) return;
+  const handleEditSubmit = async (event) => {
+    event.preventDefault();
+    if (!editingUser) {
+      return;
+    }
 
     const firstName = editForm.first_name.trim();
     const lastName = editForm.last_name.trim();
@@ -107,184 +132,198 @@ export default function ManageUsersPanel({
     setEditError(result?.error || 'Failed to update user.');
   };
 
-  const editLoading = !!(editingUser && userActionById?.[editingUser.id]);
-
   return (
-    <div style={styles.panel}>
-      <h2 style={{ margin: 0, fontSize: '20px' }}>Manage Users</h2>
-      <p style={{ color: colors.textMuted, marginTop: '8px' }}>
-        Add, edit, suspend, or remove accounts.
-      </p>
-
-      <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-        <input
-          type="text"
-          placeholder="Search by name or email"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={styles.input}
-        />
-        <button style={{ ...styles.buttonGhost, opacity: 0.6, cursor: 'not-allowed' }} disabled>
-          Add Account
-        </button>
+    <div className="flex flex-col gap-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <StatCard title="Total Users" value={totalUsers} icon={Users} />
+        <StatCard title="Active" value={activeUsers} icon={Users} />
+        <StatCard title="Suspended" value={suspendedUsers} icon={Users} />
       </div>
 
-      {editingUser && (
-        <div
-          ref={editCardRef}
-          style={{
-            marginTop: '16px',
-            padding: '18px',
-            backgroundColor: '#002035',
-            border: '1px solid rgba(255,113,32,0.24)',
-            borderRadius: '12px',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '18px' }}>Edit User</h3>
-              <p style={{ color: colors.textMuted, marginTop: '6px', marginBottom: 0 }}>
-                Update {editingUser.email}'s name, role, department, and employment start date.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={closeEditEditor}
-              disabled={editLoading}
-              style={{
-                ...styles.buttonGhost,
-                padding: '8px 12px',
-                opacity: editLoading ? 0.6 : 1,
-                cursor: editLoading ? 'not-allowed' : 'pointer',
-              }}
-            >
-              Close
-            </button>
+      <div className="bg-[#00273C]/60 rounded-xl border border-white/10 p-6">
+        <div className="flex flex-col gap-4 mb-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-white">Manage Users</h2>
+            <p className="text-white/60 text-sm mt-1">Add, edit, suspend, or remove accounts.</p>
           </div>
 
-          <form onSubmit={handleEditSubmit} style={{ display: 'grid', gap: '12px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#9CA3AF', marginBottom: '6px' }}>First Name</label>
-                <input
-                  type="text"
-                  value={editForm.first_name}
-                  onChange={(e) => setEditForm((prev) => ({ ...prev, first_name: e.target.value }))}
-                  style={styles.input}
-                  disabled={editLoading}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#9CA3AF', marginBottom: '6px' }}>Last Name</label>
-                <input
-                  type="text"
-                  value={editForm.last_name}
-                  onChange={(e) => setEditForm((prev) => ({ ...prev, last_name: e.target.value }))}
-                  style={styles.input}
-                  disabled={editLoading}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#9CA3AF', marginBottom: '6px' }}>Role</label>
-                <select
-                  value={editForm.role}
-                  onChange={(e) => setEditForm((prev) => ({ ...prev, role: e.target.value }))}
-                  style={{ ...styles.input, width: '100%' }}
-                  disabled={editLoading}
-                >
-                  {(allowedRoles || []).map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {r.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', color: '#9CA3AF', marginBottom: '6px' }}>
-                  Department {departmentsLoading ? '(loading...)' : ''}
-                </label>
-                <select
-                  value={editForm.department_id}
-                  onChange={(e) => setEditForm((prev) => ({ ...prev, department_id: e.target.value }))}
-                  style={{ ...styles.input, width: '100%' }}
-                  disabled={editLoading || departmentsLoading}
-                >
-                  <option value="">Unassigned</option>
-                  {departments.map((dept) => (
-                    <option key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div style={{ maxWidth: '240px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#9CA3AF', marginBottom: '6px' }}>Date Started Working</label>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#FF7120]" size={16} />
               <input
-                type="date"
-                value={editForm.date_hired}
-                onChange={(e) => setEditForm((prev) => ({ ...prev, date_hired: e.target.value }))}
-                style={styles.input}
-                disabled={editLoading}
+                type="text"
+                placeholder="Search users..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                className="bg-[#001f35] border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:outline-none focus:border-[#FF7120] w-full sm:w-64"
               />
             </div>
 
-            {editError && (
-              <div style={{ color: '#FCA5A5', fontSize: '13px' }}>{editError}</div>
-            )}
+            <button
+              className="flex items-center justify-center gap-2 bg-[#FF7120] hover:bg-[#ff853e] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors opacity-60 cursor-not-allowed"
+              disabled
+            >
+              <Plus size={16} />
+              Add Account
+            </button>
+          </div>
+        </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '4px' }}>
+        {editingUser && (
+          <div
+            ref={editCardRef}
+            className="mb-6 rounded-xl border border-[#FF7120]/25 bg-[#001f35] p-5"
+          >
+            <div className="flex flex-col gap-3 mb-5 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Edit User</h3>
+                <p className="text-white/60 text-sm mt-1">
+                  Update {editingUser.email}&apos;s name, role, department, and employment start date.
+                </p>
+              </div>
+
               <button
                 type="button"
                 onClick={closeEditEditor}
                 disabled={editLoading}
-                style={{
-                  ...styles.buttonGhost,
-                  opacity: editLoading ? 0.6 : 1,
-                  cursor: editLoading ? 'not-allowed' : 'pointer',
-                }}
+                className="border border-white/10 text-white/70 hover:text-white hover:border-white/20 rounded-lg px-4 py-2 text-sm transition-colors disabled:opacity-50"
               >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={editLoading}
-                style={{
-                  ...styles.buttonPrimary,
-                  opacity: editLoading ? 0.75 : 1,
-                  cursor: editLoading ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {editLoading ? 'Saving...' : 'Save Changes'}
+                Close
               </button>
             </div>
-          </form>
-        </div>
-      )}
 
-      <div style={{ marginTop: '16px', display: 'grid', gap: '10px' }}>
-        {usersLoading && <div style={{ color: colors.textMuted }}>Loading users...</div>}
-        {usersError && <div style={{ color: '#FCA5A5' }}>{usersError}</div>}
+            <form onSubmit={handleEditSubmit} className="grid gap-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="block text-xs text-white/60 mb-2">First Name</span>
+                  <input
+                    type="text"
+                    value={editForm.first_name}
+                    onChange={(event) => setEditForm((prev) => ({ ...prev, first_name: event.target.value }))}
+                    disabled={editLoading}
+                    className="w-full rounded-lg border border-white/10 bg-[#00273C] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF7120] disabled:opacity-50"
+                  />
+                </label>
 
-        {!usersLoading && !usersError && filteredUsers.length === 0 && (
-          <EmptyState title="No users found" subtitle="Try searching by email or full name." />
+                <label className="block">
+                  <span className="block text-xs text-white/60 mb-2">Last Name</span>
+                  <input
+                    type="text"
+                    value={editForm.last_name}
+                    onChange={(event) => setEditForm((prev) => ({ ...prev, last_name: event.target.value }))}
+                    disabled={editLoading}
+                    className="w-full rounded-lg border border-white/10 bg-[#00273C] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF7120] disabled:opacity-50"
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="block text-xs text-white/60 mb-2">Role</span>
+                  <select
+                    value={editForm.role}
+                    onChange={(event) => setEditForm((prev) => ({ ...prev, role: event.target.value }))}
+                    disabled={editLoading}
+                    className="w-full rounded-lg border border-white/10 bg-[#00273C] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF7120] disabled:opacity-50"
+                  >
+                    {(allowedRoles || []).map((roleOption) => (
+                      <option key={roleOption.value} value={roleOption.value}>
+                        {roleOption.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="block text-xs text-white/60 mb-2">
+                    Department {departmentsLoading ? '(loading...)' : ''}
+                  </span>
+                  <select
+                    value={editForm.department_id}
+                    onChange={(event) => setEditForm((prev) => ({ ...prev, department_id: event.target.value }))}
+                    disabled={editLoading || departmentsLoading}
+                    className="w-full rounded-lg border border-white/10 bg-[#00273C] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF7120] disabled:opacity-50"
+                  >
+                    <option value="">Unassigned</option>
+                    {departments.map((department) => (
+                      <option key={department.id} value={department.id}>
+                        {department.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <label className="block max-w-xs">
+                <span className="block text-xs text-white/60 mb-2">Date Started Working</span>
+                <input
+                  type="date"
+                  value={editForm.date_hired}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, date_hired: event.target.value }))}
+                  disabled={editLoading}
+                  className="w-full rounded-lg border border-white/10 bg-[#00273C] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF7120] disabled:opacity-50"
+                />
+              </label>
+
+              {editError && (
+                <div className="text-sm text-red-300">{editError}</div>
+              )}
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeEditEditor}
+                  disabled={editLoading}
+                  className="rounded-lg border border-white/10 px-4 py-2 text-sm text-white/70 hover:text-white hover:border-white/20 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={editLoading}
+                  className="rounded-lg bg-[#FF7120] px-4 py-2 text-sm font-semibold text-white hover:bg-[#ff853e] transition-colors disabled:opacity-50"
+                >
+                  {editLoading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
         )}
 
-        {!usersLoading && !usersError && filteredUsers.map((u) => (
-          <UserRow
-            key={u.id}
-            user={u}
-            loading={!!userActionById?.[u.id]}
-            onEditUser={openEditModal}
-            onToggleUserStatus={onToggleUserStatus}
-            onDeleteUser={onDeleteUser}
-          />
-        ))}
+        <div className="flex flex-col gap-3 max-h-[500px] overflow-y-auto pr-2 manage-users-list">
+          <style>
+            {`
+              .manage-users-list::-webkit-scrollbar {
+                display: none;
+              }
+              .manage-users-list {
+                scrollbar-width: none;
+                -ms-overflow-style: none;
+              }
+            `}
+          </style>
+
+          {usersLoading && <div className="text-gray-400 text-sm py-4">Loading users...</div>}
+          {usersError && <div className="text-red-400 text-sm py-4">{usersError}</div>}
+
+          {!usersLoading && !usersError && users.length === 0 && (
+            <div className="py-10">
+              <EmptyState title="No users found" subtitle="Try searching by email or full name." />
+            </div>
+          )}
+
+          {!usersLoading && !usersError && users.map((user) => (
+            <UserRow
+              key={user.id}
+              user={user}
+              loading={!!userActionById?.[user.id]}
+              onEditUser={openEditModal}
+              onToggleUserStatus={onToggleUserStatus}
+              onDeleteUser={onDeleteUser}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -35,12 +35,23 @@ export default function StudioHeadSidebar({
       <nav className="space-y-2">
         {PRIMARY_LINKS.map((item) => {
           const Icon = item.icon;
-          const isActive = currentPage === item.id;
+          const isActive = item.id === 'events'
+            ? (currentPage === 'studio-head' && activeTab === 'events')
+            : currentPage === item.id;
+
+          const handleClick = () => {
+            if (item.id === 'events') {
+              goToDashboardTab('events');
+            } else {
+              onNavigate?.(item.page);
+            }
+          };
+
           return (
             <button
               key={item.id}
               type="button"
-              onClick={() => onNavigate?.(item.page)}
+              onClick={handleClick}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${isActive
                   ? "bg-[#FF7120] text-white"
                   : "text-white/70 hover:text-white hover:bg-white/5"

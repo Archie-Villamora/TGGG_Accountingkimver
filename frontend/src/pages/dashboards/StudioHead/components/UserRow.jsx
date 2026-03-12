@@ -8,16 +8,7 @@ export default function UserRow({
   onDeleteUser,
 }) {
   const handleEdit = () => {
-    const nextFirst = window.prompt('Edit first name', user.first_name || '');
-    if (nextFirst === null) return;
-
-    const nextLast = window.prompt('Edit last name', user.last_name || '');
-    if (nextLast === null) return;
-
-    onEditUser?.(user.id, {
-      first_name: nextFirst.trim(),
-      last_name: nextLast.trim(),
-    });
+    onEditUser?.(user);
   };
 
   const handleToggleStatus = () => {
@@ -29,6 +20,8 @@ export default function UserRow({
     if (!confirmed) return;
     onDeleteUser?.(user.id);
   };
+
+  const startedDate = user.date_hired || 'Not set';
 
   return (
     <div className="bg-[#001f35] rounded-xl border border-white/5 p-4 flex items-center justify-between transition-all hover:border-white/10 group">
@@ -76,6 +69,9 @@ export default function UserRow({
                 {user.department_name}
               </div>
             )}
+          </div>
+          <div style={{ color: '#9CA3AF', fontSize: '12px' }}>
+            Started: {startedDate}
           </div>
         </div>
       </div>

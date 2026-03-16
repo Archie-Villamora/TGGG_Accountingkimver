@@ -73,7 +73,7 @@ const calculateDistanceMeters = (lat1, lng1, lat2, lng2) => {
 };
 
 /* ── Status chip — larger, clearer, with primary + secondary text ── */
-const StatusChip = ({ success, primaryText, secondaryText }) => {
+const StatusChip = ({ success, primaryText, secondaryText, noIcon = false, centered = false }) => {
   const base =
     "flex items-start gap-2.5 rounded-xl px-3.5 py-2.5 text-[0.8rem] leading-snug font-medium border w-full";
   const Icon = success ? CheckCircle : XCircle;
@@ -82,8 +82,8 @@ const StatusChip = ({ success, primaryText, secondaryText }) => {
     : "bg-red-500/10 text-red-300 border-red-500/20";
 
   return (
-    <div className={`${base} ${colors}`}>
-      <Icon className="h-4 w-4 mt-0.5 shrink-0" />
+    <div className={`${base} ${colors} ${centered ? "justify-center text-center items-center" : ""}`}>
+      {!noIcon && <Icon className="h-4 w-4 mt-0.5 shrink-0" />}
       <div className="min-w-0">
         <span className="block font-semibold">{primaryText}</span>
         {secondaryText && (
@@ -204,8 +204,8 @@ const LocationAttendance = ({
   const canTimeOut = Boolean(locationOut) && inRangeOut && !hasClockedOut;
 
   useEffect(() => {
-    onStatusChange?.({ ready: canTimeIn || canTimeOut, locationIn, locationOut, isBeforeSessionEnd, earlyTimeoutMessage });
-  }, [canTimeIn, canTimeOut, locationIn, locationOut, onStatusChange, isBeforeSessionEnd, earlyTimeoutMessage]);
+    onStatusChange?.({ ready: canTimeIn || canTimeOut, locationIn, locationOut, isBeforeSessionEnd, earlyTimeoutMessage, processing: !!processing });
+  }, [canTimeIn, canTimeOut, locationIn, locationOut, onStatusChange, isBeforeSessionEnd, earlyTimeoutMessage, processing]);
 
   const fallbackLocation = useMemo(
     () => ({
@@ -332,14 +332,9 @@ const LocationAttendance = ({
     distance,
     rangeOk
   ) => {
-    const borderAccent =
-      accentColor === "emerald"
-        ? "border-l-emerald-400/60"
-        : "border-l-amber-400/60";
-
     return (
       <div
-        className={`rounded-xl border border-white/8 bg-white/[0.03] border-l-[3px] ${borderAccent} p-4 space-y-3`}
+        className="rounded-xl border border-white/8 bg-white/[0.03] p-4 space-y-3"
       >
         {/* Section header */}
         <div className="flex items-center gap-2.5">
@@ -373,6 +368,8 @@ const LocationAttendance = ({
               success={false}
               primaryText="Waiting for location"
               secondaryText="Tap the button below to capture your position"
+              noIcon
+              centered
             />
           )}
         </div>
@@ -380,8 +377,9 @@ const LocationAttendance = ({
         {/* Capture button */}
         <button
           type="button"
+          disabled={!!processing}
           onClick={handler}
-          className="w-full flex items-center justify-center gap-2 rounded-xl border border-[#FF7120]/40 bg-[#FF7120]/10 px-4 py-2.5 text-sm font-semibold text-[#FF7120] hover:bg-[#FF7120]/20 active:scale-[0.98] transition"
+          className={`w-full flex items-center justify-center gap-2 rounded-xl border border-[#FF7120]/40 bg-[#FF7120]/10 px-4 py-2.5 text-sm font-semibold text-[#FF7120] hover:bg-[#FF7120]/20 active:scale-[0.98] transition ${!!processing ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <Navigation className="h-4 w-4" />
           {location ? "Re-capture Location" : "Capture My Location"}
@@ -407,9 +405,7 @@ const LocationAttendance = ({
       {/* ── Mode selector ── */}
       {!hasClockedIn && (
         <div className="mt-5">
-          <p className="text-white/50 text-xs font-semibold uppercase tracking-widest mb-2.5">
-            Time In Work Mode
-          </p>
+          <div className="h-6" />
           <div className="grid gap-3 lg:grid-cols-2">
             {RADIO_OPTIONS.map((option) => {
               const OptionIcon = option.icon;
@@ -456,9 +452,7 @@ const LocationAttendance = ({
               <div>
                 {/* Mode selector */}
                 <div className="mb-4">
-                  <p className="text-white/50 text-xs font-semibold uppercase tracking-widest mb-2.5">
-                    Time Out Work Mode
-                  </p>
+                  <div className="h-6" />
                   <div className="grid gap-3 lg:grid-cols-2 mb-4">
                     {RADIO_OPTIONS.map((option) => {
                       const OptionIcon = option.icon;
@@ -502,10 +496,6 @@ const LocationAttendance = ({
                   <div className="flex items-center gap-2">
                     <p className="text-white text-sm font-semibold">Location Preview</p>
                   </div>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[0.65rem] font-semibold text-emerald-300 uppercase tracking-wider">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    Live
-                  </span>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-black/40 overflow-hidden mt-2">
                   <iframe
@@ -567,15 +557,6 @@ const LocationAttendance = ({
             </div>
 
             {/* Footer info for Time Out */}
-            <div className="mt-4 flex flex-col gap-2 rounded-lg border border-white/6 bg-white/[0.02] px-3 py-2.5 text-xs text-white/45">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-white/35" />
-                <p>
-                  Geofence radius <strong className="text-white/60">{officeConfig.radius}m</strong> around{" "}
-                  <strong className="text-white/60">{officeLabel}</strong>. You must be within range for Office Mode.
-                </p>
-              </div>
-            </div>
 
           
         </MapPortal>
@@ -589,10 +570,6 @@ const LocationAttendance = ({
               <div className="flex items-center gap-2">
                 <p className="text-white text-sm font-semibold">Location Preview</p>
               </div>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[0.65rem] font-semibold text-emerald-300 uppercase tracking-wider">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Live
-              </span>
             </div>
             <div className="rounded-2xl border border-white/10 bg-black/40 overflow-hidden">
               <iframe
@@ -647,15 +624,6 @@ const LocationAttendance = ({
           </div>
 
           {/* ── Footer info ── */}
-          <div className="mt-4 flex flex-col gap-2 rounded-lg border border-white/6 bg-white/[0.02] px-3 py-2.5 text-xs text-white/45">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-white/35" />
-              <p>
-                Geofence radius <strong className="text-white/60">{officeConfig.radius}m</strong> around{" "}
-                <strong className="text-white/60">{officeLabel}</strong>. You must be within range for Office Mode.
-              </p>
-            </div>
-          </div>
         </>
       )}
     </div>

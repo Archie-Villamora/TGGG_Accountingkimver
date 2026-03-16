@@ -82,10 +82,10 @@ export default function BimSpecialistDashboard({ user, onNavigate }) {
                 className={`${cardClass} p-4 sm:p-6`}
                 workDoc={workDoc}
                 workDocAttachments={workDocAttachments}
-                onStatusChange={({ ready, isBeforeSessionEnd, earlyTimeoutMessage }) => {
+                onStatusChange={({ ready, isBeforeSessionEnd, earlyTimeoutMessage, processing }) => {
                     setAttendanceReady(ready);
-                    setIsLocked(!!isBeforeSessionEnd);
-                    setLockMessage(earlyTimeoutMessage || null);
+                    setIsLocked(!!isBeforeSessionEnd || !!processing);
+                    setLockMessage(processing ? "Processing attendance..." : (earlyTimeoutMessage || null));
                   }}
                 onRecordSaved={(attendance) => {
                   // Clear work documentation after successful clock-out (documentation saved)

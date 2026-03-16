@@ -203,10 +203,10 @@ const AttendanceDashboard = ({
                     <LocationAttendance
                       role={user?.role}
                       className="p-0"
-                      onStatusChange={({ ready, isBeforeSessionEnd, earlyTimeoutMessage }) => {
+                      onStatusChange={({ ready, isBeforeSessionEnd, earlyTimeoutMessage, processing }) => {
                         setLocationReady(ready);
-                        setIsLocked(!!isBeforeSessionEnd);
-                        setLockMessage(earlyTimeoutMessage || null);
+                        setIsLocked(!!isBeforeSessionEnd || !!processing);
+                        setLockMessage(processing ? "Processing attendance..." : (earlyTimeoutMessage || null));
                       }}
                       onRecordSaved={refreshAttendance}
                       workDoc={workDoc}

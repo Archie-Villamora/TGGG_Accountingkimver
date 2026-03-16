@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Calendar, MapPin, ShieldCheck, User } from 'lucide-react';
-import PublicNavigation from './PublicNavigation';
+import PublicNavigation from '../Public_Dashboard/PublicNavigation';
 import LocationAttendance from '../../../components/attendance/LocationAttendance';
 import WorkDocCard from '../../../components/attendance/WorkDocCard';
 import AttendanceHistoryTable from '../../../components/attendance/AttendanceHistoryTable';
@@ -142,7 +142,7 @@ export default function InternDashboard({ user, onNavigate }) {
 
       <PublicNavigation onNavigate={onNavigate} currentPage="attendance" user={user} />
 
-      <div className="relative pt-40 sm:pt-28 px-3 sm:px-6 pb-10 w-full">
+      <div className="relative pt-28 px-3 sm:px-6 pb-10 w-full">
         <div className="max-w-[1400px] mx-auto px-2 sm:px-10 space-y-5 sm:space-y-8">
           {activeSection === 'attendance' && renderAttendance()}
         </div>

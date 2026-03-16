@@ -59,9 +59,9 @@ export default function StudioHeadDashboard({ user, onLogout, onNavigate, curren
         <div className="absolute top-40 -right-40 h-[520px] w-[520px] rounded-full bg-cyan-400/10 blur-[90px]" />
       </div>
 
-      <PublicNavigation onNavigate={onNavigate} currentPage="studio-head" user={user} />
+      <PublicNavigation onNavigate={onNavigate} currentPage={activeTab} user={user} />
 
-      <div className="relative pt-40 lg:pt-28 px-4 lg:px-6 pb-10">
+      <div className="relative pt-28 px-4 lg:px-6 pb-10">
         <div className="max-w-[1600px] mx-auto">
           <MessageBanner message={message} onClose={() => setMessage('')} />
 

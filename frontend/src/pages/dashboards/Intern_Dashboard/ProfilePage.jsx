@@ -1,6 +1,6 @@
 import React from 'react';
 import Profile from './Profile.jsx';
-import PublicNavigation from './PublicNavigation';
+import PublicNavigation from '../Public_Dashboard/PublicNavigation';
 
 const ProfilePage = ({ user, token, onLogout, onNavigate }) => {
   return (
@@ -8,9 +8,9 @@ const ProfilePage = ({ user, token, onLogout, onNavigate }) => {
       <div className="pointer-events-none absolute inset-0">
       </div>
 
-      <PublicNavigation onNavigate={onNavigate} currentPage="profile" />
+      <PublicNavigation onNavigate={onNavigate} currentPage="profile" user={user} />
 
-      <div className="relative pt-40 sm:pt-28 px-3 sm:px-6 pb-10 w-full">
+      <div className="relative pt-28 px-3 sm:px-6 pb-10 w-full">
         <div className="max-w-[1400px] mx-auto px-2 sm:px-10 space-y-5 sm:space-y-8">
           <div className="p-4 sm:p-6">
             <Profile

@@ -56,7 +56,7 @@ const OvertimePage = ({ user, token, onLogout, onNavigate }) => {
     <div className="min-h-screen" style={{ background: '#00273C' }}>
       <PublicNavigation onNavigate={onNavigate} currentPage="overtime" user={user} />
 
-      <div className="pt-40 lg:pt-28 px-3 lg:px-6 pb-6 w-full">
+      <div className="pt-28 px-3 lg:px-6 pb-6 w-full">
         <div className={useSidebarLayout ? "max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-6" : "max-w-[1400px] mx-auto px-2 sm:px-10 space-y-4 sm:space-y-8"}>
           {isStudioHeadMode && (
             <aside className="hidden lg:block lg:w-64 lg:shrink-0">

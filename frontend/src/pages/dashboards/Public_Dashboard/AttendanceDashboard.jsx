@@ -28,7 +28,7 @@ const AttendanceDashboard = ({
   topSpacingClass = null,
   embedded = false,
 }) => {
-  const finalTopSpacing = topSpacingClass ?? (embedded ? "pt-0" : "pt-40 sm:pt-28");
+  const finalTopSpacing = topSpacingClass ?? (embedded ? "pt-0" : "pt-28");
   const isStudioHeadMode = user?.role === "studio_head" || user?.role === "admin";
   const hasCustomSidebar = Boolean(sidebarComponent);
   const showStudioHeadSidebar = isStudioHeadMode && !hasCustomSidebar;

@@ -119,8 +119,10 @@ export function DashboardLayout({
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-0 w-full mx-auto px-2 sm:px-4">
           {/* Logo & Title: Row 1 on mobile, Left side on desktop */}
           <div className="flex items-center justify-start gap-2 sm:gap-4">
-            <img src="/logotripleg.png" alt="Triple G AOC" className="h-8 sm:h-10" />
-            <span className="text-base sm:text-2xl font-semibold text-white">Triple G AOC</span>
+            <img src="/logo.png" alt="TripleG AOC" className="h-8 sm:h-10" />
+            <span className="text-lg sm:text-2xl font-semibold text-white">
+              Triple<span className="text-[#FF7120]">G</span> AOC
+            </span>
           </div>
 
           {/* Bottom Row on mobile, Right side on desktop */}
@@ -268,7 +270,7 @@ export function DashboardLayout({
                     <Grip className="h-6 w-6 sm:h-7 w-7" />
                   </button>
                 </PopoverTrigger>
-                <PopoverContent side="bottom" align="end" className="w-[14rem] p-2 bg-[#001f35] border-[#AEAAAA]/20 shadow-xl z-[60]" sideOffset={12}>
+                <PopoverContent side="bottom" align="end" className="w-64 p-2 bg-[#001f35] border-[#AEAAAA]/20 shadow-xl z-[60]" sideOffset={12}>
                   <div className="flex flex-col gap-1">
                     <AccountingSidebar
                       activeTab={activeTab}

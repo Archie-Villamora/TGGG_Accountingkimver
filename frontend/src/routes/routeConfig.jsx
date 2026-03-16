@@ -138,7 +138,7 @@ export function renderDashboard({
             return <StudioHeadDashboard user={user} onLogout={handleLogout} onNavigate={handleNavigate} currentPage={currentPage} />;
         }
         
-        return <StudioHeadDashboard user={user} onLogout={handleLogout} onNavigate={handleNavigate} currentPage="approvals" />;
+        return <StudioHeadDashboard user={user} onLogout={handleLogout} onNavigate={handleNavigate} currentPage="attendance" />;
     }
 
     // Accounting

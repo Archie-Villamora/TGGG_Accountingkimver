@@ -34,7 +34,7 @@ export const getDefaultPage = (user) => {
     }
 
     if (role === 'studio_head' || role === 'admin') {
-        return 'approvals';
+        return 'attendance';
     }
 
     return 'attendance';

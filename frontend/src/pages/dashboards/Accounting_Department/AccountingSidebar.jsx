@@ -52,14 +52,14 @@ export default function AccountingSidebar({
               key={item.id}
               type="button"
               onClick={() => handleSelect(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                 isActive 
                   ? 'bg-[#FF7120] text-white' 
-                  : 'text-[#AEAAAA] hover:bg-[#FF7120]/10 hover:text-[#FF7120]'
+                  : 'text-white/70 hover:bg-white/5 hover:text-white'
               }`}
             >
-              <Icon className="h-4 w-4" />
-              <span className="font-medium">{item.label}</span>
+              <Icon className="h-5 w-5" />
+              <span className="font-medium text-left flex-1">{item.label}</span>
             </button>
           );
         })}
@@ -77,14 +77,14 @@ export default function AccountingSidebar({
                   key={item.id}
                   type="button"
                   onClick={() => handleSectionClick(item)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                     isActive 
                       ? 'bg-[#FF7120] text-white' 
-                      : 'text-[#AEAAAA] hover:bg-[#FF7120]/10 hover:text-[#FF7120]'
+                      : 'text-white/70 hover:bg-white/5 hover:text-white'
                   }`}
                 >
-                  <Icon className="h-4 w-4" />
-                  <span className="font-medium">{item.label}</span>
+                  <Icon className="h-5 w-5" />
+                  <span className="font-medium text-left flex-1">{item.label}</span>
                 </button>
               );
             })}

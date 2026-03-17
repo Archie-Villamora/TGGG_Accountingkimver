@@ -1,4 +1,4 @@
-import { Home, Calendar, Clock, User, UserCheck, Users, FileText, GitMerge, FolderKanban } from 'lucide-react';
+import { Calendar, Clock, User, UserCheck, Users, FileText, GitMerge, FolderKanban, ClipboardList } from 'lucide-react';
 
 const PRIMARY_LINKS = [
   { id: 'attendance', label: 'Attendance', icon: Calendar, page: 'attendance' },
@@ -9,6 +9,7 @@ const PRIMARY_LINKS = [
 const DOCUMENTATION_LINKS = [
   { id: 'bim-docs', label: 'BIM Documentation', icon: FolderKanban, page: 'studio-head-bim-docs' },
   { id: 'junior-architect-docs', label: 'Junior Architect Docs', icon: User, page: 'studio-head-junior-docs' },
+  { id: 'material-requests', label: 'Material Requests', icon: ClipboardList, page: 'studio-head-material-requests' },
 ];
 
 const DASHBOARD_LINKS = [

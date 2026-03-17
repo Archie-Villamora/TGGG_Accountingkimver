@@ -1,4 +1,4 @@
-import { ClipboardList, Clock, Calendar, CheckSquare, User, Home } from 'lucide-react';
+import { ClipboardList, Clock, CheckSquare, Home } from 'lucide-react';
 
 const SECTION_LINKS = [
   { id: 'attendance', label: 'Attendance', icon: Home, section: 'attendance' },
@@ -32,6 +32,7 @@ export default function SiteCoordinatorSidebar({
         {SECTION_LINKS.map((item) => {
           const Icon = item.icon;
           const isActive = currentPage === 'attendance' && activeSection === item.section;
+
           return (
             <button
               key={item.id}

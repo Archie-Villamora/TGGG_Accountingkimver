@@ -304,7 +304,7 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
 
             <PublicNavigation onNavigate={onNavigate} currentPage="documentation" user={user} />
 
-            <div className="relative pt-40 sm:pt-28 px-3 sm:px-6 pb-10">
+            <div className="relative pt-28 px-3 sm:px-6 pb-10">
                 <div className="max-w-[1600px] mx-auto flex gap-6">
                     <aside className="w-64 shrink-0 hidden lg:block">
                         <BimSpecialistSidebar currentPage="documentation" onNavigate={onNavigate} />

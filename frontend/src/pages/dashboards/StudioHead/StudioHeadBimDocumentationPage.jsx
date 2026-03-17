@@ -145,7 +145,7 @@ const getDisplayType = (type) => DOC_TYPE_LABELS[type] || type || 'Documentation
 
 const SummaryCard = ({ label, value, icon: Icon, tone = 'neutral', isActive = false, onClick }) => {
     const toneStyles = {
-        pending: 'border-blue-500/15 bg-blue-500/8 text-blue-200',
+        pending: 'border-[#FF7120]/20 bg-[#FF7120]/10 text-[#FFBE9B]',
         forwarded: 'border-cyan-500/15 bg-cyan-500/8 text-cyan-200',
         approved: 'border-emerald-500/15 bg-emerald-500/8 text-emerald-200',
         rejected: 'border-red-500/15 bg-red-500/8 text-red-200',
@@ -167,7 +167,7 @@ const SummaryCard = ({ label, value, icon: Icon, tone = 'neutral', isActive = fa
                     <p className={`text-sm ${isActive ? 'text-white/80' : 'text-white/55'}`}>{label}</p>
                     <p className="mt-3 text-3xl font-semibold text-white">{value}</p>
                 </div>
-                <div className={`grid h-11 w-11 place-items-center rounded-2xl border ${toneStyles[tone] || toneStyles.neutral} ${isActive ? 'ring-1 ring-white/20' : ''}`}>
+                <div className={`grid h-12 w-12 place-items-center rounded-full border ${toneStyles[tone] || toneStyles.neutral} ${isActive ? 'ring-2 ring-[#FF7120]/40 ring-offset-2 ring-offset-[#001F35]' : ''}`}>
                     <Icon className="h-5 w-5" />
                 </div>
             </div>
@@ -232,7 +232,8 @@ const StudioHeadBimDocumentationPage = ({
     pageEyebrow = 'Studio Head Review',
     pageTitle = 'BIM Documentation',
     pageDescription = 'Review submitted documentation and decide which files move forward to CEO.',
-    sidebarCurrentPage = 'bim-docs',
+    navigationCurrentPage = 'studio-head-bim-docs',
+    sidebarCurrentPage = 'studio-head-bim-docs',
     documentationQuery = {},
 }) => {
     const [activeTab, setActiveTab] = useState('pending');
@@ -420,7 +421,7 @@ const StudioHeadBimDocumentationPage = ({
                 <div className="absolute top-40 -right-40 h-[520px] w-[520px] rounded-full bg-cyan-400/10 blur-[90px]" />
             </div>
 
-            <PublicNavigation onNavigate={onNavigate} currentPage="bim-documentation" user={user} />
+            <PublicNavigation onNavigate={onNavigate} currentPage={navigationCurrentPage} user={user} />
 
             <div className="relative pt-40 sm:pt-28 px-3 sm:px-6 pb-10">
                 <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-6">
@@ -496,9 +497,12 @@ const StudioHeadBimDocumentationPage = ({
                                         {loading ? (
                                             <p className="py-10 text-center text-sm text-white/55">Loading documentation...</p>
                                         ) : activeDocs.length === 0 ? (
-                                            <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-10 text-center">
-                                                <p className="text-sm font-semibold text-white/70">Nothing here right now</p>
-                                                <p className="mt-2 text-sm text-white/45">{activeTabMeta.emptyText}</p>
+                                            <div className="flex flex-col items-center justify-center py-16 px-4">
+                                                <div className="w-16 h-16 bg-[#FF7120]/10 rounded-2xl border border-[#FF7120]/20 flex items-center justify-center mb-4">
+                                                    <Clock3 className="w-8 h-8 text-[#FF7120]" />
+                                                </div>
+                                                <p className="text-xl font-semibold text-white/90">Nothing here right now</p>
+                                                <p className="mt-2 text-sm text-white/50 max-w-[200px] mx-auto">{activeTabMeta.emptyText}</p>
                                             </div>
                                         ) : (
                                             <div className="space-y-3 max-h-[740px] overflow-y-auto pr-1">
@@ -685,8 +689,14 @@ const StudioHeadBimDocumentationPage = ({
                                     </section>
                                 ) : (
                                     <div className={cardClass}>
-                                        <div className="p-12 text-center">
-                                            <p className="text-white/55">Select a documentation to view details</p>
+                                        <div className="flex flex-col items-center justify-center py-32 px-4 text-center">
+                                            <div className="w-20 h-20 bg-[#FF7120]/10 rounded-3xl border border-[#FF7120]/20 flex items-center justify-center mb-6">
+                                                <FileText className="w-10 h-10 text-[#FF7120]" />
+                                            </div>
+                                            <h3 className="text-2xl font-semibold text-white mb-2">Check Documentation Details</h3>
+                                            <p className="text-white/50 max-w-sm">
+                                                Select a documentation from the list on the left to review its content, attachments, and discussion history.
+                                            </p>
                                         </div>
                                     </div>
                                 )}

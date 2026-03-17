@@ -134,15 +134,17 @@ export default function ManageUsersPanel({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      {/* Top Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard title="Total Users" value={totalUsers} icon={Users} />
         <StatCard title="Active" value={activeUsers} icon={Users} />
         <StatCard title="Suspended" value={suspendedUsers} icon={Users} />
       </div>
 
-      <div className="bg-[#00273C]/60 rounded-xl border border-white/10 p-6">
-        <div className="flex flex-col gap-4 mb-6 lg:flex-row lg:items-center lg:justify-between">
-          <div>
+      {/* Main Panel */}
+      <div className="bg-[#00273C]/60 rounded-xl border border-white/10 p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 mb-6">
+          <div className="flex flex-col gap-1">
             <h2 className="text-xl font-semibold text-white">Manage Users</h2>
             <p className="text-white/60 text-sm mt-1">Add, edit, suspend, or remove accounts.</p>
           </div>
@@ -154,13 +156,13 @@ export default function ManageUsersPanel({
                 type="text"
                 placeholder="Search users..."
                 value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="bg-[#001f35] border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:outline-none focus:border-[#FF7120] w-full sm:w-64"
               />
             </div>
 
             <button
-              className="flex items-center justify-center gap-2 bg-[#FF7120] hover:bg-[#ff853e] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors opacity-60 cursor-not-allowed"
+              className="flex items-center justify-center gap-2 bg-[#FF7120] hover:bg-[#ff853e] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors opacity-60 cursor-not-allowed whitespace-nowrap"
               disabled
             >
               <Plus size={16} />

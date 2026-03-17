@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import OvertimeForm from './OvertimeForm.jsx';
 import OvertimeStatus from './OvertimeStatus.jsx';
-import PublicNavigation from './PublicNavigation';
+import PublicNavigation from '../Public_Dashboard/PublicNavigation';
 
 const OvertimePage = ({ user, token, onLogout, onNavigate }) => {
   const [activeTab, setActiveTab] = useState('form');
@@ -12,9 +12,9 @@ const OvertimePage = ({ user, token, onLogout, onNavigate }) => {
         <div className="absolute top-40 -right-40 h-[520px] w-[520px] rounded-full bg-cyan-400/10 blur-[90px]" />
       </div>
 
-      <PublicNavigation onNavigate={onNavigate} currentPage="overtime" />
+      <PublicNavigation onNavigate={onNavigate} currentPage="overtime" user={user} />
 
-      <div className="relative pt-40 sm:pt-28 px-3 sm:px-6 pb-10 w-full">
+      <div className="relative pt-28 px-3 sm:px-6 pb-10 w-full">
         <div className="max-w-[1400px] mx-auto px-2 sm:px-10 space-y-5 sm:space-y-8">
           <div className="rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.22)] p-4 sm:p-6">
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>

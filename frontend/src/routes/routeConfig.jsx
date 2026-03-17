@@ -66,16 +66,23 @@ import AccountingEventsPanel from '../pages/dashboards/Accounting_Department/Acc
  * Renders the accounting dashboard with its own layout and tabs.
  */
 export function renderAccountingDashboard({
-    user, token, currentPage, accountingSection, activeTab,
-    setActiveTab, setAccountingSection, handleLogout, handleNavigate,
+    user, token, currentPage, handleLogout, handleNavigate,
+    notifications, markNotificationRead, markAllNotificationsRead,
 }) {
-    const effectiveSection =
-        accountingSection !== 'main'
-            ? accountingSection
-            : currentPage === 'personal-attendance'
-                ? 'personal-attendance'
-                : currentPage === 'overtime'
-                    ? 'overtime'
+    // Standard accounting tabs that map directly to pages
+    const accountingTabs = ['dashboard', 'employees', 'attendance', 'payroll', 'settings'];
+    
+    // Determine the active tab from the URL (currentPage)
+    const activeTab = accountingTabs.includes(currentPage) ? currentPage : 'dashboard';
+    
+    // Determine if we are in a sub-section (Personal Attendance or Overtime)
+    const effectiveSection = 
+        currentPage === 'personal-attendance'
+            ? 'personal-attendance'
+            : currentPage === 'overtime'
+                ? 'overtime'
+                : currentPage === 'events'
+                    ? 'events'
                     : 'main';
 
     const renderContent = () => {
@@ -118,12 +125,13 @@ export function renderAccountingDashboard({
     return (
         <DashboardLayout
             activeTab={activeTab}
-            setActiveTab={setActiveTab}
             activeSection={effectiveSection}
-            setActiveSection={setAccountingSection}
             onLogout={handleLogout}
             onNavigate={handleNavigate}
             currentPage={currentPage}
+            notifications={notifications}
+            onNotificationClick={markNotificationRead}
+            onMarkAllRead={markAllNotificationsRead}
         >
             {renderContent()}
         </DashboardLayout>
@@ -136,6 +144,7 @@ export function renderAccountingDashboard({
 export function renderDashboard({
     user, token, currentPage, accountingSection, activeTab,
     setActiveTab, setAccountingSection, handleLogout, handleNavigate, fetchNotifications,
+    notifications, markNotificationRead, markAllNotificationsRead,
 }) {
     if (!user) return null;
 
@@ -147,18 +156,30 @@ export function renderDashboard({
         if (currentPage === 'studio-head-bim-docs') return <StudioHeadBimDocumentationPage user={user} onLogout={handleLogout} onNavigate={handleNavigate} />;
         if (currentPage === 'studio-head-junior-docs') return <StudioHeadJuniorArchitectDocumentationPage user={user} onLogout={handleLogout} onNavigate={handleNavigate} />;
         if (currentPage === 'studio-head-material-requests') return <StudioHeadMaterialRequestPage user={user} onNavigate={handleNavigate} />;
-        if (currentPage === 'studio-head') return <StudioHeadDashboard user={user} onLogout={handleLogout} onNavigate={handleNavigate} />;
-        return <StudioHeadDashboard user={user} onLogout={handleLogout} onNavigate={handleNavigate} />;
+
+        // These keys map to panels inside StudioHeadDashboard
+        const studioHeadPages = ['approvals', 'users', 'reviews', 'coordination', 'events', 'studio-head'];
+        if (studioHeadPages.includes(currentPage)) {
+            return <StudioHeadDashboard user={user} onLogout={handleLogout} onNavigate={handleNavigate} currentPage={currentPage} />;
+        }
+        
+        return <StudioHeadDashboard user={user} onLogout={handleLogout} onNavigate={handleNavigate} currentPage="approvals" />;
     }
 
     // Accounting
     if (user.role === 'accounting') {
-        return renderAccountingDashboard({ user, token, currentPage, accountingSection, activeTab, setActiveTab, setAccountingSection, handleLogout, handleNavigate });
+        return renderAccountingDashboard({
+            user, token, currentPage, accountingSection, activeTab, setActiveTab, setAccountingSection, handleLogout, handleNavigate,
+            notifications, markNotificationRead, markAllNotificationsRead
+        });
     }
 
     // Employee in Accounting Department
     if (user.role === 'employee' && (user.department_name?.toLowerCase() === 'accounting department' || user.department_name?.toLowerCase() === 'accounting')) {
-        return renderAccountingDashboard({ user, token, currentPage, accountingSection, activeTab, setActiveTab, setAccountingSection, handleLogout, handleNavigate });
+        return renderAccountingDashboard({
+            user, token, currentPage, accountingSection, activeTab, setActiveTab, setAccountingSection, handleLogout, handleNavigate,
+            notifications, markNotificationRead, markAllNotificationsRead
+        });
     }
 
     // Site Engineer
@@ -229,7 +250,10 @@ export function renderDashboard({
     // Department-based fallback — Accounting
     const departmentKey = (user.department_name || '').toLowerCase();
     if (departmentKey === 'accounting department' || departmentKey === 'accounting') {
-        return renderAccountingDashboard({ user, token, currentPage, accountingSection, activeTab, setActiveTab, setAccountingSection, handleLogout, handleNavigate });
+        return renderAccountingDashboard({
+            user, token, currentPage, accountingSection, activeTab, setActiveTab, setAccountingSection, handleLogout, handleNavigate,
+            notifications, markNotificationRead, markAllNotificationsRead
+        });
     }
 
     // Fallback → Employee Dashboard

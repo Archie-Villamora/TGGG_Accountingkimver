@@ -1,5 +1,4 @@
-import { ClipboardList, Clock, Calendar, CheckSquare, User } from 'lucide-react';
-
+import { ClipboardList, Clock, Calendar, CheckSquare, User, Home } from 'lucide-react';
 
 const PRIORITY_LINKS = [
   { id: 'attendance', label: 'Attendance', icon: Calendar, section: 'attendance', type: 'section' },

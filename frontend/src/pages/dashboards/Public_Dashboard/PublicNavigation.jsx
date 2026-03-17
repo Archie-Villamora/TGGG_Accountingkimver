@@ -145,7 +145,7 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
                     key={item.id}
                     onClick={() => onNavigate(item.path)}
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                      currentPage === item.id
+                      currentPage === item.id || currentPage === item.path
                         ? 'bg-[#FF7120]/10 text-[#FF7120] border border-[#FF7120]/20'
                         : 'text-white/60 hover:bg-white/5 hover:text-white border border-transparent'
                     }`}
@@ -319,6 +319,8 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
                           { id: 'attendance', label: 'Attendance', icon: Home, path: 'attendance' },
                           { id: 'overtime', label: 'Overtime & Leave', icon: Clock, path: 'overtime' },
                           { id: 'events', label: 'Calendar / Events', icon: Calendar, path: 'events' },
+                          { id: 'bim-docs', label: 'BIM Documentation', icon: FolderKanban, path: 'studio-head-bim-docs' },
+                          { id: 'junior-architect-docs', label: 'Junior Architect Docs', icon: User, path: 'studio-head-junior-docs' },
                           { id: 'approvals', label: 'User Approvals', icon: ClipboardCheck, path: 'approvals' },
                           { id: 'users', label: 'Manage Users', icon: Users, path: 'users' },
                           { id: 'reviews', label: 'Design Reviews', icon: FileText, path: 'reviews' },
@@ -336,6 +338,7 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
                           { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
                           { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
                           { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
+                          { id: 'documentation', label: 'Docs', icon: FolderKanban, path: 'documentation' },
                         ];
                       } else if (user?.role === 'site_engineer') {
                         items = [
@@ -367,7 +370,7 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
                             setIsMenuOpen(false);
                           }}
                           className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                            currentPage === item.id
+                            currentPage === item.id || currentPage === item.path
                               ? 'bg-[#FF7120] text-white' 
                               : 'text-white/70 hover:bg-white/5 hover:text-white'
                           }`}

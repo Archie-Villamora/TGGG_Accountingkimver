@@ -8,7 +8,8 @@ const StudioHeadJuniorArchitectDocumentationPage = ({ user, onNavigate }) => (
         pageEyebrow="Studio Head Review"
         pageTitle="Junior Architect Documentation"
         pageDescription="Approve Junior Architect documentation submissions before they are forwarded to the CEO."
-        sidebarCurrentPage="junior-architect-docs"
+        navigationCurrentPage="studio-head-junior-docs"
+        sidebarCurrentPage="studio-head-junior-docs"
         documentationQuery={{ created_by_role: 'junior_architect' }}
     />
 );

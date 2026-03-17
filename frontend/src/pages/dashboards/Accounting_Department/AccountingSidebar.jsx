@@ -1,14 +1,17 @@
 import React from 'react';
 import { Calendar, Clock, DollarSign, Home, Users } from 'lucide-react';
 
-const MAIN_LINKS = [
+const PERSONAL_LINKS = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
+  { id: 'personal_attendance', label: 'My Attendance', icon: Calendar, page: 'personal-attendance' },
+];
+
+const DEPARTMENT_LINKS = [
   { id: 'employees', label: 'Employees', icon: Users },
-  { id: 'personal_attendance', label: 'Attendance', icon: Calendar, page: 'personal-attendance' },
   { id: 'payroll', label: 'Payroll', icon: DollarSign },
 ];
 
-const SECTION_LINKS = [
+const MANAGEMENT_LINKS = [
   { id: 'attendance', label: 'Attendance Records', icon: Clock, page: 'attendance' },
   { id: 'overtime', label: 'Overtime Requests', icon: Clock, page: 'overtime' },
   { id: 'events', label: 'Calendar / Events', icon: Calendar, page: 'events' },
@@ -29,72 +32,54 @@ export default function AccountingSidebar({
     ? `${cardClass} p-4 ${sticky ? 'sticky top-24' : ''} ${className}`.trim()
     : className;
 
-  const handleSelect = (itemId) => {
-    const item = MAIN_LINKS.find(l => l.id === itemId);
-    if (item?.page) {
-      onNavigate?.(item.page);
-    } else {
-      onNavigate?.(itemId);
-    }
-  };
+  const renderLink = (item) => {
+    const Icon = item.icon;
+    const path = item.page || item.id;
+    
+    // Improved isActive check to match both page-based and tab/section-based navigation
+    const isActive = item.page 
+      ? (currentPage === item.page || (activeSection === item.page))
+      : (activeSection === 'main' && activeTab === item.id) || currentPage === item.id;
 
-  const handleSectionClick = (item) => onNavigate?.(item.page);
+    const handleClick = () => {
+      onNavigate?.(path);
+    };
+
+    return (
+      <button
+        key={item.id}
+        type="button"
+        onClick={handleClick}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+          isActive 
+            ? 'bg-[#FF7120] text-white' 
+            : 'text-white/70 hover:bg-white/5 hover:text-white'
+        }`}
+      >
+        <Icon className="h-5 w-5" />
+        <span className="font-medium text-left flex-1">{item.label}</span>
+      </button>
+    );
+  };
 
   return (
     <div className={wrapperClass}>
-      <nav className="space-y-2">
-        {MAIN_LINKS.map((item) => {
-          const Icon = item.icon;
-          const isActive = item.page 
-            ? currentPage === item.page
-            : (activeSection === 'main' && activeTab === item.id);
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => handleSelect(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                isActive 
-                  ? 'bg-[#FF7120] text-white' 
-                  : 'text-white/70 hover:bg-white/5 hover:text-white'
-              }`}
-            >
-              <Icon className="h-5 w-5" />
-              <span className="font-medium text-left flex-1">{item.label}</span>
-            </button>
-          );
-        })}
+      <nav className="space-y-4">
+        <div className="space-y-1">
+          <p className="px-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/30 mb-2">Personal</p>
+          {PERSONAL_LINKS.map(renderLink)}
+        </div>
+
+        <div className="space-y-1">
+          <p className="px-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/30 mb-2">Department</p>
+          {DEPARTMENT_LINKS.map(renderLink)}
+        </div>
+
+        <div className="space-y-1">
+          <p className="px-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/30 mb-2">Management</p>
+          {MANAGEMENT_LINKS.map(renderLink)}
+        </div>
       </nav>
-
-      {SECTION_LINKS.length > 0 && (
-        <>
-          <div className="pt-2 mt-2 border-t border-white/10" />
-          <nav className="space-y-2">
-            {SECTION_LINKS.map((item) => {
-              const Icon = item.icon;
-              const isActive = currentPage === item.page;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => handleSectionClick(item)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                    isActive 
-                      ? 'bg-[#FF7120] text-white' 
-                      : 'text-white/70 hover:bg-white/5 hover:text-white'
-                  }`}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span className="font-medium text-left flex-1">{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </>
-      )}
-
-      {/* Page links intentionally removed */}
-      {/* Secondary actions (Settings/Logout) intentionally removed */}
     </div>
   );
 }

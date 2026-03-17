@@ -78,7 +78,9 @@ export function renderAccountingDashboard({
             ? 'personal-attendance'
             : currentPage === 'overtime'
                 ? 'overtime'
-                : 'main';
+                : currentPage === 'events'
+                    ? 'events'
+                    : 'main';
 
     const renderContent = () => {
         if (effectiveSection === 'personal-attendance') {

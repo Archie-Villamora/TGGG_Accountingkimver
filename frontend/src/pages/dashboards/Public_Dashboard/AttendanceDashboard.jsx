@@ -99,10 +99,10 @@ const AttendanceDashboard = ({
   const subtleText = "text-white/60";
   const titleText = "text-white font-semibold tracking-[-0.02em]";
   const sectionTitle = "text-white font-semibold tracking-tight text-[clamp(0.95rem,2.4vw,1.1rem)]";
-  const containerClass = hasSidebar
-    ? "max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-4 lg:gap-6"
+  const containerClass = embedded || hasSidebar
+    ? "max-w-full mx-auto flex flex-col lg:flex-row gap-4 lg:gap-6"
     : "max-w-[1400px] mx-auto";
-  const mainClass = hasSidebar
+  const mainClass = embedded || hasSidebar
     ? "flex-1 min-w-0 space-y-5 sm:space-y-8"
     : "px-2 sm:px-10 space-y-5 sm:space-y-8";
 
@@ -118,7 +118,7 @@ const AttendanceDashboard = ({
   };
 
   const content = (
-    <div className={`relative ${finalTopSpacing} px-3 sm:px-6 pb-10 w-full`}>
+    <div className={`relative ${finalTopSpacing} ${embedded ? '' : 'px-3 sm:px-6'} pb-10 w-full`}>
       <div className={containerClass}>
         {!embedded && hasCustomSidebar && (
           <aside className="w-full lg:w-64 shrink-0">

@@ -10,7 +10,7 @@ const TodoPage = ({ user, token, onLogout, onNavigate, onNotificationUpdate }) =
     <div className="min-h-screen" style={{ background: '#00273C' }}>
       <PublicNavigation onNavigate={onNavigate} currentPage="todo" user={user} />
 
-      <div className="pt-40 sm:pt-28 px-3 sm:px-6 pb-6 w-full">
+      <div className="pt-28 px-3 sm:px-6 pb-6 w-full">
         <div className={isBimSpecialistMode ? 'max-w-[1600px] mx-auto flex gap-6' : 'max-w-1400px mx-auto px-2 sm:px-10'}>
           {isBimSpecialistMode && (
             <aside className="w-64 shrink-0 hidden lg:block">

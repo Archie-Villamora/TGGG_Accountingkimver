@@ -24,9 +24,9 @@ export default function UserRow({
   const startedDate = user.date_hired || 'Not set';
 
   return (
-    <div className="bg-[#001f35] rounded-xl border border-white/5 p-4 flex items-center justify-between transition-all hover:border-white/10 group">
+    <div className="bg-[#001f35] rounded-xl border border-white/5 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all hover:border-white/10 group">
       <div className="flex items-center gap-4">
-        <div className="relative">
+        <div className="relative shrink-0">
           {user.profile_picture ? (
             <img
               src={user.profile_picture}
@@ -44,9 +44,9 @@ export default function UserRow({
             </div>
           )}
         </div>
-
-        <div>
-          <div className="text-white font-semibold text-[15px] flex items-center gap-2">
+ 
+        <div className="min-w-0">
+          <div className="text-white font-semibold text-[15px] flex flex-wrap items-center gap-2">
             {user.first_name} {user.last_name}
             {!user.is_active && (
               <span className="text-[10px] bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded border border-red-500/20">
@@ -55,28 +55,22 @@ export default function UserRow({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-y-1 gap-x-3 mt-0.5">
-            <div className="flex items-center gap-1.5 text-gray-400 text-xs">
+            <div className="flex items-center gap-1.5 text-gray-400 text-[10px] sm:text-xs truncate max-w-[150px] sm:max-w-none">
               <Mail size={12} className="text-[#FF7120]" />
               {user.email}
             </div>
-            <div className="flex items-center gap-1.5 text-[#FF7120]/80 text-xs font-medium bg-[#FF7120]/5 px-2 py-0.5 rounded">
+            <div className="flex items-center gap-1.5 text-[#FF7120]/80 text-[10px] sm:text-xs font-medium bg-[#FF7120]/5 px-2 py-0.5 rounded">
               <Briefcase size={12} className="text-[#FF7120]" />
               <span className="capitalize">{user.role_name || user.role?.replace('_', ' ') || 'No role'}</span>
             </div>
-            {user.department_name && (
-              <div className="flex items-center gap-1.5 text-blue-400/80 text-xs bg-blue-400/5 px-2 py-0.5 rounded">
-                <MapPin size={12} className="text-[#FF7120]" />
-                {user.department_name}
-              </div>
-            )}
           </div>
           <div style={{ color: '#9CA3AF', fontSize: '12px' }}>
             Started: {startedDate}
           </div>
         </div>
       </div>
-
-      <div className="flex items-center gap-2">
+ 
+      <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
         <button
           onClick={handleEdit}
           disabled={loading}
@@ -84,7 +78,7 @@ export default function UserRow({
         >
           Edit
         </button>
-
+ 
         <button
           onClick={handleToggleStatus}
           disabled={loading}
@@ -96,7 +90,7 @@ export default function UserRow({
         >
           {user.is_active ? 'Suspend' : 'Activate'}
         </button>
-
+ 
         <button
           onClick={handleDelete}
           disabled={loading}

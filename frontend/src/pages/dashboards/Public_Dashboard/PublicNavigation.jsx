@@ -94,6 +94,11 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
 
     if (type.startsWith('ot_')) {
       onNavigate('overtime');
+      return;
+    }
+
+    if (type.startsWith('calendar_')) {
+      onNavigate('calendar');
     }
   };
 
@@ -124,7 +129,7 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
         {/* Actions & Menu Trigger: Row 2 on mobile, Right side on desktop */}
         <div className="flex items-center justify-between lg:justify-end w-full lg:w-auto lg:gap-4">
           {/* Desktop Navigation Links: Only for Intern role */}
-          {user?.role === 'intern' && (
+          {(user?.role === 'intern' || user?.role === 'employee') && (
             <div className="hidden lg:flex items-center gap-1 lg:order-1">
               {(() => {
                 let items = [];
@@ -158,6 +163,14 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
                 } else if (user?.role === 'intern') {
                   items = [
                     { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
+                    { id: 'calendar', label: 'Calendar', icon: Calendar, path: 'calendar' },
+                    { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
+                    { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
+                  ];
+                } else if (user?.role === 'employee') {
+                  items = [
+                    { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
+                    { id: 'calendar', label: 'Calendar', icon: Calendar, path: 'calendar' },
                     { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
                     { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
                   ];
@@ -311,7 +324,7 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
 
           {/* Mobile Menu Trigger: Grip Icon for Sidebar roles */}
           <div className="flex items-center gap-2 lg:hidden">
-            {(user?.role === 'studio_head' || user?.role === 'admin' || isSidebarDrivenRole) && (
+            {(user?.role === 'studio_head' || user?.role === 'admin' || isSidebarDrivenRole || user?.role === 'employee') && (
               <Popover open={isMenuOpen} onOpenChange={setIsMenuOpen}>
                 <PopoverTrigger asChild>
                   <button
@@ -351,6 +364,7 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
                       } else if (user?.role === 'bim_specialist') {
                         items = [
                           { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
+                          { id: 'calendar', label: 'Calendar', icon: Calendar, path: 'calendar' },
                           { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
                           { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
                           { id: 'documentation', label: 'Docs', icon: FolderKanban, path: 'documentation' },
@@ -358,6 +372,7 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
                       } else if (user?.role === 'junior_architect') {
                         items = [
                           { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
+                          { id: 'calendar', label: 'Calendar', icon: Calendar, path: 'calendar' },
                           { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
                           { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
                           { id: 'documentation', label: 'Docs', icon: FolderKanban, path: 'documentation' },
@@ -365,6 +380,7 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
                       } else if (user?.role === 'site_engineer') {
                         items = [
                           { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
+                          { id: 'calendar', label: 'Calendar', icon: Calendar, path: 'calendar' },
                           { id: 'engineer-hub', label: 'MatReq', icon: ClipboardList, path: 'engineer-hub' },
                           { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
                           { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
@@ -372,6 +388,7 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
                       } else if (user?.role === 'site_coordinator') {
                         items = [
                           { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
+                          { id: 'calendar', label: 'Calendar', icon: Calendar, path: 'calendar' },
                           { id: 'coordinator-hub', label: 'MatReq', icon: ClipboardList, path: 'coordinator-hub' },
                           { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
                           { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
@@ -379,6 +396,14 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
                       } else if (user?.role === 'intern') {
                         items = [
                           { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
+                          { id: 'calendar', label: 'Calendar', icon: Calendar, path: 'calendar' },
+                          { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
+                          { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
+                        ];
+                      } else if (user?.role === 'employee') {
+                        items = [
+                          { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
+                          { id: 'calendar', label: 'Calendar', icon: Calendar, path: 'calendar' },
                           { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
                           { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
                         ];

@@ -12,6 +12,7 @@ import {
 import CeoNavigation from './CeoNavigation';
 import CeoSidebar from './CeoSidebar';
 import materialRequestService from '../../../services/materialRequestService';
+import MaterialRequestCommentThread from '../../../components/MaterialRequestCommentThread';
 
 const cardClass = 'rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.22)]';
 
@@ -281,7 +282,7 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
       <CeoNavigation onNavigate={onNavigate} currentPage="ceo-material-requests" user={user} onLogout={onLogout} />
 
       <div className="relative pt-40 sm:pt-28 px-3 sm:px-6 pb-10">
-        <div className="max-w-[1600px] mx-auto flex gap-6">
+        <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-6">
           <aside className="w-64 shrink-0 hidden lg:block">
             <CeoSidebar currentPage="ceo-material-requests" onNavigate={onNavigate} />
           </aside>
@@ -517,6 +518,10 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
                         </p>
                       </div>
                     )}
+
+                    <div className="border-t border-white/10 pt-6">
+                      <MaterialRequestCommentThread requestId={selectedRequest.id} />
+                    </div>
                   </div>
                 )}
               </div>

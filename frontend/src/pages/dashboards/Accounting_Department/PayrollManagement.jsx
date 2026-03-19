@@ -112,221 +112,12 @@ const createEmptyPayslipForm = () => ({
   approvedBy: '',
 });
 
-// Payslip Print Preview Component
-function PayslipPrintPreview({ payload, selectedEmployeeData }) {
-  const slip = payload?.payslipFormPayload || {};
-  
-  const employeeName = selectedEmployeeData?.name || 'Employee';
-  const designation = slip.designation || selectedEmployeeData?.position || 'Employee';
-  const periodStart = payload?.startDate;
-  const periodEnd = payload?.endDate;
-  
-  const monthlyAmount = toNumber(slip.monthly ?? 0);
-  const basicSalary = toNumber(slip.basic_salary ?? 0);
-  const regularOvertime = toNumber(slip.regular_overtime ?? 0);
-  const lateUndertime = toNumber(slip.late_undertime ?? 0);
-  const restDayOt = toNumber(slip.rest_day_ot ?? 0);
-  const netTaxableSalary = toNumber(slip.net_taxable_salary ?? 0);
-  const payrollTax = toNumber(slip.payroll_tax ?? 0);
-  const totalDeductions = toNumber(slip.total_deductions ?? 0);
-  const grossAmount = toNumber(slip.gross_amount ?? 0);
-  const payrollAllowance = toNumber(slip.payroll_allowance ?? 0);
-  const companyLoanCashAdvance = toNumber(slip.company_loan_cash_advance ?? 0);
-  const salaryNetPay = toNumber(slip.salary_net_pay ?? 0);
-  const preparedBy = slip.prepared_by || 'Accounting Department';
-  const approvedByTopManagement = slip.approved_by_top_management || '';
-  const approvedBy = slip.approved_by || '';
-  const governmentContributions = Array.isArray(slip.government_contributions) ? slip.government_contributions : [];
-
-  const contributionRowsHtml = governmentContributions.length
-    ? governmentContributions
-      .map((item) => {
-        const amount = toNumber(item.amount);
-        return `<span style="display: flex; justify-content: space-between; padding: 4px 0;"><span>${item.name || 'Contribution'}</span><span>${formatCurrency(amount)}</span></span>`;
-      })
-      .join('')
-    : `<span style="display: flex; justify-content: space-between; padding: 4px 0;"><span>Government Contributions</span><span>${formatCurrency(0)}</span></span>`;
-
-  const payDateText = periodStart && periodEnd 
-    ? `${formatDisplayDate(periodStart)} to ${formatDisplayDate(periodEnd)}`
-    : 'Pay Period';
-
-  const logoUrl = `${window.location.origin}/formlogo.png`;
-
-  return (
-    <div style={{ backgroundColor: '#f2f2f2', padding: '16px', borderRadius: '8px', fontFamily: 'Arial, sans-serif' }}>
-      <div style={{ 
-        maxWidth: '880px', 
-        margin: '0 auto', 
-        backgroundColor: '#fff', 
-        border: '2px solid #111',
-        padding: '0'
-      }}>
-        {/* Header Logo */}
-        <img 
-          src={logoUrl} 
-          alt="TGGG Logo" 
-          style={{ 
-            width: '100%', 
-            display: 'block', 
-            borderBottom: '1px solid #111',
-            maxHeight: '100px',
-            objectFit: 'cover'
-          }} 
-          onError={(e) => {
-            e.target.style.display = 'none';
-          }}
-        />
-        
-        {/* Title Bar */}
-        <div style={{
-          backgroundColor: '#f39b3a',
-          color: '#111',
-          textAlign: 'center',
-          fontWeight: '700',
-          fontSize: '18px',
-          padding: '6px 10px',
-          borderTop: '1px solid #111',
-          borderBottom: '1px solid #111'
-        }}>
-          TGGG PAYSLIP {payDateText}
-        </div>
-
-        {/* Meta Info */}
-        <div style={{
-          padding: '10px 14px 4px',
-          fontSize: '13px',
-          display: 'grid',
-          gridTemplateColumns: '160px 1fr 150px 120px',
-          gap: '4px 10px'
-        }}>
-          <div style={{ color: '#333' }}>Employee Name:</div>
-          <div style={{ fontWeight: '700' }}>{employeeName}</div>
-          <div style={{ color: '#333' }}>Monthly:</div>
-          <div style={{ fontWeight: '700' }}>{formatCurrency(monthlyAmount)}</div>
-
-          <div style={{ color: '#333' }}>Designation:</div>
-          <div style={{ fontWeight: '700' }}>{designation}</div>
-          <div style={{ color: '#333' }}>Pay Frequency:</div>
-          <div style={{ fontWeight: '700' }}>Monthly</div>
-        </div>
-
-        {/* Earnings & Deductions Section */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '20px',
-          padding: '8px 14px 14px',
-          borderBottom: '2px solid #111'
-        }}>
-          {/* Earnings */}
-          <div>
-            <div style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>Earnings</div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '14px' }}>
-              <span>Basic Salary</span>
-              <span>{formatCurrency(basicSalary)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '14px' }}>
-              <span>Regular Overtime</span>
-              <span>{formatCurrency(regularOvertime)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '14px' }}>
-              <span>Late/Undertime</span>
-              <span>{formatCurrency(lateUndertime)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '14px' }}>
-              <span>Rest Day</span>
-              <span></span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '14px' }}>
-              <span>Rest Day OT</span>
-              <span>{formatCurrency(restDayOt)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '14px' }}>
-              <span>Holiday</span>
-              <span></span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '16px', marginTop: '8px', fontWeight: 'bold' }}>
-              <span>GROSS Amount</span>
-              <span>{formatCurrency(grossAmount)}</span>
-            </div>
-          </div>
-
-          {/* Deductions */}
-          <div>
-            <div style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px' }}>Deductions</div>
-            <div dangerouslySetInnerHTML={{ __html: contributionRowsHtml }} style={{ fontSize: '14px' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '14px' }}>
-              <span>NET Taxable Salary</span>
-              <span>{formatCurrency(netTaxableSalary)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '14px' }}>
-              <span>Payroll Tax</span>
-              <span>{formatCurrency(payrollTax)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '16px', marginTop: '8px', fontWeight: 'bold' }}>
-              <span>Total Deductions</span>
-              <span>{formatCurrency(totalDeductions)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '14px' }}>
-              <span>Payroll Allowance</span>
-              <span>{formatCurrency(payrollAllowance)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '14px' }}>
-              <span>Company Loan/Cash Advance</span>
-              <span>{formatCurrency(companyLoanCashAdvance)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Net Pay Bar */}
-        <div style={{
-          backgroundColor: '#f39b3a',
-          color: '#111',
-          textAlign: 'center',
-          fontWeight: '700',
-          fontSize: '18px',
-          padding: '8px 10px'
-        }}>
-          SALARY NET PAY {formatCurrency(salaryNetPay)}
-        </div>
-
-        {/* Signatures */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '60px',
-          padding: '24px 20px 16px',
-          fontSize: '13px'
-        }}>
-          <div>
-            <div style={{ marginBottom: '8px' }}>Prepared By (Accounting Department):</div>
-            <div style={{ borderTop: '1px solid #111', marginTop: '28px', paddingTop: '6px', textAlign: 'center' }}>
-              {preparedBy}
-            </div>
-            <div style={{ marginBottom: '8px', marginTop: '16px' }}>Approved By:</div>
-            <div style={{ borderTop: '1px solid #111', marginTop: '28px', paddingTop: '6px', textAlign: 'center' }}>
-              {approvedBy}
-            </div>
-          </div>
-          <div>
-            <div style={{ marginBottom: '8px' }}>Approved By (Top Management):</div>
-            <div style={{ borderTop: '1px solid #111', marginTop: '28px', paddingTop: '6px', textAlign: 'center' }}>
-              {approvedByTopManagement}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export function PayrollManagement() {
   const [isProcessPayrollOpen, setIsProcessPayrollOpen] = useState(false);
   const [isTaxDeductionsOpen, setIsTaxDeductionsOpen] = useState(false);
   const [isPayslipPreviewOpen, setIsPayslipPreviewOpen] = useState(false);
   const [payslipPreviewData, setPayslipPreviewData] = useState(null);
-  const [showPayslipPrintPreview, setShowPayslipPrintPreview] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -807,216 +598,6 @@ export function PayrollManagement() {
     }
   };
 
-  const renderPayslipPrintDocument = (printWindow, payload) => {
-    if (!printWindow) return;
-
-    const slip = payload?.payslip || {};
-    const details = payload?.payslip_details || slip?.payslip_details || {};
-
-    const employeeName = slip.employee_name || selectedEmployeeData?.name || 'Employee';
-    const designation = details.designation || slip.employee_role || selectedEmployeeData?.position || 'Employee';
-    const periodStart = slip.period_start;
-    const periodEnd = slip.period_end;
-    const frequency = 'Monthly';
-
-    const monthlyAmount = toNumber(details.monthly ?? 0);
-    const basicSalary = toNumber(details.basic_salary ?? slip.base_salary ?? 0);
-    const regularOvertime = toNumber(details.regular_overtime ?? slip.overtime_amount ?? 0);
-    const lateUndertime = toNumber(details.late_undertime ?? 0);
-    const restDayOt = toNumber(details.rest_day_ot ?? slip.bonus ?? 0);
-    const netTaxableSalary = toNumber(details.net_taxable_salary ?? 0);
-    const payrollTax = toNumber(details.payroll_tax ?? slip.tax ?? 0);
-    const totalDeductions = toNumber(details.total_deductions ?? slip.deductions_total ?? 0);
-    const grossAmount = toNumber(details.gross_amount ?? slip.gross_salary ?? 0);
-    const payrollAllowance = toNumber(details.payroll_allowance ?? slip.allowances_total ?? 0);
-    const companyLoanCashAdvance = toNumber(details.company_loan_cash_advance ?? 0);
-    const salaryNetPay = toNumber(details.salary_net_pay ?? slip.net_salary ?? 0);
-
-    const preparedBy = details.prepared_by || payslipForm.preparedBy || 'Accounting Department';
-    const approvedByTopManagement = details.approved_by_top_management || '';
-    const approvedBy = details.approved_by || '';
-
-    const governmentContributions = Array.isArray(details.government_contributions)
-      ? details.government_contributions
-      : [];
-
-    const contributionRowsHtml = governmentContributions.length
-      ? governmentContributions
-        .map((item) => {
-          const amount = toNumber(item.amount);
-          return `<div class="row"><span>${escapeHtml(item.name || 'Contribution')}</span><span>${escapeHtml(formatCurrency(amount))}</span></div>`;
-        })
-        .join('')
-      : `<div class="row"><span>Government Contributions</span><span>${escapeHtml(formatCurrency(0))}</span></div>`;
-
-    const logoUrl = `${window.location.origin}/formlogo.png`;
-    const payDateText = `${formatDisplayDate(periodStart)} to ${formatDisplayDate(periodEnd)}`;
-
-    const html = `
-      <html>
-        <head>
-          <title>TGGG Payslip - ${escapeHtml(employeeName)}</title>
-          <style>
-            @page { size: A4; margin: 12mm; }
-            * { box-sizing: border-box; }
-            body {
-              margin: 0;
-              background: #f2f2f2;
-              font-family: Arial, sans-serif;
-              color: #111;
-              padding: 12px;
-            }
-            .sheet {
-              width: 100%;
-              max-width: 880px;
-              margin: 0 auto;
-              background: #fff;
-              border: 2px solid #111;
-            }
-            .header-logo {
-              width: 100%;
-              display: block;
-              border-bottom: 1px solid #111;
-            }
-            .bar {
-              background: #f39b3a;
-              color: #111;
-              text-align: center;
-              font-weight: 700;
-              font-size: 18px;
-              padding: 8px 10px;
-              border-top: 1px solid #111;
-              border-bottom: 1px solid #111;
-            }
-            .bar.small {
-              font-size: 18px;
-              padding: 6px 10px;
-            }
-            .meta {
-              padding: 10px 14px 4px;
-              font-size: 13px;
-              display: grid;
-              grid-template-columns: 160px 1fr 150px 120px;
-              gap: 4px 10px;
-            }
-            .label { color: #333; }
-            .value { font-weight: 700; }
-            .section {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 20px;
-              padding: 8px 14px 14px;
-              border-bottom: 2px solid #111;
-            }
-            .col-title {
-              font-size: 16px;
-              font-weight: 700;
-              margin-bottom: 6px;
-            }
-            .row {
-              display: flex;
-              justify-content: space-between;
-              align-items: baseline;
-              font-size: 14px;
-              padding: 3px 0;
-            }
-            .row strong {
-              font-size: 16px;
-            }
-            .signatures {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 60px;
-              padding: 24px 20px 16px;
-              font-size: 13px;
-            }
-            .sig-line {
-              border-top: 1px solid #111;
-              margin-top: 28px;
-              padding-top: 6px;
-              text-align: center;
-            }
-            .prepared {
-              margin-bottom: 8px;
-            }
-            @media print {
-              body { background: #fff; padding: 0; }
-              .sheet { border: 2px solid #111; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="sheet">
-            <img class="header-logo" src="${escapeHtml(logoUrl)}" alt="Triple G Logo" />
-            <div class="bar small">TGGG PAYSLIP ${escapeHtml(payDateText)}</div>
-
-            <div class="meta">
-              <div class="label">Employee Name:</div>
-              <div class="value">${escapeHtml(employeeName)}</div>
-              <div class="label">Monthly:</div>
-              <div class="value">${escapeHtml(formatCurrency(monthlyAmount))}</div>
-
-              <div class="label">Designation:</div>
-              <div class="value">${escapeHtml(designation)}</div>
-              <div class="label">Pay Frequency:</div>
-              <div class="value">${escapeHtml(frequency)}</div>
-            </div>
-
-            <div class="section">
-              <div>
-                <div class="col-title">Earnings</div>
-                <div class="row"><span>Basic Salary</span><span>${escapeHtml(formatCurrency(basicSalary))}</span></div>
-                <div class="row"><span>Regular Overtime</span><span>${escapeHtml(formatCurrency(regularOvertime))}</span></div>
-                <div class="row"><span>Late/Undertime</span><span>${escapeHtml(formatCurrency(lateUndertime))}</span></div>
-                <div class="row"><span>Rest Day</span><span></span></div>
-                <div class="row"><span>Rest Day OT</span><span>${escapeHtml(formatCurrency(restDayOt))}</span></div>
-                <div class="row"><span>Holiday</span><span></span></div>
-                <div class="row" style="margin-top: 8px;"><strong>GROSS Amount</strong><strong>${escapeHtml(formatCurrency(grossAmount))}</strong></div>
-              </div>
-
-              <div>
-                <div class="col-title">Deductions</div>
-                ${contributionRowsHtml}
-                <div class="row"><span>NET Taxable Salary</span><span>${escapeHtml(formatCurrency(netTaxableSalary))}</span></div>
-                <div class="row"><span>Payroll Tax</span><span>${escapeHtml(formatCurrency(payrollTax))}</span></div>
-                <div class="row" style="margin-top: 8px;"><strong>Total Deductions</strong><strong>${escapeHtml(formatCurrency(totalDeductions))}</strong></div>
-                <div class="row"><span>Payroll Allowance</span><span>${escapeHtml(formatCurrency(payrollAllowance))}</span></div>
-                <div class="row"><span>Company Loan/Cash Advance</span><span>${escapeHtml(formatCurrency(companyLoanCashAdvance))}</span></div>
-              </div>
-            </div>
-
-            <div class="bar">SALARY NET PAY ${escapeHtml(formatCurrency(salaryNetPay))}</div>
-
-            <div class="signatures">
-              <div>
-                <div class="prepared">Prepared By (Accounting Department):</div>
-                <div class="sig-line">
-                  ${escapeHtml(preparedBy)}
-                </div>
-                <div class="prepared" style="margin-top: 16px;">Approved By:</div>
-                <div class="sig-line">${escapeHtml(approvedBy)}</div>
-              </div>
-              <div>
-                <div class="prepared">Approved By (Top Management):</div>
-                <div class="sig-line">
-                  ${escapeHtml(approvedByTopManagement)}
-                </div>
-              </div>
-            </div>
-          </div>
-          <script>
-            window.onload = function () {
-              setTimeout(function () { window.print(); }, 350);
-            };
-          </script>
-        </body>
-      </html>
-    `;
-
-    printWindow.document.open();
-    printWindow.document.write(html);
-    printWindow.document.close();
-  };
 
   const buildPayslipPayload = () => {
     const { startDate, endDate } = calculatePayrollDates();
@@ -1856,7 +1437,7 @@ export function PayrollManagement() {
               <CardContent className="pt-6 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="grossAmount">GROSS Amount</Label>
+                    <Label htmlFor="grossAmount" className="min-h-[2.5rem] flex items-end pb-1">GROSS Amount</Label>
                     <Input
                       id="grossAmount"
                       type="number"
@@ -1868,7 +1449,7 @@ export function PayrollManagement() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="payrollAllowance">Payroll Allowance</Label>
+                    <Label htmlFor="payrollAllowance" className="min-h-[2.5rem] flex items-end pb-1">Payroll Allowance</Label>
                     <Input
                       id="payrollAllowance"
                       type="number"
@@ -1880,7 +1461,7 @@ export function PayrollManagement() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="companyLoanCashAdvance">Company Loan/Cash Advance</Label>
+                    <Label htmlFor="companyLoanCashAdvance" className="min-h-[2.5rem] flex items-end pb-1">Company Loan/Cash Advance</Label>
                     <Input
                       id="companyLoanCashAdvance"
                       type="number"
@@ -1908,7 +1489,7 @@ export function PayrollManagement() {
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="preparedBy">Prepared By (Accounting Department)</Label>
+                    <Label htmlFor="preparedBy" className="min-h-[2.5rem] flex items-end pb-1">Prepared By (Accounting Department)</Label>
                     <Input
                       id="preparedBy"
                       value={payslipForm.preparedBy}
@@ -1917,7 +1498,7 @@ export function PayrollManagement() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="approvedByTopManagement">Approved By (Top Management)</Label>
+                    <Label htmlFor="approvedByTopManagement" className="min-h-[2.5rem] flex items-end pb-1">Approved By (Top Management)</Label>
                     <Input
                       id="approvedByTopManagement"
                       value={payslipForm.approvedByTopManagement}
@@ -1927,7 +1508,7 @@ export function PayrollManagement() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="approvedBy">Approved By</Label>
+                    <Label htmlFor="approvedBy" className="min-h-[2.5rem] flex items-end pb-1">Approved By</Label>
                     <Input
                       id="approvedBy"
                       value={payslipForm.approvedBy}
@@ -1965,31 +1546,12 @@ export function PayrollManagement() {
       <Dialog open={isPayslipPreviewOpen} onOpenChange={setIsPayslipPreviewOpen}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <div className="flex items-center justify-between w-full">
-              <DialogTitle className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5" />
-                Payslip Preview - Confirm to Process
-              </DialogTitle>
-              <div className="flex gap-2">
-                <Button
-                  variant={showPayslipPrintPreview ? "outline" : "default"}
-                  size="sm"
-                  onClick={() => setShowPayslipPrintPreview(false)}
-                >
-                  Summary
-                </Button>
-                <Button
-                  variant={showPayslipPrintPreview ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setShowPayslipPrintPreview(true)}
-                >
-                  Print Format
-                </Button>
-              </div>
-            </div>
+            <DialogTitle className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              Payslip Preview - Confirm to Process
+            </DialogTitle>
           </DialogHeader>
-
-          {payslipPreviewData && selectedEmployeeData && !showPayslipPrintPreview && (
+          {payslipPreviewData && selectedEmployeeData && (
             <div className="space-y-4 py-4">
               {/* Employee & Period Info */}
               <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-background/20 border border-white/10">
@@ -2004,78 +1566,81 @@ export function PayrollManagement() {
                 </div>
               </div>
 
-              {/* Earnings Section */}
-              <Card className="border border-white/10 bg-card">
-                <CardHeader>
-                  <CardTitle className="text-base">Earnings</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Monthly</span>
-                      <span className="font-semibold">{formatCurrency(payslipPreviewData.monthlyAmount)}</span>
+              {/* Earnings and Deductions side-by-side for better alignment */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Earnings Section */}
+                <Card className="border border-white/10 bg-card">
+                  <CardHeader>
+                    <CardTitle className="text-base text-white">Earnings</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Monthly</span>
+                        <span className="font-semibold text-white">{formatCurrency(payslipPreviewData.monthlyAmount)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Basic Salary</span>
+                        <span className="font-semibold text-white">{formatCurrency(payslipPreviewData.basicSalary)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Regular Overtime</span>
+                        <span className="font-semibold text-white">{formatCurrency(payslipPreviewData.regularOvertime)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Rest Day OT</span>
+                        <span className="font-semibold text-white">{formatCurrency(payslipPreviewData.restDayOt)}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Basic Salary</span>
-                      <span className="font-semibold">{formatCurrency(payslipPreviewData.basicSalary)}</span>
+                    <div className="flex justify-between pt-3 border-t border-[#AEAAAA]/20 font-semibold text-base text-green-400">
+                      <span>GROSS Amount</span>
+                      <span>{formatCurrency(payslipPreviewData.grossAmount)}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Regular Overtime</span>
-                      <span className="font-semibold">{formatCurrency(payslipPreviewData.regularOvertime)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Rest Day OT</span>
-                      <span className="font-semibold">{formatCurrency(payslipPreviewData.restDayOt)}</span>
-                    </div>
-                  </div>
-                  <div className="flex justify-between pt-3 border-t border-[#AEAAAA]/20 font-semibold text-base text-green-400">
-                    <span>GROSS Amount</span>
-                    <span>{formatCurrency(payslipPreviewData.grossAmount)}</span>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
 
-              {/* Deductions Section */}
-              <Card className="border border-white/10 bg-card">
-                <CardHeader>
-                  <CardTitle className="text-base">Deductions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {payslipPreviewData.governmentContributions.length > 0 && (
-                    <div className="space-y-2 pb-3 border-b border-[#AEAAAA]/20">
-                      <p className="text-xs font-semibold text-muted-foreground">Government Contributions</p>
-                      {payslipPreviewData.governmentContributions.map((contrib) => (
-                        <div key={contrib.id} className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">{contrib.name}</span>
-                          <span className="font-semibold">{formatCurrency(contrib.amount)}</span>
-                        </div>
-                      ))}
+                {/* Deductions Section */}
+                <Card className="border border-white/10 bg-card">
+                  <CardHeader>
+                    <CardTitle className="text-base text-white">Deductions</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {payslipPreviewData.governmentContributions.length > 0 && (
+                      <div className="space-y-2 pb-3 border-b border-[#AEAAAA]/20">
+                        <p className="text-xs font-semibold text-muted-foreground">Government Contributions</p>
+                        {payslipPreviewData.governmentContributions.map((contrib) => (
+                          <div key={contrib.id} className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">{contrib.name}</span>
+                            <span className="font-semibold text-white">{formatCurrency(contrib.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">NET Taxable Salary</span>
+                        <span className="font-semibold text-white">{formatCurrency(payslipPreviewData.netTaxableSalary)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Payroll Tax</span>
+                        <span className="font-semibold text-white">{formatCurrency(payslipPreviewData.payrollTax)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Late/Undertime</span>
+                        <span className="font-semibold text-white">{formatCurrency(payslipPreviewData.lateUndertime)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Payroll Allowance</span>
+                        <span className="font-semibold text-white">{formatCurrency(payslipPreviewData.payrollAllowance)}</span>
+                      </div>
                     </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">NET Taxable Salary</span>
-                      <span className="font-semibold">{formatCurrency(payslipPreviewData.netTaxableSalary)}</span>
+                    <div className="flex justify-between pt-3 border-t border-[#AEAAAA]/20 font-semibold text-base text-orange-400">
+                      <span>Total Deductions</span>
+                      <span>{formatCurrency(payslipPreviewData.totalDeductionsAmount)}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Payroll Tax</span>
-                      <span className="font-semibold">{formatCurrency(payslipPreviewData.payrollTax)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Late/Undertime</span>
-                      <span className="font-semibold">{formatCurrency(payslipPreviewData.lateUndertime)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Payroll Allowance</span>
-                      <span className="font-semibold">{formatCurrency(payslipPreviewData.payrollAllowance)}</span>
-                    </div>
-                  </div>
-                  <div className="flex justify-between pt-3 border-t border-[#AEAAAA]/20 font-semibold text-base text-orange-400">
-                    <span>Total Deductions</span>
-                    <span>{formatCurrency(payslipPreviewData.totalDeductionsAmount)}</span>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </div>
 
               {/* Net Pay */}
               <div className="p-4 rounded-lg bg-gradient-to-r from-[#F27229]/20 to-[#F27229]/10 border-2 border-[#F27229]/40">
@@ -2086,7 +1651,7 @@ export function PayrollManagement() {
               </div>
 
               {/* Approvals */}
-              <div className="grid grid-cols-3 gap-3 p-4 rounded-lg bg-background/20 border border-white/10">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 rounded-lg bg-background/20 border border-white/10">
                 <div>
                   <p className="text-xs text-muted-foreground">Prepared By</p>
                   <p className="text-sm font-semibold text-white">{payslipPreviewData.payslipFormPayload.prepared_by || 'Accounting'}</p>
@@ -2100,12 +1665,6 @@ export function PayrollManagement() {
                   <p className="text-sm font-semibold text-white">{payslipPreviewData.payslipFormPayload.approved_by_top_management || '-'}</p>
                 </div>
               </div>
-            </div>
-          )}
-
-          {payslipPreviewData && selectedEmployeeData && showPayslipPrintPreview && (
-            <div className="py-4 bg-white/5 rounded-lg border border-[#AEAAAA]/20 p-4 overflow-auto max-h-[70vh]">
-              <PayslipPrintPreview payload={payslipPreviewData} selectedEmployeeData={selectedEmployeeData} />
             </div>
           )}
 

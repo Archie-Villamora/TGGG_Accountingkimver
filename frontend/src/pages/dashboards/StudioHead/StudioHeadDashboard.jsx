@@ -7,7 +7,7 @@ import CoordinatorPanel from './components/CoordinatorPanel';
 import MessageBanner from './components/MessageBanner';
 import StudioHeadSidebar from './components/StudioHeadSidebar';
 import { useStudioHeadDashboard } from './hooks/useStudioHeadDashboard';
-import EventsPanel from './components/EventsPanel';
+// import EventsPanel from './components/EventsPanel';
 
 const TABS = [
   { id: 'approvals', label: 'User Approvals', icon: ClipboardCheck },
@@ -15,7 +15,6 @@ const TABS = [
   { id: 'reviews', label: 'Design Reviews', icon: FileText },
   { id: 'coordination', label: 'Coordinator Panel', icon: GitMerge },
   { id: 'otrequest', label: 'OT Requests', icon: Clock },
-  { id: 'events', label: 'Calendar / Events', icon: Calendar },
 ];
 
 const OvertimeRequestApprovalsPanel = lazy(() => import('../shared/OvertimeRequestApprovalsPanel'));
@@ -63,7 +62,7 @@ export default function StudioHeadDashboard({ user, onLogout, onNavigate, curren
 
       <PublicNavigation onNavigate={onNavigate} currentPage={activeTab} user={user} />
 
-      <div className="relative pt-28 px-4 lg:px-6 pb-10">
+      <div className="relative pt-40 sm:pt-28 px-3 sm:px-6 pb-10">
         <div className="max-w-[1600px] mx-auto">
           <MessageBanner message={message} onClose={() => setMessage('')} />
 
@@ -143,10 +142,6 @@ export default function StudioHeadDashboard({ user, onLogout, onNavigate, curren
                     <Suspense fallback={<div className="text-sm text-white/70">Loading OT requests...</div>}>
                       <OvertimeRequestApprovalsPanel reviewerRole="studio_head" />
                     </Suspense>
-                  )}
-
-                  {activeTab === 'events' && (
-                    <EventsPanel user={user} />
                   )}
                 </div>
               </div>

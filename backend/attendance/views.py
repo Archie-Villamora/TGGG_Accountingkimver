@@ -610,8 +610,8 @@ def calendar_events(request):
         ])
 
     # POST
-    if request.user.role not in ['studio_head', 'admin']:
-        return Response({'error': 'Only Studio Head or Admin can add events.'}, status=status.HTTP_403_FORBIDDEN)
+    if request.user.role != 'accounting':
+        return Response({'error': 'Only Accounting department can add events.'}, status=status.HTTP_403_FORBIDDEN)
 
     title = (request.data.get('title') or '').strip()
     event_date_raw = request.data.get('date')

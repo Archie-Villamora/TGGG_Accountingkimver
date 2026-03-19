@@ -87,6 +87,47 @@ def _notify_accounting_user_verified(approved_user, approver):
             message=f'{approved_name} was verified by {approver_name} and is now active.',
         )
 
+
+def _notify_approvers_pending_account(pending_user, actor=None, source='self_registration'):
+    """Notify Studio Head/Admin users that an account is waiting for verification."""
+    approver_recipients = (
+        CustomUser.objects
+        .select_related('department')
+        .filter(is_active=True)
+        .filter(
+            Q(role__in=APPROVER_ROLES)
+            | Q(is_staff=True)
+            | Q(is_superuser=True)
+        )
+        .distinct()
+    )
+
+    pending_name = _display_name(pending_user)
+    pending_email = pending_user.email or 'Unknown email'
+    notification_actor = actor or pending_user
+
+    if source == 'accounting_created':
+        title = 'New Employee Pending Verification'
+        message = (
+            f'{pending_name} ({pending_email}) was created by Accounting '
+            'and is waiting for Studio Head/Admin verification.'
+        )
+    else:
+        title = 'New Account Pending Verification'
+        message = (
+            f'{pending_name} ({pending_email}) created a new account '
+            'and is waiting for Studio Head/Admin verification.'
+        )
+
+    for recipient in approver_recipients:
+        NotificationService.create_notification(
+            recipient=recipient,
+            actor=notification_actor,
+            notif_type='user_pending_approval',
+            title=title,
+            message=message,
+        )
+
 # Create your views here.
 
 ALLOWED_ROLES = sorted({key for key, _ in ROLE_CHOICES}.union({'employee'}))
@@ -204,6 +245,16 @@ def register_view(request):
             username=email.split('@')[0],
             is_active=False  # Always inactive until approved by studio head/admin
         )
+
+        try:
+            _notify_approvers_pending_account(
+                pending_user=user,
+                actor=user,
+                source='self_registration',
+            )
+        except Exception as e:
+            print(f"⚠️ Pending-account notification failed for user_id={user.id}: {e}")
+
         return Response({
             'success': True,
             'message': 'Registration submitted. Your account will be verified by a Studio Head or Admin.',
@@ -708,6 +759,15 @@ Triple G Admin
                 email_sent = True
             except Exception as e:
                 print(f"Account creation email failed: {str(e)}")
+
+            try:
+                _notify_approvers_pending_account(
+                    pending_user=user,
+                    actor=request.user,
+                    source='accounting_created',
+                )
+            except Exception as e:
+                print(f"⚠️ Accounting pending-account notification failed for user_id={user.id}: {e}")
 
             return Response({
                 'success': True,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Alert from '../../../components/Alert.jsx';
+import { toast } from 'sonner';
 import { CardSkeleton } from '../../../components/SkeletonLoader.jsx';
 import { getMyAttendance } from '../../../services/attendanceService';
 import * as profileService from '../../../services/profileService';
@@ -8,7 +8,6 @@ import { calcSessionMinutes } from '../../../utils/attendanceFormatters';
 function Profile({ token, user, onLogout }) {
   const [profile, setProfile] = useState({ full_name: '', email: '' });
   const [profilePic, setProfilePic] = useState(null);
-  const [alert, setAlert] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [password, setPassword] = useState({ new: '', confirm: '' });
   const [showPasswordSection, setShowPasswordSection] = useState(false);
@@ -19,7 +18,13 @@ function Profile({ token, user, onLogout }) {
   const [showCharLimitModal, setShowCharLimitModal] = useState(false);
 
   const showAlert = (type, title, message) => {
-    setAlert({ type, title, message });
+    if (type === 'success') {
+      toast.success(title, { description: message });
+    } else if (type === 'error') {
+      toast.error(title, { description: message });
+    } else {
+      toast(title, { description: message });
+    }
   };
 
   useEffect(() => {
@@ -132,14 +137,6 @@ function Profile({ token, user, onLogout }) {
 
   return (
     <div>
-      {alert && (
-        <Alert
-          type={alert.type}
-          title={alert.title}
-          message={alert.message}
-          onClose={() => setAlert(null)}
-        />
-      )}
 
       {showCharLimitModal && (
         <div style={{

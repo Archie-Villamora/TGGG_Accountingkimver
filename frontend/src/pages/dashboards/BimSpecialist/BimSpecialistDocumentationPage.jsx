@@ -304,8 +304,8 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
 
             <PublicNavigation onNavigate={onNavigate} currentPage="documentation" user={user} />
 
-            <div className="relative pt-28 px-3 sm:px-6 pb-10">
-                <div className="max-w-[1600px] mx-auto flex gap-6">
+            <div className="relative pt-40 sm:pt-28 px-3 sm:px-6 pb-10">
+                <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-6">
                     <aside className="w-64 shrink-0 hidden lg:block">
                         <BimSpecialistSidebar currentPage="documentation" onNavigate={onNavigate} />
                     </aside>
@@ -313,33 +313,33 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
                     <main className="flex-1 min-w-0 space-y-6">
                         {/* Tab Navigation */}
                         <div className={cardClass}>
-                            <div className="flex gap-1 p-2 border-b border-white/10">
+                            <div className="flex flex-wrap gap-2 p-4 sm:p-6 border-b border-white/10">
                                 <button
                                     onClick={() => setActiveTab('create')}
-                                    className={`py-3 px-4 rounded-xl text-sm font-semibold transition ${
+                                    className={`px-6 py-3 rounded-lg text-sm font-semibold transition-all duration-200 border ${
                                         activeTab === 'create'
-                                            ? 'bg-[#FF7120] text-white'
-                                            : 'text-white/60 hover:text-white'
+                                            ? 'bg-[#FF7120] text-white border-[#FF7120] shadow-[0_4px_12px_rgba(255,113,32,0.25)]'
+                                            : 'bg-transparent text-[#9ca3af] border-[rgba(255,113,32,0.3)] hover:bg-[#FF7120] hover:text-white hover:border-[#FF7120] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(255,113,32,0.25)]'
                                     }`}
                                 >
                                     ➕ Create Documentation
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('manage')}
-                                    className={`py-3 px-4 rounded-xl text-sm font-semibold transition ${
+                                    className={`px-6 py-3 rounded-lg text-sm font-semibold transition-all duration-200 border ${
                                         activeTab === 'manage'
-                                            ? 'bg-[#FF7120] text-white'
-                                            : 'text-white/60 hover:text-white'
+                                            ? 'bg-[#FF7120] text-white border-[#FF7120] shadow-[0_4px_12px_rgba(255,113,32,0.25)]'
+                                            : 'bg-transparent text-[#9ca3af] border-[rgba(255,113,32,0.3)] hover:bg-[#FF7120] hover:text-white hover:border-[#FF7120] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(255,113,32,0.25)]'
                                     }`}
                                 >
                                     📁 Manage Documentation
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('junior-approved')}
-                                    className={`py-3 px-4 rounded-xl text-sm font-semibold transition ${
+                                    className={`px-6 py-3 rounded-lg text-sm font-semibold transition-all duration-200 border ${
                                         activeTab === 'junior-approved'
-                                            ? 'bg-[#FF7120] text-white'
-                                            : 'text-white/60 hover:text-white'
+                                            ? 'bg-[#FF7120] text-white border-[#FF7120] shadow-[0_4px_12px_rgba(255,113,32,0.25)]'
+                                            : 'bg-transparent text-[#9ca3af] border-[rgba(255,113,32,0.3)] hover:bg-[#FF7120] hover:text-white hover:border-[#FF7120] hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(255,113,32,0.25)]'
                                     }`}
                                 >
                                     🧩 Junior Architect Approved
@@ -417,22 +417,7 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
                                             className="w-full rounded-xl border border-white/15 bg-[#00273C]/60 px-3 py-2 text-sm text-white placeholder:text-white/45 outline-none resize-none focus:border-[#FF7120]/50"
                                         />
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="rounded-xl border border-white/10 bg-[#00273C]/40 p-4">
-                                            <label className="block text-white/70 text-sm font-semibold mb-3">3D Model Files</label>
-                                            <div className="relative">
-                                                <input
-                                                    type="file"
-                                                    multiple
-                                                    accept={MODEL_ACCEPT}
-                                                    onChange={(e) => setModelFiles(Array.from(e.target.files || []))}
-                                                    className="block w-full text-sm text-white/70 file:mr-3 file:rounded-lg file:border-0 file:bg-[#FF7120]/20 file:px-3 file:py-2 file:text-[#FF7120] file:cursor-pointer hover:file:bg-[#FF7120]/30"
-                                                />
-                                                {modelFiles.length > 0 && (
-                                                    <p className="text-xs text-emerald-400 mt-2">{modelFiles.length} file(s) selected</p>
-                                                )}
-                                            </div>
-                                        </div>
+                                    <div className="grid grid-cols-1 gap-4">
                                         <div className="rounded-xl border border-white/10 bg-[#00273C]/40 p-4">
                                             <label className="block text-white/70 text-sm font-semibold mb-3">Images / References</label>
                                             <div className="relative">

@@ -29,7 +29,7 @@ export default function AccountingSidebar({
   className = '',
 }) {
   const wrapperClass = withFrame
-    ? `${cardClass} p-4 ${sticky ? 'sticky top-28' : ''} ${className}`.trim()
+    ? `${cardClass} p-4 ${sticky ? 'lg:sticky lg:top-28' : ''} ${className}`.trim()
     : className;
 
   const renderLink = (item) => {

@@ -3,7 +3,6 @@ import { Calendar, Clock, User, UserCheck, Users, FileText, GitMerge, FolderKanb
 const PRIMARY_LINKS = [
   { id: 'attendance', label: 'Attendance', icon: Calendar, page: 'attendance' },
   { id: 'overtime', label: 'Overtime & Leave', icon: Clock, page: 'overtime' },
-  { id: 'events', label: 'Calendar / Events', icon: Calendar, page: 'events' },
 ];
 
 const DOCUMENTATION_LINKS = [

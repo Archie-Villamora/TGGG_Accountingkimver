@@ -10,6 +10,7 @@ import {
   getCombinedNotes,
   formatLateDeduction,
 } from '../../utils/attendanceFormatters';
+import { X, FileText } from 'lucide-react';
 
 /**
  * Standardized Attendance History Table component
@@ -32,7 +33,7 @@ export default function AttendanceHistoryTable({
   selectedDate = new Date().toISOString().split('T')[0],
   onDateChange = () => { },
 }) {
-  const [expandedWorkIdx, setExpandedWorkIdx] = useState(null);
+  const [selectedWorkData, setSelectedWorkData] = useState(null);
 
   const cardClass = 'rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.22)]';
 
@@ -223,16 +224,17 @@ export default function AttendanceHistoryTable({
                             <span className="truncate">{allNotes || '-'}</span>
                             {allNotes && (
                               <button
-                                className="shrink-0 p-1 px-2 text-[10px] rounded bg-[#FF7120] text-white hover:bg-[#e0611b] transition"
+                                className="shrink-0 p-1 px-2 text-[10px] rounded bg-[#FF7120] text-white hover:bg-[#e0611b] transition shadow-lg shadow-[#FF7120]/20"
                                 onClick={() =>
-                                  setExpandedWorkIdx((v) =>
-                                    v === index ? null : index
-                                  )
+                                  setSelectedWorkData({
+                                    date: day.date,
+                                    notes: allNotes,
+                                  })
                                 }
                                 type="button"
-                                aria-label="Toggle work done details"
+                                aria-label="View work done details"
                               >
-                                ...
+                                View Full
                               </button>
                             )}
                           </div>
@@ -268,21 +270,7 @@ export default function AttendanceHistoryTable({
                         </td>
                       </tr>
 
-                      {expandedWorkIdx === index && (
-                        <tr className="border-b border-white/5 bg-[#001a2b]">
-                          <td colSpan={12} className="px-6 py-4">
-                            <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-                              <p className="text-white/50 text-xs font-semibold uppercase tracking-wider">
-                                WORK DONE (FULL)
-                              </p>
-                              <p className="mt-2 text-white/90 text-sm leading-relaxed whitespace-pre-line">
-                                {allNotes}
-                              </p>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
+                      </React.Fragment>
                   );
                 });
               })()}
@@ -291,6 +279,52 @@ export default function AttendanceHistoryTable({
 
         {error && <p className="mt-3 text-xs text-red-200 px-4 py-2">{error}</p>}
       </div>
+
+      {/* Work Done Modal */}
+      {selectedWorkData && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setSelectedWorkData(null)}
+        >
+          <div 
+            className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#001f35] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 sm:p-6 border-b border-white/10 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-[#FF7120]/10 p-2 rounded-xl">
+                  <FileText className="h-5 w-5 text-[#FF7120]" />
+                </div>
+                <div>
+                  <h4 className="text-white font-semibold">Work Done (Full)</h4>
+                  <p className="text-white/40 text-xs">{selectedWorkData.date}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedWorkData(null)}
+                className="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
+              <p className="text-white/80 text-sm leading-relaxed whitespace-pre-line">
+                {selectedWorkData.notes}
+              </p>
+            </div>
+            <div className="p-4 border-t border-white/10 bg-[#001a2b]/50">
+              <button
+                type="button"
+                onClick={() => setSelectedWorkData(null)}
+                className="w-full py-2.5 rounded-xl bg-white/5 text-white/70 text-sm font-semibold hover:bg-white/10 hover:text-white transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

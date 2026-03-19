@@ -238,7 +238,7 @@ const JuniorDesignerDocumentationPage = ({ user, onNavigate }) => {
             <PublicNavigation onNavigate={onNavigate} currentPage="documentation" user={user} />
 
             <div className="relative pt-40 sm:pt-28 px-3 sm:px-6 pb-10">
-                <div className="max-w-[1600px] mx-auto flex gap-6">
+                <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-6">
                     <aside className="w-64 shrink-0 hidden lg:block">
                         <JuniorDesignerSidebar currentPage="documentation" onNavigate={onNavigate} />
                     </aside>
@@ -338,22 +338,24 @@ const JuniorDesignerDocumentationPage = ({ user, onNavigate }) => {
                                             className="w-full rounded-xl border border-white/15 bg-[#00273C]/60 px-3 py-2 text-sm text-white placeholder:text-white/45 outline-none resize-none focus:border-[#FF7120]/50"
                                         />
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="rounded-xl border border-white/10 bg-[#00273C]/40 p-4">
-                                            <label className="block text-white/70 text-sm font-semibold mb-3">Model / CAD Files</label>
-                                            <div className="relative">
-                                                <input
-                                                    type="file"
-                                                    multiple
-                                                    accept={MODEL_ACCEPT}
-                                                    onChange={(e) => setModelFiles(Array.from(e.target.files || []))}
-                                                    className="block w-full text-sm text-white/70 file:mr-3 file:rounded-lg file:border-0 file:bg-[#FF7120]/20 file:px-3 file:py-2 file:text-[#FF7120] file:cursor-pointer hover:file:bg-[#FF7120]/30"
-                                                />
-                                                {modelFiles.length > 0 && (
-                                                    <p className="text-xs text-emerald-400 mt-2">{modelFiles.length} file(s) selected</p>
-                                                )}
+                                    <div className={`grid grid-cols-1 ${user?.role !== 'junior_architect' ? 'md:grid-cols-2' : ''} gap-4`}>
+                                        {user?.role !== 'junior_architect' && (
+                                            <div className="rounded-xl border border-white/10 bg-[#00273C]/40 p-4">
+                                                <label className="block text-white/70 text-sm font-semibold mb-3">Model / CAD Files</label>
+                                                <div className="relative">
+                                                    <input
+                                                        type="file"
+                                                        multiple
+                                                        accept={MODEL_ACCEPT}
+                                                        onChange={(e) => setModelFiles(Array.from(e.target.files || []))}
+                                                        className="block w-full text-sm text-white/70 file:mr-3 file:rounded-lg file:border-0 file:bg-[#FF7120]/20 file:px-3 file:py-2 file:text-[#FF7120] file:cursor-pointer hover:file:bg-[#FF7120]/30"
+                                                    />
+                                                    {modelFiles.length > 0 && (
+                                                        <p className="text-xs text-emerald-400 mt-2">{modelFiles.length} file(s) selected</p>
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
+                                        )}
                                         <div className="rounded-xl border border-white/10 bg-[#00273C]/40 p-4">
                                             <label className="block text-white/70 text-sm font-semibold mb-3">Images / References</label>
                                             <div className="relative">

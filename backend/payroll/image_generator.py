@@ -348,7 +348,7 @@ def generate_payslip_image(payslip_data):
     )
     if left_signature:
         left_x = s(168) - (left_signature.width // 2)
-        left_y = s(646)
+        left_y = s(675)
         img.paste(left_signature, (left_x, left_y), left_signature)
 
     right_signature = _load_signature_image(
@@ -358,7 +358,7 @@ def generate_payslip_image(payslip_data):
     )
     if right_signature:
         right_x = s(674) - (right_signature.width // 2)
-        right_y = s(646)
+        right_y = s(675)
         img.paste(right_signature, (right_x, right_y), right_signature)
 
     draw.text((s(168), s(692)), prepared_by, fill=black, font=sign_name_font, anchor='mm')

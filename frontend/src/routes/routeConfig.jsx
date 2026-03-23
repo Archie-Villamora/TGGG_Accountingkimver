@@ -79,10 +79,13 @@ const AccountingOvertimePage = lazy(() =>
     import('../pages/dashboards/Accounting_Department/AccountingOvertimePage')
 );
 const AccountingEventsPanel = lazy(() =>
-    import('../pages/dashboards/Accounting_Department/AccountingEventsPanel')
+    import('../pages/dashboards/Accounting_Department/Calendar_Events/AccountingEventsPanel')
 );
 const AccountingOvertimeRequestsPanel = lazy(() =>
     import('../pages/dashboards/shared/OvertimeRequestApprovalsPanel')
+);
+const EmployeeCalendarPage = lazy(() =>
+    import('../pages/dashboards/shared/EmployeeCalendarPage')
 );
 
 /**
@@ -183,6 +186,7 @@ export function renderDashboard({
     // Studio head / admin
     if (user.role === 'studio_head' || user.role === 'admin') {
         if (currentPage === 'attendance') return <StudioHeadAttendance user={user} token={localStorage.getItem('token')} onLogout={handleLogout} onNavigate={handleNavigate} />;
+        if (currentPage === 'calendar') return <EmployeeCalendarPage user={user} onNavigate={handleNavigate} />;
         if (currentPage === 'overtime') return <EmployeeOvertimePage user={user} token={localStorage.getItem('token')} onLogout={handleLogout} onNavigate={handleNavigate} />;
         if (currentPage === 'profile') return <StudioHeadProfilePage user={user} token={localStorage.getItem('token')} onLogout={handleLogout} onNavigate={handleNavigate} />;
         if (currentPage === 'studio-head-bim-docs') return <StudioHeadBimDocumentationPage user={user} onLogout={handleLogout} onNavigate={handleNavigate} />;
@@ -217,6 +221,7 @@ export function renderDashboard({
     // Site Engineer
     if (user.role === 'site_engineer') {
         if (currentPage === 'engineer-hub') return <EngineerHub user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
+        if (currentPage === 'calendar') return <EmployeeCalendarPage user={user} onNavigate={handleNavigate} />;
         if (currentPage === 'overtime') return <SiteEngineerOvertimePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
         if (currentPage === 'todo') return <SiteEngineerTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={fetchNotifications} />;
         if (currentPage === 'profile') return <SiteEngineerProfilePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
@@ -226,6 +231,7 @@ export function renderDashboard({
     // Site Coordinator
     if (user.role === 'site_coordinator') {
         if (currentPage === 'coordinator-hub') return <CoordinatorHub user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
+        if (currentPage === 'calendar') return <EmployeeCalendarPage user={user} onNavigate={handleNavigate} />;
         if (currentPage === 'overtime') return <SiteCoordinatorOvertimePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
         if (currentPage === 'todo') return <SiteCoordinatorTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={fetchNotifications} />;
         if (currentPage === 'profile') return <SiteCoordinatorProfilePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
@@ -236,6 +242,7 @@ export function renderDashboard({
     if (user.role === 'junior_architect') {
         if (currentPage === 'designer-hub') return <JuniorDesignerAttendanceDashboard user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
         if (currentPage === 'documentation') return <JuniorDesignerDocumentationPage user={user} onNavigate={handleNavigate} />;
+        if (currentPage === 'calendar') return <EmployeeCalendarPage user={user} onNavigate={handleNavigate} />;
         if (currentPage === 'overtime') return <JuniorDesignerOvertimePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
         if (currentPage === 'todo') return <JuniorDesignerTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={fetchNotifications} />;
         if (currentPage === 'profile') return <JuniorDesignerProfilePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
@@ -244,6 +251,7 @@ export function renderDashboard({
 
     // Intern
     if (user.role === 'intern') {
+        if (currentPage === 'calendar') return <EmployeeCalendarPage user={user} onNavigate={handleNavigate} />;
         if (currentPage === 'overtime') return <InternOvertimePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
         if (currentPage === 'todo') return <InternTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={fetchNotifications} />;
         if (currentPage === 'profile') return <InternProfilePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
@@ -252,6 +260,7 @@ export function renderDashboard({
 
     // Employee
     if (user.role === 'employee') {
+        if (currentPage === 'calendar') return <EmployeeCalendarPage user={user} onNavigate={handleNavigate} />;
         if (currentPage === 'overtime') return <EmployeeOvertimePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
         if (currentPage === 'todo') return <EmployeeTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={fetchNotifications} />;
         if (currentPage === 'profile') return <EmployeeProfilePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
@@ -260,6 +269,7 @@ export function renderDashboard({
 
     // BIM Specialist
     if (user.role === 'bim_specialist') {
+        if (currentPage === 'calendar') return <EmployeeCalendarPage user={user} onNavigate={handleNavigate} />;
         if (currentPage === 'overtime') return <BimSpecialistOvertimePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
         if (currentPage === 'todo') return <BimSpecialistTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={fetchNotifications} />;
         if (currentPage === 'documentation') return <BimSpecialistDocumentationPage user={user} onLogout={handleLogout} onNavigate={handleNavigate} />;
@@ -289,6 +299,7 @@ export function renderDashboard({
     }
 
     // Fallback → Employee Dashboard
+    if (currentPage === 'calendar') return <EmployeeCalendarPage user={user} onNavigate={handleNavigate} />;
     if (currentPage === 'overtime') return <EmployeeOvertimePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;
     if (currentPage === 'todo') return <EmployeeTodoPage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} onNotificationUpdate={fetchNotifications} />;
     if (currentPage === 'profile') return <EmployeeProfilePage user={user} token={token} onLogout={handleLogout} onNavigate={handleNavigate} />;

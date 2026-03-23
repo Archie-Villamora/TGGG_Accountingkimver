@@ -1,13 +1,14 @@
-import { ClipboardList, Clock, CheckSquare, Home } from 'lucide-react';
+import { ClipboardList, Clock, CheckSquare, Home, CalendarDays } from 'lucide-react';
 
-const SECTION_LINKS = [
+const PRIMARY_LINKS = [
   { id: 'attendance', label: 'Attendance', icon: Home, section: 'attendance' },
-];
-
-const PAGE_LINKS = [
-  { id: 'coordinator-hub', label: 'Material Request', icon: ClipboardList, page: 'coordinator-hub' },
+  { id: 'calendar', label: 'Calendar', icon: CalendarDays, page: 'calendar' },
   { id: 'overtime', label: 'Overtime & Leave', icon: Clock, page: 'overtime' },
   { id: 'todo', label: 'Todo', icon: CheckSquare, page: 'todo' },
+];
+
+const SECONDARY_LINKS = [
+  { id: 'coordinator-hub', label: 'Material Request', icon: ClipboardList, page: 'coordinator-hub' },
 ];
 
 export default function SiteCoordinatorSidebar({
@@ -26,18 +27,33 @@ export default function SiteCoordinatorSidebar({
     onNavigate?.(`attendance?section=${section}`);
   };
 
+  const isLinkActive = (item) => {
+    if (item.section) {
+      return currentPage === 'attendance' && activeSection === item.section;
+    }
+    return currentPage === item.page;
+  };
+
+  const onLinkClick = (item) => {
+    if (item.section) {
+      onSectionClick(item.section);
+      return;
+    }
+    onNavigate?.(item.page);
+  };
+
   return (
     <div className={`${cardClass} p-4 lg:sticky lg:top-28`}>
       <nav className="space-y-2">
-        {SECTION_LINKS.map((item) => {
+        {PRIMARY_LINKS.map((item) => {
           const Icon = item.icon;
-          const isActive = currentPage === 'attendance' && activeSection === item.section;
+          const isActive = isLinkActive(item);
 
           return (
             <button
               key={item.id}
               type="button"
-              onClick={() => onSectionClick(item.section)}
+              onClick={() => onLinkClick(item)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${isActive
                   ? 'bg-[#FF7120] text-white'
                   : 'text-white/70 hover:text-white hover:bg-white/5'
@@ -51,7 +67,7 @@ export default function SiteCoordinatorSidebar({
 
         <div className="pt-2 mt-2 border-t border-white/10" />
 
-        {PAGE_LINKS.map((item) => {
+        {SECONDARY_LINKS.map((item) => {
           const Icon = item.icon;
           const isActive = currentPage === item.page;
           return (

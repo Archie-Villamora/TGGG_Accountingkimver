@@ -1,6 +1,6 @@
 import React from 'react';
 import { FolderKanban, MapPinned } from 'lucide-react';
-import CeoNavigation from './CeoNavigation';
+import PublicNavigation from '../Public_Dashboard/PublicNavigation';
 import CeoSidebar from './CeoSidebar';
 
 export default function CeoDashboardPage({ user, onNavigate, onLogout }) {
@@ -10,11 +10,11 @@ export default function CeoDashboardPage({ user, onNavigate, onLogout }) {
 
   return (
     <div className="min-h-screen bg-[#00273C]">
-      <CeoNavigation onNavigate={onNavigate} currentPage="ceo-dashboard" user={user} onLogout={onLogout} />
+      <PublicNavigation onNavigate={onNavigate} currentPage="ceo-dashboard" user={user} onLogout={onLogout} />
 
       <div className="pt-40 sm:pt-28 px-4 sm:px-6 pb-10">
         <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-6">
-          <aside className="w-full lg:w-64 shrink-0">
+          <aside className="hidden lg:block lg:w-64 shrink-0">
             <CeoSidebar currentPage="ceo-dashboard" onNavigate={onNavigate} />
           </aside>
 

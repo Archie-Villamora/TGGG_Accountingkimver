@@ -4,10 +4,13 @@ const SECTION_LINKS = [
   { id: 'attendance', label: 'Attendance', icon: Home, section: 'attendance' },
 ];
 
-const PAGE_LINKS = [
-  { id: 'coordinator-hub', label: 'Material Request', icon: ClipboardList, page: 'coordinator-hub' },
+const PERSONAL_PAGE_LINKS = [
   { id: 'overtime', label: 'Overtime & Leave', icon: Clock, page: 'overtime' },
   { id: 'todo', label: 'Todo', icon: CheckSquare, page: 'todo' },
+];
+
+const MANAGEMENT_PAGE_LINKS = [
+  { id: 'coordinator-hub', label: 'Material Request', icon: ClipboardList, page: 'coordinator-hub' },
 ];
 
 export default function SiteCoordinatorSidebar({
@@ -28,47 +31,70 @@ export default function SiteCoordinatorSidebar({
 
   return (
     <div className={`${cardClass} p-4 lg:sticky lg:top-28`}>
-      <nav className="space-y-2">
-        {SECTION_LINKS.map((item) => {
-          const Icon = item.icon;
-          const isActive = currentPage === 'attendance' && activeSection === item.section;
+      <nav className="space-y-4">
+        <div className="space-y-1">
+          <p className="px-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/30 mb-2">Personal</p>
+          {SECTION_LINKS.map((item) => {
+            const Icon = item.icon;
+            const isActive = currentPage === 'attendance' && activeSection === item.section;
 
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onSectionClick(item.section)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${isActive
-                  ? 'bg-[#FF7120] text-white'
-                  : 'text-white/70 hover:text-white hover:bg-white/5'
-                }`}
-            >
-              <Icon className="h-5 w-5" />
-              <span className="font-medium">{item.label}</span>
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onSectionClick(item.section)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${isActive
+                    ? 'bg-[#FF7120] text-white'
+                    : 'text-white/70 hover:text-white hover:bg-white/5'
+                  }`}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="font-medium">{item.label}</span>
+              </button>
+            );
+          })}
 
-        <div className="pt-2 mt-2 border-t border-white/10" />
+          {PERSONAL_PAGE_LINKS.map((item) => {
+            const Icon = item.icon;
+            const isActive = currentPage === item.page;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onNavigate?.(item.page)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${isActive
+                    ? 'bg-[#FF7120] text-white'
+                    : 'text-white/70 hover:text-white hover:bg-white/5'
+                  }`}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="font-medium">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
 
-        {PAGE_LINKS.map((item) => {
-          const Icon = item.icon;
-          const isActive = currentPage === item.page;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onNavigate?.(item.page)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${isActive
-                  ? 'bg-[#FF7120] text-white'
-                  : 'text-white/70 hover:text-white hover:bg-white/5'
-                }`}
-            >
-              <Icon className="h-5 w-5" />
-              <span className="font-medium">{item.label}</span>
-            </button>
-          );
-        })}
+        <div className="space-y-1">
+          <p className="px-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/30 mb-2">Management</p>
+          {MANAGEMENT_PAGE_LINKS.map((item) => {
+            const Icon = item.icon;
+            const isActive = currentPage === item.page;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onNavigate?.(item.page)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${isActive
+                    ? 'bg-[#FF7120] text-white'
+                    : 'text-white/70 hover:text-white hover:bg-white/5'
+                  }`}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="font-medium">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </nav>
     </div>
   );

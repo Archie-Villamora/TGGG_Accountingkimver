@@ -9,7 +9,7 @@ import {
     User2,
     XCircle,
 } from 'lucide-react';
-import CeoNavigation from './CeoNavigation';
+import PublicNavigation from '../Public_Dashboard/PublicNavigation';
 import CeoSidebar from './CeoSidebar';
 import bimDocumentationService from '../../../services/bimDocumentationService';
 import CommentThread from '../../../components/CommentThread';
@@ -432,7 +432,7 @@ const CeoBimDocumentationPage = ({
                 <div className="absolute top-40 -right-40 h-[520px] w-[520px] rounded-full bg-cyan-400/10 blur-[90px]" />
             </div>
 
-            <CeoNavigation onNavigate={onNavigate} currentPage={navigationCurrentPage} user={user} onLogout={onLogout} />
+            <PublicNavigation onNavigate={onNavigate} currentPage={navigationCurrentPage} user={user} onLogout={onLogout} />
 
             <div className="relative pt-40 sm:pt-28 px-3 sm:px-6 pb-10">
                 <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-6">

@@ -38,7 +38,7 @@ export default function CeoNavigation({ onNavigate, currentPage = 'attendance', 
       setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)));
     }
     if (notification.type === 'people') onNavigate?.('attendance');
-    if (notification.type === 'finance') onNavigate?.('ceo-dashboard');
+    if (notification.type === 'finance') onNavigate?.('attendance');
   };
 
   return (

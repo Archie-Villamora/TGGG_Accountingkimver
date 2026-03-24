@@ -4,6 +4,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock3,
+  FileText,
   MapPin,
   Package,
   RefreshCcw,
@@ -15,6 +16,7 @@ import PublicNavigation from '../Public_Dashboard/PublicNavigation';
 import StudioHeadSidebar from './components/StudioHeadSidebar';
 import materialRequestService from '../../../services/materialRequestService';
 import MaterialRequestCommentThread from '../../../components/MaterialRequestCommentThread';
+import MaterialRequestFormModal from '../../../components/modals/MaterialRequestFormModal';
 
 const cardClass = 'rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.22)]';
 
@@ -180,6 +182,7 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
   const [decisionNote, setDecisionNote] = useState('');
   const [loading, setLoading] = useState(false);
   const [submittingDecision, setSubmittingDecision] = useState(false);
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
 
   const requestsByTab = useMemo(() => ({
     pending: pendingRequests,
@@ -449,16 +452,26 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
                                       Submitted by {selectedRequest.created_by_name || selectedRequest.created_by_email || 'Unknown author'}
                                   </p>
                               </div>
-                              <button
-                                  type="button"
-                                  onClick={() => setActiveTab(selectedStatusMeta.tabId)}
-                                  className="rounded-full"
-                                  title={`Open ${selectedStatusMeta.label} tab`}
-                              >
-                                  <Badge tone={selectedStatusMeta.tone} className="cursor-pointer">
-                                      {selectedStatusMeta.label}
-                                  </Badge>
-                              </button>
+                              <div className="flex items-center gap-2">
+                                  <button
+                                      type="button"
+                                      onClick={() => setIsFormModalOpen(true)}
+                                      className="inline-flex items-center gap-2 px-3 py-1.5 border border-white/20 text-white text-xs font-medium rounded-lg hover:bg-white/10 transition"
+                                  >
+                                      <FileText className="h-3.5 w-3.5" />
+                                      View Form
+                                  </button>
+                                  <button
+                                      type="button"
+                                      onClick={() => setActiveTab(selectedStatusMeta.tabId)}
+                                      className="rounded-full"
+                                      title={`Open ${selectedStatusMeta.label} tab`}
+                                  >
+                                      <Badge tone={selectedStatusMeta.tone} className="cursor-pointer">
+                                          {selectedStatusMeta.label}
+                                      </Badge>
+                                  </button>
+                              </div>
                           </div>
                       </div>
 
@@ -592,6 +605,12 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
           </main>
         </div>
       </div>
+      <MaterialRequestFormModal
+        isOpen={isFormModalOpen}
+        onClose={() => setIsFormModalOpen(false)}
+        request={selectedRequest}
+        userRole={user?.role}
+      />
     </div>
   );
 };

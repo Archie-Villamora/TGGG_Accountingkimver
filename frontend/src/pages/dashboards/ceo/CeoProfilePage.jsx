@@ -1,16 +1,16 @@
 import React from 'react';
 import Profile from '../Public_Dashboard/Profile.jsx';
-import CeoNavigation from './CeoNavigation';
+import PublicNavigation from '../Public_Dashboard/PublicNavigation';
 import CeoSidebar from './CeoSidebar';
 
 const CeoProfilePage = ({ user, token, onLogout, onNavigate }) => {
   return (
     <div className="min-h-screen" style={{ background: '#00273C' }}>
-      <CeoNavigation onNavigate={onNavigate} currentPage="profile" user={user} onLogout={onLogout} />
+      <PublicNavigation onNavigate={onNavigate} currentPage="profile" user={user} onLogout={onLogout} />
 
       <div className="pt-40 sm:pt-28 px-3 sm:px-6 pb-6 w-full">
         <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-6">
-          <aside className="w-full lg:w-64 shrink-0">
+          <aside className="hidden lg:block lg:w-64 shrink-0">
             <CeoSidebar currentPage="profile" onNavigate={onNavigate} onLogout={onLogout} />
           </aside>
 

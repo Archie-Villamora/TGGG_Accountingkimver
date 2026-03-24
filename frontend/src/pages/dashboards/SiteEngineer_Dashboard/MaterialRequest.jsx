@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock3,
+  FileText,
   Image as ImageIcon,
   Package,
   Plus,
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react';
 import materialRequestService from '../../../services/materialRequestService';
 import MaterialRequestCommentThread from '../../../components/MaterialRequestCommentThread';
+import MaterialRequestFormModal from '../../../components/modals/MaterialRequestFormModal';
 
 const DEFAULT_FORM = {
   projectName: '',
@@ -98,6 +100,8 @@ const MaterialRequest = ({ user }) => {
   const [editingRequestId, setEditingRequestId] = useState(null);
   const [editingRejectedRequest, setEditingRejectedRequest] = useState(false);
   const [uploadedImage, setUploadedImage] = useState(null);
+  const [selectedRequestForModal, setSelectedRequestForModal] = useState(null);
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
 
   const counts = useMemo(() => {
@@ -988,6 +992,18 @@ const MaterialRequest = ({ user }) => {
                         </button>
                       )}
 
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedRequestForModal(request);
+                          setIsFormModalOpen(true);
+                        }}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-white/20 text-white text-sm font-medium hover:bg-white/10 transition"
+                      >
+                        <FileText className="h-4 w-4" />
+                        View Form
+                      </button>
+
                       {canDelete && (
                         <button
                           type="button"
@@ -1041,6 +1057,12 @@ const MaterialRequest = ({ user }) => {
           )}
         </div>
       )}
+      <MaterialRequestFormModal
+        isOpen={isFormModalOpen}
+        onClose={() => setIsFormModalOpen(false)}
+        request={selectedRequestForModal}
+        userRole={user?.role}
+      />
     </div>
   );
 };

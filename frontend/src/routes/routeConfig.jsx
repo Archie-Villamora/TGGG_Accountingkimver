@@ -81,6 +81,9 @@ const AccountingOvertimePage = lazy(() =>
 const AccountingEventsPanel = lazy(() =>
     import('../pages/dashboards/Accounting_Department/Calendar_Events/AccountingEventsPanel')
 );
+const AccountingMaterialRequestPage = lazy(() =>
+    import('../pages/dashboards/Accounting_Department/AccountingMaterialRequestPage')
+);
 const AccountingOvertimeRequestsPanel = lazy(() =>
     import('../pages/dashboards/shared/OvertimeRequestApprovalsPanel')
 );
@@ -111,6 +114,8 @@ export function renderAccountingDashboard({
                     ? 'events'
                     : currentPage === 'otrequest'
                         ? 'otrequest'
+                    : currentPage === 'material-requests'
+                        ? 'material-requests'
                     : 'main';
 
     const renderContent = () => {
@@ -136,6 +141,9 @@ export function renderAccountingDashboard({
         }
         if (effectiveSection === 'otrequest') {
             return <AccountingOvertimeRequestsPanel reviewerRole="accounting" />;
+        }
+        if (effectiveSection === 'material-requests') {
+            return <AccountingMaterialRequestPage user={user} />;
         }
         switch (activeTab) {
             case 'dashboard':

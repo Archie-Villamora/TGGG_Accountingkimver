@@ -121,7 +121,7 @@ const AttendanceDashboard = ({
     <div className={`relative ${finalTopSpacing} ${embedded ? '' : 'px-3 sm:px-6'} pb-10 w-full`}>
       <div className={containerClass}>
         {!embedded && hasCustomSidebar && (
-          <aside className="w-full lg:w-64 shrink-0">
+          <aside className="hidden lg:block lg:w-64 shrink-0">
             {sidebarComponent}
           </aside>
         )}

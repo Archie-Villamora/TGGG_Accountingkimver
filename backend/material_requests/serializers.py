@@ -22,16 +22,11 @@ class MaterialRequestSerializer(serializers.ModelSerializer):
     items = MaterialRequestItemSerializer(many=True)
     created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
     created_by_email = serializers.CharField(source='created_by.email', read_only=True)
-    reviewed_by_studio_head_name = serializers.CharField(
-        source='reviewed_by_studio_head.get_full_name',
-        read_only=True,
-        allow_null=True,
-    )
-    reviewed_by_ceo_name = serializers.CharField(
-        source='reviewed_by_ceo.get_full_name',
-        read_only=True,
-        allow_null=True,
-    )
+    reviewed_by_studio_head_name = serializers.SerializerMethodField()
+    reviewed_by_ceo_name = serializers.SerializerMethodField()
+    created_by_signature = serializers.SerializerMethodField()
+    reviewed_by_studio_head_signature = serializers.SerializerMethodField()
+    reviewed_by_ceo_signature = serializers.SerializerMethodField()
     item_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -48,13 +43,16 @@ class MaterialRequestSerializer(serializers.ModelSerializer):
             'requester_role',
             'created_by_name',
             'created_by_email',
+            'created_by_signature',
             'status',
             'reviewed_by_studio_head',
             'reviewed_by_studio_head_name',
+            'reviewed_by_studio_head_signature',
             'studio_head_reviewed_at',
             'studio_head_comments',
             'reviewed_by_ceo',
             'reviewed_by_ceo_name',
+            'reviewed_by_ceo_signature',
             'ceo_reviewed_at',
             'ceo_comments',
             'request_image',
@@ -78,6 +76,31 @@ class MaterialRequestSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
+
+    def get_reviewed_by_studio_head_name(self, obj):
+        if obj.reviewed_by_studio_head:
+            return obj.reviewed_by_studio_head.get_full_name() or obj.reviewed_by_studio_head.email
+        return None
+
+    def get_reviewed_by_ceo_name(self, obj):
+        if obj.reviewed_by_ceo:
+            return obj.reviewed_by_ceo.get_full_name() or obj.reviewed_by_ceo.email
+        return None
+
+    def get_created_by_signature(self, obj):
+        if obj.created_by and obj.created_by.signature_image:
+            return obj.created_by.signature_image
+        return None
+
+    def get_reviewed_by_studio_head_signature(self, obj):
+        if obj.reviewed_by_studio_head and obj.reviewed_by_studio_head.signature_image:
+            return obj.reviewed_by_studio_head.signature_image
+        return None
+
+    def get_reviewed_by_ceo_signature(self, obj):
+        if obj.reviewed_by_ceo and obj.reviewed_by_ceo.signature_image:
+            return obj.reviewed_by_ceo.signature_image
+        return None
 
     def get_item_count(self, obj):
         prefetched = getattr(obj, '_prefetched_objects_cache', {})

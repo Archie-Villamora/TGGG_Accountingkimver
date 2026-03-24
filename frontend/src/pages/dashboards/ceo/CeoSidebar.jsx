@@ -1,25 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { ClipboardList, Clock, FolderKanban, LayoutDashboard, User, X } from 'lucide-react';
 
-const PRIMARY_LINKS = [
-  { id: 'ceo-dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'ceo-bim-docs', label: 'BIM Documentation', icon: FolderKanban },
-  { id: 'ceo-junior-docs', label: 'Junior Architect Docs', icon: User },
-  { id: 'ceo-material-requests', label: 'Material Requests', icon: ClipboardList },
+const PERSONAL_LINKS = [
+  { id: 'attendance', label: 'Attendance', icon: Clock },
 ];
 
-const SECONDARY_LINKS = [
-  { id: 'attendance', label: 'Attendance', icon: Clock },
+const DOCUMENTATION_LINKS = [
+  { id: 'ceo-bim-docs', label: 'BIM Documentation', icon: FolderKanban },
+  { id: 'ceo-junior-docs', label: 'Junior Architect Docs', icon: User },
+];
+
+const REQUESTS_LINKS = [
+  { id: 'ceo-material-requests', label: 'Material Requests', icon: ClipboardList },
 ];
 
 const cardClass = 'rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-lg';
 
 export default function CeoSidebar({
-  currentPage = 'ceo-dashboard',
+  currentPage = 'attendance',
   onNavigate,
   withFrame = true,
   sticky = true,
-  mobileCollapsible = true,
+  mobileCollapsible = false,
   className = '',
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -95,15 +97,22 @@ export default function CeoSidebar({
       </div>
 
       <div className="mt-3 lg:mt-0">
-        <nav className="space-y-2">
-          {PRIMARY_LINKS.map(renderNavButton)}
-        </nav>
+        <nav className="space-y-4">
+          <div className="space-y-1">
+            <p className="px-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/30 mb-2">Personal</p>
+            {PERSONAL_LINKS.map(renderNavButton)}
+          </div>
 
-        <div className="pt-3 mt-3 border-t border-white/10">
-          <nav className="space-y-2">
-            {SECONDARY_LINKS.map(renderNavButton)}
-          </nav>
-        </div>
+          <div className="space-y-1">
+            <p className="px-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/30 mb-2">Documentation</p>
+            {DOCUMENTATION_LINKS.map(renderNavButton)}
+          </div>
+
+          <div className="space-y-1">
+            <p className="px-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/30 mb-2">Management</p>
+            {REQUESTS_LINKS.map(renderNavButton)}
+          </div>
+        </nav>
       </div>
     </>
   );

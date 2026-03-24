@@ -13,7 +13,9 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
     user?.role === 'junior_architect' ||
     user?.role === 'site_engineer' ||
     user?.role === 'site_coordinator' ||
-    user?.role === 'intern';
+    user?.role === 'intern' ||
+    user?.role === 'ceo' ||
+    user?.role === 'president';
   const [notificationFilter, setNotificationFilter] = useState('all');
   const [sortOrder, setSortOrder] = useState('newest');
   const [notifications, setNotifications] = useState([]);
@@ -343,83 +345,175 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
                 <PopoverContent className="w-64 p-2 bg-[#001f35] border-[#AEAAAA]/20 shadow-xl z-[60]" align="end" sideOffset={8}>
                   <div className="flex flex-col gap-1">
                     {(() => {
-                      let items = [];
+                      let sections = [];
                       if (user?.role === 'studio_head' || user?.role === 'admin') {
-                        items = [
-                          { id: 'attendance', label: 'Attendance', icon: Home, path: 'attendance' },
-                          { id: 'overtime', label: 'Overtime & Leave', icon: Clock, path: 'overtime' },
-                          { id: 'bim-docs', label: 'BIM Documentation', icon: FolderKanban, path: 'studio-head-bim-docs' },
-                          { id: 'junior-architect-docs', label: 'Junior Architect Docs', icon: User, path: 'studio-head-junior-docs' },
-                          { id: 'material-requests', label: 'Material Request', icon: ClipboardList, path: 'studio-head-material-requests' },
-                          { id: 'approvals', label: 'User Approvals', icon: ClipboardCheck, path: 'approvals' },
-                          { id: 'users', label: 'Manage Users', icon: Users, path: 'users' },
-                          { id: 'reviews', label: 'Design Reviews', icon: FileText, path: 'reviews' },
-                          { id: 'coordination', label: 'Coordinator Panel', icon: GitMerge, path: 'coordination' },
+                        sections = [
+                          {
+                            title: 'Personal',
+                            items: [
+                              { id: 'attendance', label: 'Attendance', icon: Home, path: 'attendance' },
+                              { id: 'overtime', label: 'Overtime & Leave', icon: Clock, path: 'overtime' },
+                            ]
+                          },
+                          {
+                            title: 'Documentation',
+                            items: [
+                              { id: 'bim-docs', label: 'BIM Documentation', icon: FolderKanban, path: 'studio-head-bim-docs' },
+                              { id: 'junior-architect-docs', label: 'Junior Architect Docs', icon: User, path: 'studio-head-junior-docs' },
+                              { id: 'reviews', label: 'Design Reviews', icon: FileText, path: 'reviews' },
+                            ]
+                          },
+                          {
+                            title: 'Management',
+                            items: [
+                              { id: 'material-requests', label: 'Material Request', icon: ClipboardList, path: 'studio-head-material-requests' },
+                              { id: 'approvals', label: 'User Approvals', icon: ClipboardCheck, path: 'approvals' },
+                              { id: 'users', label: 'Manage Users', icon: Users, path: 'users' },
+                              { id: 'coordination', label: 'Coordinator Panel', icon: GitMerge, path: 'coordination' },
+                            ]
+                          }
                         ];
                       } else if (user?.role === 'bim_specialist') {
-                        items = [
-                          { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
-                          { id: 'calendar', label: 'Calendar', icon: Calendar, path: 'calendar' },
-                          { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
-                          { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
-                          { id: 'documentation', label: 'Docs', icon: FolderKanban, path: 'documentation' },
+                        sections = [
+                          {
+                            title: 'Personal',
+                            items: [
+                              { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
+                              { id: 'calendar', label: 'Calendar', icon: Calendar, path: 'calendar' },
+                              { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
+                              { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
+                            ]
+                          },
+                          {
+                            title: 'Documentation',
+                            items: [
+                              { id: 'documentation', label: 'Docs', icon: FolderKanban, path: 'documentation' },
+                            ]
+                          }
                         ];
                       } else if (user?.role === 'junior_architect') {
-                        items = [
-                          { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
-                          { id: 'calendar', label: 'Calendar', icon: Calendar, path: 'calendar' },
-                          { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
-                          { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
-                          { id: 'documentation', label: 'Docs', icon: FolderKanban, path: 'documentation' },
+                        sections = [
+                          {
+                            title: 'Personal',
+                            items: [
+                              { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
+                              { id: 'calendar', label: 'Calendar', icon: Calendar, path: 'calendar' },
+                              { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
+                              { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
+                            ]
+                          },
+                          {
+                            title: 'Documentation',
+                            items: [
+                              { id: 'documentation', label: 'Docs', icon: FolderKanban, path: 'documentation' },
+                            ]
+                          }
                         ];
                       } else if (user?.role === 'site_engineer') {
-                        items = [
-                          { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
-                          { id: 'calendar', label: 'Calendar', icon: Calendar, path: 'calendar' },
-                          { id: 'engineer-hub', label: 'MatReq', icon: ClipboardList, path: 'engineer-hub' },
-                          { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
-                          { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
+                        sections = [
+                          {
+                            title: 'Personal',
+                            items: [
+                              { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
+                              { id: 'calendar', label: 'Calendar', icon: Calendar, path: 'calendar' },
+                              { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
+                              { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
+                            ]
+                          },
+                          {
+                            title: 'Management',
+                            items: [
+                              { id: 'engineer-hub', label: 'MatReq', icon: ClipboardList, path: 'engineer-hub' },
+                            ]
+                          }
                         ];
                       } else if (user?.role === 'site_coordinator') {
-                        items = [
-                          { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
-                          { id: 'calendar', label: 'Calendar', icon: Calendar, path: 'calendar' },
-                          { id: 'coordinator-hub', label: 'MatReq', icon: ClipboardList, path: 'coordinator-hub' },
-                          { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
-                          { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
+                        sections = [
+                          {
+                            title: 'Personal',
+                            items: [
+                              { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
+                              { id: 'calendar', label: 'Calendar', icon: Calendar, path: 'calendar' },
+                              { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
+                              { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
+                            ]
+                          },
+                          {
+                            title: 'Management',
+                            items: [
+                              { id: 'coordinator-hub', label: 'MatReq', icon: ClipboardList, path: 'coordinator-hub' },
+                            ]
+                          }
                         ];
                       } else if (user?.role === 'intern') {
-                        items = [
-                          { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
-                          { id: 'calendar', label: 'Calendar', icon: Calendar, path: 'calendar' },
-                          { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
-                          { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
+                        sections = [
+                          {
+                            title: 'Personal',
+                            items: [
+                              { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
+                              { id: 'calendar', label: 'Calendar', icon: Calendar, path: 'calendar' },
+                              { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
+                              { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
+                            ]
+                          }
                         ];
                       } else if (user?.role === 'employee') {
-                        items = [
-                          { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
-                          { id: 'calendar', label: 'Calendar', icon: Calendar, path: 'calendar' },
-                          { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
-                          { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
+                        sections = [
+                          {
+                            title: 'Personal',
+                            items: [
+                              { id: 'attendance', label: 'Dashboard', icon: Home, path: 'attendance' },
+                              { id: 'calendar', label: 'Calendar', icon: Calendar, path: 'calendar' },
+                              { id: 'overtime', label: 'OT', icon: Clock, path: 'overtime' },
+                              { id: 'todo', label: 'Todo', icon: CheckSquare, path: 'todo' },
+                            ]
+                          }
+                        ];
+                      } else if (user?.role === 'ceo' || user?.role === 'president') {
+                        sections = [
+                          {
+                            title: 'Personal',
+                            items: [
+                              { id: 'attendance', label: 'Attendance', icon: Clock, path: 'attendance' },
+                            ]
+                          },
+                          {
+                            title: 'Documentation',
+                            items: [
+                              { id: 'ceo-bim-docs', label: 'BIM Documentation', icon: FolderKanban, path: 'ceo-bim-docs' },
+                              { id: 'ceo-junior-docs', label: 'Junior Architect Docs', icon: User, path: 'ceo-junior-docs' },
+                            ]
+                          },
+                          {
+                            title: 'Management',
+                            items: [
+                              { id: 'ceo-material-requests', label: 'Material Requests', icon: ClipboardList, path: 'ceo-material-requests' },
+                            ]
+                          }
                         ];
                       }
                       
-                      return items.map((item) => (
-                        <button
-                          key={item.id}
-                          onClick={() => {
-                            onNavigate(item.path);
-                            setIsMenuOpen(false);
-                          }}
-                          className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                            currentPage === item.id || currentPage === item.path
-                              ? 'bg-[#FF7120] text-white' 
-                              : 'text-white/70 hover:bg-white/5 hover:text-white'
-                          }`}
-                        >
-                          <item.icon className="h-5 w-5" />
-                          <span className="font-medium">{item.label}</span>
-                        </button>
+                      return sections.map((section, idx) => (
+                        <div key={idx} className="mb-2">
+                          <p className="px-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/30 mb-1 mt-2">{section.title}</p>
+                          {section.items.map((item) => (
+                            <button
+                              key={item.id}
+                              onClick={() => {
+                                onNavigate(item.path);
+                                setIsMenuOpen(false);
+                              }}
+                              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+                                currentPage === item.id || currentPage === item.path
+                                  ? 'bg-[#FF7120] text-white' 
+                                  : 'text-white/70 hover:bg-white/5 hover:text-white'
+                              }`}
+                            >
+                              <item.icon className="h-5 w-5" />
+                              <span className="font-medium">{item.label}</span>
+                            </button>
+                          ))}
+                        </div>
                       ));
                     })()}
                   </div>

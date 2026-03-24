@@ -29,51 +29,55 @@ export default function SiteEngineerSidebar({
 
   return (
     <div className={`${cardClass} p-4 lg:sticky lg:top-28`}>
-      <nav className="space-y-2">
-        {PRIORITY_LINKS.map((item) => {
-          const Icon = item.icon;
-          const isActive = item.type === 'section'
-            ? currentPage === 'attendance' && activeSection === item.section
-            : currentPage === item.page;
-          const onClick = item.type === 'section'
-            ? () => onSectionClick(item.section)
-            : () => onNavigate?.(item.page);
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={onClick}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${isActive
-                ? 'bg-[#FF7120] text-white'
-                : 'text-white/70 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <Icon className="h-5 w-5" />
-              <span className="font-medium">{item.label}</span>
-            </button>
-          );
-        })}
+      <nav className="space-y-4">
+        <div className="space-y-1">
+          <p className="px-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/30 mb-2">Personal</p>
+          {PRIORITY_LINKS.map((item) => {
+            const Icon = item.icon;
+            const isActive = item.type === 'section'
+              ? currentPage === 'attendance' && activeSection === item.section
+              : currentPage === item.page;
+            const onClick = item.type === 'section'
+              ? () => onSectionClick(item.section)
+              : () => onNavigate?.(item.page);
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={onClick}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${isActive
+                  ? 'bg-[#FF7120] text-white'
+                  : 'text-white/70 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="font-medium">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
 
-        <div className="pt-2 mt-2 border-t border-white/10" />
-
-        {SECONDARY_LINKS.map((item) => {
-          const Icon = item.icon;
-          const isActive = currentPage === item.page;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onNavigate?.(item.page)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${isActive
-                ? 'bg-[#FF7120] text-white'
-                : 'text-white/70 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <Icon className="h-5 w-5" />
-              <span className="font-medium">{item.label}</span>
-            </button>
-          );
-        })}
+        <div className="space-y-1">
+          <p className="px-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/30 mb-2">Management</p>
+          {SECONDARY_LINKS.map((item) => {
+            const Icon = item.icon;
+            const isActive = currentPage === item.page;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onNavigate?.(item.page)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${isActive
+                  ? 'bg-[#FF7120] text-white'
+                  : 'text-white/70 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="font-medium">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </nav>
     </div>
   );

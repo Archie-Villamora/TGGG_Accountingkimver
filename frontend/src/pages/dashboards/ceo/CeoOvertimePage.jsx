@@ -3,7 +3,7 @@ import OvertimeForm from '../Public_Dashboard/OvertimeForm.jsx';
 import OvertimeStatus from '../Public_Dashboard/OvertimeStatus.jsx';
 import LeaveForm from '../Public_Dashboard/LeaveForm.jsx';
 import LeaveStatus from '../Public_Dashboard/LeaveStatus.jsx';
-import CeoNavigation from './CeoNavigation';
+import PublicNavigation from '../Public_Dashboard/PublicNavigation';
 import CeoSidebar from './CeoSidebar';
 
 const CeoOvertimePage = ({ user, token, onLogout, onNavigate }) => {
@@ -50,11 +50,11 @@ const CeoOvertimePage = ({ user, token, onLogout, onNavigate }) => {
 
   return (
     <div className="min-h-screen" style={{ background: '#00273C' }}>
-      <CeoNavigation onNavigate={onNavigate} currentPage="overtime" user={user} onLogout={onLogout} />
+      <PublicNavigation onNavigate={onNavigate} currentPage="overtime" user={user} onLogout={onLogout} />
 
       <div className="pt-40 sm:pt-28 px-3 sm:px-6 pb-6 w-full">
         <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-6">
-          <aside className="w-full lg:w-64 shrink-0">
+          <aside className="hidden lg:block lg:w-64 shrink-0">
             <CeoSidebar currentPage="overtime" onNavigate={onNavigate} onLogout={onLogout} />
           </aside>
 

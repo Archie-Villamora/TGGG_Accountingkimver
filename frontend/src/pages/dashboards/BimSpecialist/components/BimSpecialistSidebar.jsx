@@ -1,10 +1,13 @@
 import { Calendar, CalendarDays, FolderKanban, Clock, CheckSquare } from 'lucide-react';
 
-const NAV_ITEMS = [
+const PERSONAL_LINKS = [
   { id: 'attendance', label: 'Attendance', icon: Calendar, section: 'attendance' },
   { id: 'calendar', label: 'Calendar', icon: CalendarDays, page: 'calendar' },
   { id: 'overtime', label: 'Overtime & Leave', icon: Clock, page: 'overtime' },
   { id: 'todo', label: 'Todo', icon: CheckSquare, page: 'todo' },
+];
+
+const DOCUMENTATION_LINKS = [
   { id: 'documentation', label: 'Documentation', icon: FolderKanban, page: 'documentation' },
 ];
 
@@ -32,16 +35,17 @@ export default function BimSpecialistSidebar({
 
   return (
     <div className={`${cardClass} p-4 lg:sticky lg:top-28`}>
-      <nav className="space-y-2">
-        {NAV_ITEMS.map((item) => {
-          const Icon = item.icon;
-          const isActive = item.page
-            ? currentPage === item.page
-            : currentPage === 'attendance' && activeSection === item.section;
-          return (
-            <div key={item.id}>
-              {item.id === 'documentation' && <div className="my-2 border-t border-white/15" />}
+      <nav className="space-y-4">
+        <div className="space-y-1">
+          <p className="px-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/30 mb-2">Personal</p>
+          {PERSONAL_LINKS.map((item) => {
+            const Icon = item.icon;
+            const isActive = item.page
+              ? currentPage === item.page
+              : currentPage === 'attendance' && activeSection === item.section;
+            return (
               <button
+                key={item.id}
                 type="button"
                 onClick={() => handleClick(item)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${isActive
@@ -52,9 +56,33 @@ export default function BimSpecialistSidebar({
                 <Icon className="h-5 w-5" />
                 <span className="font-medium">{item.label}</span>
               </button>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
+        
+        <div className="space-y-1">
+          <p className="px-4 text-[10px] font-semibold uppercase tracking-[0.15em] text-white/30 mb-2">Documentation</p>
+          {DOCUMENTATION_LINKS.map((item) => {
+            const Icon = item.icon;
+            const isActive = item.page
+              ? currentPage === item.page
+              : currentPage === 'attendance' && activeSection === item.section;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => handleClick(item)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${isActive
+                  ? 'bg-[#FF7120] text-white'
+                  : 'text-white/70 hover:text-white hover:bg-white/5'
+                  }`}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="font-medium">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </nav>
     </div>
   );

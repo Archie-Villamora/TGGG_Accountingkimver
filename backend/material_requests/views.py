@@ -52,6 +52,8 @@ class MaterialRequestViewSet(viewsets.ModelViewSet):
             )
         elif user.role in ['ceo', 'president']:
             queryset = self._visible_to_ceo_queryset()
+        elif user.role == 'accounting':
+            queryset = MaterialRequest.objects.filter(status='approved')
         elif user.role == 'admin':
             queryset = MaterialRequest.objects.all()
 

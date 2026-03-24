@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, ClipboardCheck, Clock, DollarSign, Home, Users } from 'lucide-react';
+import { Calendar, ClipboardCheck, Clock, DollarSign, Home, Package, Users } from 'lucide-react';
 
 const PERSONAL_LINKS = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
@@ -10,6 +10,7 @@ const PERSONAL_LINKS = [
 const DEPARTMENT_LINKS = [
   { id: 'employees', label: 'Employees', icon: Users },
   { id: 'payroll', label: 'Payroll', icon: DollarSign },
+  { id: 'material_requests', label: 'Material Requests', icon: Package, page: 'material-requests' },
 ];
 
 const MANAGEMENT_LINKS = [

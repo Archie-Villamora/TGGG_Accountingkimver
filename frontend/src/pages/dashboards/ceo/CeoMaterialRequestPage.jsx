@@ -4,6 +4,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Clock3,
+  FileText,
   MapPin,
   Package,
   RefreshCcw,
@@ -14,13 +15,14 @@ import CeoNavigation from './CeoNavigation';
 import CeoSidebar from './CeoSidebar';
 import materialRequestService from '../../../services/materialRequestService';
 import MaterialRequestCommentThread from '../../../components/MaterialRequestCommentThread';
+import MaterialRequestFormModal from '../../../components/modals/MaterialRequestFormModal';
 
 const cardClass = 'rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.22)]';
 
 const TAB_CONFIG = [
   {
     id: 'pending',
-    label: 'Needs Decision',
+    label: 'Needs Review',
     description: 'Ready for your final approval',
     icon: Clock3,
     emptyText: 'No material requests are waiting for your decision.',
@@ -123,6 +125,7 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
   const [decisionNote, setDecisionNote] = useState('');
   const [loading, setLoading] = useState(false);
   const [submittingDecision, setSubmittingDecision] = useState(false);
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
 
   const requestsByTab = useMemo(() => ({
     pending: pendingRequests,
@@ -332,10 +335,11 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
             </section>
 
 
-            <section className="grid grid-cols-1 xl:grid-cols-[370px,1fr] gap-6">
-              <div className={`${cardClass} p-5 space-y-4`}>
-                <div>
-                  <h2 className="text-lg font-semibold text-white">{activeTabMeta.label}</h2>
+            <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+              <div className="lg:col-span-1">
+                <div className={`${cardClass} flex flex-col h-full p-5 space-y-4`}>
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">{activeTabMeta.label}</h2>
                   <p className="text-xs text-white/50 mt-1">{activeTabMeta.description}</p>
                 </div>
 
@@ -388,8 +392,10 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
                   </div>
                 )}
               </div>
+            </div>
 
-              <div className={`${cardClass} p-6`}>
+            <div className="lg:col-span-2">
+              <div className={`${cardClass} flex flex-col h-full p-6`}>
                 {!selectedRequest && !loading && (
                   <div className="h-full grid place-items-center text-center">
                     <div>
@@ -406,7 +412,17 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
                         <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Material Request</p>
                         <h3 className="mt-2 text-2xl font-semibold text-white">{selectedRequest.project_name}</h3>
                       </div>
-                      <Badge tone={selectedStatusMeta.tone}>{selectedStatusMeta.label}</Badge>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsFormModalOpen(true)}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 border border-white/20 text-white text-xs font-medium rounded-lg hover:bg-white/10 transition"
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                          View Form
+                        </button>
+                        <Badge tone={selectedStatusMeta.tone}>{selectedStatusMeta.label}</Badge>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
@@ -536,10 +552,17 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
                   </div>
                 )}
               </div>
-            </section>
+            </div>
+          </section>
           </main>
         </div>
       </div>
+      <MaterialRequestFormModal
+        isOpen={isFormModalOpen}
+        onClose={() => setIsFormModalOpen(false)}
+        request={selectedRequest}
+        userRole={user?.role}
+      />
     </div>
   );
 };

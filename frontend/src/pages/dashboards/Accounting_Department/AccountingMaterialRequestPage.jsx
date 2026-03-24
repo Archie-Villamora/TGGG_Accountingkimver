@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Package, RefreshCcw, FileText, Search, Calendar, User, MapPin } from 'lucide-react';
+import { Package, RefreshCcw, FileText, Search, Calendar, User, MapPin, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import materialRequestService from '../../../services/materialRequestService';
 import MaterialRequestFormModal from '../../../components/modals/MaterialRequestFormModal';
@@ -110,6 +110,12 @@ const AccountingMaterialRequestPage = ({ user }) => {
                       >
                         <div className="flex justify-between items-start gap-2">
                           <h3 className="font-bold text-white truncate text-sm">{request.project_name}</h3>
+                          {request.request_image && (
+                            <span className="shrink-0 text-[9px] px-1.5 py-0.5 bg-blue-500/20 text-blue-300 rounded border border-blue-500/30 flex items-center gap-1">
+                              <ImageIcon className="h-2.5 w-2.5" />
+                              PHOTO
+                            </span>
+                          )}
                         </div>
                         <p className="text-[10px] text-white/40 mt-1 uppercase tracking-widest font-black">M.R-{request.id} • {(request.priority || 'Normal').toUpperCase()}</p>
                         
@@ -205,7 +211,7 @@ const AccountingMaterialRequestPage = ({ user }) => {
                       </div>
                     </div>
 
-                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 mb-4 flex-1">
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 mb-4">
                       <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2">
                         <p className="text-white/45 text-[11px] uppercase tracking-widest font-semibold">Materials List</p>
                         <span className="text-[10px] text-white/50">{selectedRequest.items?.length || 0} item(s)</span>
@@ -223,6 +229,34 @@ const AccountingMaterialRequestPage = ({ user }) => {
                         <p className="text-xs text-white/40 italic">Materials detailed in the attached photo.</p>
                       )}
                     </div>
+
+                    {selectedRequest.request_image && (
+                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 mb-4">
+                        <p className="text-white/45 text-[11px] uppercase tracking-widest font-semibold mb-3">Material Request Image</p>
+                        <a 
+                          href={selectedRequest.request_image} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="block w-full max-w-sm group relative"
+                        >
+                          <img 
+                            src={selectedRequest.request_image} 
+                            alt="Material Request" 
+                            className="w-full h-auto rounded-lg border border-white/10 shadow-lg transition group-hover:brightness-110"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/20 rounded-lg">
+                             <span className="bg-[#FF7120] text-white px-3 py-1.5 rounded-lg text-xs font-medium">View Full Image</span>
+                          </div>
+                        </a>
+                      </div>
+                    )}
+
+                    {selectedRequest.notes && (
+                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 mb-4">
+                        <p className="text-white/45 text-[11px] uppercase tracking-widest font-semibold mb-2">Additional Notes</p>
+                        <p className="text-white/75 text-sm">{selectedRequest.notes}</p>
+                      </div>
+                    )}
                   </div>
                 ) : null}
               </div>

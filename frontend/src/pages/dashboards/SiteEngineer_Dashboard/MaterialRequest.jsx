@@ -368,10 +368,8 @@ const MaterialRequest = ({ user }) => {
 
   const buildPayload = () => {
     const payload = new FormData();
-    payload.append('project_name', selectedProjectForRequest ? selectedProjectForRequest.name : formData.projectName.trim());
-    if (selectedProjectForRequest) {
-      payload.append('project', selectedProjectForRequest.id);
-    }
+    payload.append('project_name', selectedProjectForRequest.name);
+    payload.append('project', selectedProjectForRequest.id);
     payload.append('request_date', formData.requestDate);
     payload.append('required_date', formData.requiredDate);
     payload.append('priority', formData.priority);
@@ -406,10 +404,8 @@ const MaterialRequest = ({ user }) => {
     // If we have an image, we MUST use FormData
     if (uploadedImage) {
       const fd = new FormData();
-      fd.append('project_name', selectedProjectForRequest ? selectedProjectForRequest.name : formData.projectName.trim());
-      if (selectedProjectForRequest) {
-        fd.append('project', selectedProjectForRequest.id);
-      }
+      fd.append('project_name', selectedProjectForRequest.name);
+      fd.append('project', selectedProjectForRequest.id);
       fd.append('request_date', formData.requestDate);
       fd.append('required_date', formData.requiredDate);
       fd.append('priority', formData.priority);
@@ -435,7 +431,8 @@ const MaterialRequest = ({ user }) => {
 
     // Default JSON payload
     const data = {
-      project_name: selectedProjectForRequest ? selectedProjectForRequest.name : formData.projectName.trim(),
+      project_name: selectedProjectForRequest.name,
+      project: selectedProjectForRequest.id,
       request_date: formData.requestDate,
       required_date: formData.requiredDate,
       priority: formData.priority,
@@ -468,8 +465,8 @@ const MaterialRequest = ({ user }) => {
   };
 
   const validateBeforeSave = () => {
-    if (!selectedProjectForRequest && !formData.projectName.trim()) {
-      toast.error('Project name is required.');
+    if (!selectedProjectForRequest) {
+      toast.error('Please select a project.');
       return false;
     }
 
@@ -732,42 +729,20 @@ const MaterialRequest = ({ user }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-white font-medium mb-2">Project</label>
-              <div className="flex gap-2">
-                <select
-                  value={selectedProjectForRequest?.id || ''}
-                  onChange={(event) => {
-                    const proj = projects.find((p) => p.id === Number(event.target.value));
-                    setSelectedProjectForRequest(proj || null);
-                    if (proj) {
-                      setFormData((current) => ({ ...current, projectName: proj.name }));
-                    }
-                  }}
-                  className="flex-1 bg-[#001f35] border border-white/10 rounded-lg px-4 py-3 text-white outline-none focus:border-[#FF7120]/50"
-                >
-                  <option value="" className="bg-[#002a45] text-white/40">Select a project...</option>
-                  {projects.map((proj) => (
-                    <option key={proj.id} value={proj.id} className="bg-[#002a45] text-white">{proj.name}</option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setShowCreateProjectModal(true)}
-                  className="px-3 py-3 bg-[#FF7120] text-white rounded-lg hover:brightness-95 transition"
-                  title="Create New Project"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
-              {!selectedProjectForRequest && (
-                <input
-                  type="text"
-                  required
-                  value={formData.projectName}
-                  onChange={(event) => setFormData((current) => ({ ...current, projectName: event.target.value }))}
-                  className="w-full bg-[#001f35] border border-white/10 rounded-lg px-4 py-3 text-white placeholder:text-white/40 outline-none focus:border-[#FF7120]/50 mt-2"
-                  placeholder="Or type a project name manually"
-                />
-              )}
+              <select
+                required
+                value={selectedProjectForRequest?.id || ''}
+                onChange={(event) => {
+                  const proj = projects.find((p) => p.id === Number(event.target.value));
+                  setSelectedProjectForRequest(proj || null);
+                }}
+                className="w-full bg-[#001f35] border border-white/10 rounded-lg px-4 py-3 text-white outline-none focus:border-[#FF7120]/50"
+              >
+                <option value="" className="bg-[#002a45] text-white/40">Select a project...</option>
+                {projects.map((proj) => (
+                  <option key={proj.id} value={proj.id} className="bg-[#002a45] text-white">{proj.name}</option>
+                ))}
+              </select>
             </div>
 
             <div>

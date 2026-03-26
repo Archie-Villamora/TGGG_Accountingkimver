@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Clock3,
   FileText,
+  FolderOpen,
   MapPin,
   Package,
   RefreshCcw,
@@ -127,6 +128,12 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
   const [submittingDecision, setSubmittingDecision] = useState(false);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
 
+  // ── Project filter ─────────────────────────────────
+  const [projects, setProjects] = useState([]);
+  const [selectedProjectFilter, setSelectedProjectFilter] = useState(null); // null = all
+  const [approvedByProject, setApprovedByProject] = useState([]);
+  const [loadingApprovedByProject, setLoadingApprovedByProject] = useState(false);
+
   const requestsByTab = useMemo(() => ({
     pending: pendingRequests,
     approved: approvedRequests,
@@ -142,7 +149,33 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
 
   useEffect(() => {
     fetchRequests();
+    fetchProjects();
   }, []);
+
+  const fetchProjects = async () => {
+    const result = await materialRequestService.getProjects();
+    if (result.success) {
+      const fetched = Array.isArray(result.data) ? result.data : (result.data?.results || []);
+      setProjects(fetched);
+    }
+  };
+
+  const handleSelectProjectFilter = async (projectId) => {
+    if (projectId === selectedProjectFilter) return;
+    setSelectedProjectFilter(projectId);
+    if (projectId) {
+      setLoadingApprovedByProject(true);
+      const result = await materialRequestService.getProjectApprovedRequests(projectId);
+      if (result.success) {
+        setApprovedByProject(Array.isArray(result.data) ? result.data : []);
+      } else {
+        setApprovedByProject([]);
+      }
+      setLoadingApprovedByProject(false);
+    } else {
+      setApprovedByProject([]);
+    }
+  };
 
   useEffect(() => {
     if (!activeRequests.length) {
@@ -334,6 +367,108 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
               })}
             </section>
 
+            {/* ── Project Filter Pills ────────────────────── */}
+            {projects.length > 0 && (
+              <section className={`${cardClass} p-4`}>
+                <div className="flex items-center gap-2 mb-3">
+                  <FolderOpen className="h-4 w-4 text-[#FF7120]" />
+                  <p className="text-sm font-semibold text-white">Filter by Project</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectProjectFilter(null)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                      selectedProjectFilter === null
+                        ? 'bg-[#FF7120] text-white'
+                        : 'border border-white/15 text-white/70 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    All Projects
+                  </button>
+                  {projects.map((proj) => (
+                    <button
+                      key={proj.id}
+                      type="button"
+                      onClick={() => handleSelectProjectFilter(proj.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                        selectedProjectFilter === proj.id
+                          ? 'bg-[#FF7120] text-white'
+                          : 'border border-white/15 text-white/70 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      {proj.name}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* ── Approved by Project View ─────────────────── */}
+            {selectedProjectFilter && (
+              <section className={`${cardClass} p-6`}>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Approved Requests</p>
+                    <h3 className="mt-1 text-xl font-semibold text-white">
+                      {projects.find((p) => p.id === selectedProjectFilter)?.name || 'Project'}
+                    </h3>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-200">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    {approvedByProject.length} approved
+                  </span>
+                </div>
+
+                {loadingApprovedByProject && (
+                  <p className="text-center text-white/60 py-8">Loading...</p>
+                )}
+
+                {!loadingApprovedByProject && approvedByProject.length === 0 && (
+                  <div className="rounded-xl border border-white/10 bg-white/[0.03] p-8 text-center">
+                    <CheckCircle2 className="h-8 w-8 text-white/25 mx-auto mb-3" />
+                    <p className="text-white/60 text-sm">No approved material requests for this project yet.</p>
+                  </div>
+                )}
+
+                {!loadingApprovedByProject && approvedByProject.length > 0 && (
+                  <div className="space-y-3">
+                    {approvedByProject.map((req) => (
+                      <div
+                        key={req.id}
+                        className="rounded-2xl border border-white/10 bg-[#00273C]/45 p-4 space-y-2 cursor-pointer hover:border-white/20 transition"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-white">{req.project_name}</p>
+                            <p className="text-xs text-white/50 mt-1">
+                              Approved {req.ceo_reviewed_at ? formatDate(req.ceo_reviewed_at) : '-'}
+                            </p>
+                          </div>
+                          <span className="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold bg-emerald-500/10 text-emerald-200 border-emerald-500/20">
+                            Approved
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-sm">
+                          <div className="rounded-lg border border-white/10 bg-white/[0.03] p-2">
+                            <p className="text-white/45 text-xs">Priority</p>
+                            <p className="text-white mt-0.5 capitalize">{req.priority}</p>
+                          </div>
+                          <div className="rounded-lg border border-white/10 bg-white/[0.03] p-2">
+                            <p className="text-white/45 text-xs">Items</p>
+                            <p className="text-white mt-0.5">{req.item_count || req.items?.length || 0}</p>
+                          </div>
+                          <div className="rounded-lg border border-white/10 bg-white/[0.03] p-2">
+                            <p className="text-white/45 text-xs">Requester</p>
+                            <p className="text-white mt-0.5 truncate">{req.created_by_name || '-'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
 
             <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
               <div className="lg:col-span-1">

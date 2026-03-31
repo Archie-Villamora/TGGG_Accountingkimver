@@ -11,7 +11,7 @@ const DOCUMENTATION_LINKS = [
 ];
 
 const REQUESTS_LINKS = [
-  { id: 'ceo-material-requests', label: 'Material Requests', icon: ClipboardList },
+  { id: 'ceo-material-requests', label: 'Material Request', icon: ClipboardList, color: 'text-orange-400' },
 ];
 
 const cardClass = 'rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-lg';

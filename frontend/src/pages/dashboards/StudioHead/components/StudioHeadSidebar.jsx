@@ -9,7 +9,7 @@ const PRIMARY_LINKS = [
 const DOCUMENTATION_LINKS = [
   { id: 'bim-docs', label: 'BIM Documentation', icon: FolderKanban, page: 'studio-head-bim-docs' },
   { id: 'junior-architect-docs', label: 'Junior Architect Docs', icon: User, page: 'studio-head-junior-docs' },
-  { id: 'material-requests', label: 'Material Requests', icon: ClipboardList, page: 'studio-head-material-requests' },
+  { id: 'material-requests', label: 'Material Request', icon: ClipboardList, page: 'studio-head-material-requests' },
 ];
 
 const DASHBOARD_LINKS = [

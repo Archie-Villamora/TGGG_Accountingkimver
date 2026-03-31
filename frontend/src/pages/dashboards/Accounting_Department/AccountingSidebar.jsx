@@ -10,7 +10,7 @@ const PERSONAL_LINKS = [
 const DEPARTMENT_LINKS = [
   { id: 'employees', label: 'Employees', icon: Users },
   { id: 'payroll', label: 'Payroll', icon: DollarSign },
-  { id: 'material_requests', label: 'Material Requests', icon: Package, page: 'material-requests' },
+  { id: 'material_requests', label: 'Material Request', icon: Package, page: 'material-requests' },
 ];
 
 const MANAGEMENT_LINKS = [

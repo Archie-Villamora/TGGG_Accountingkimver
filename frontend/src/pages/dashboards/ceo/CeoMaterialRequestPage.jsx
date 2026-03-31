@@ -361,7 +361,7 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">CEO Final Review</p>
-                  <h1 className="mt-2 text-2xl sm:text-3xl font-semibold text-white">Project Expenses</h1>
+                  <h1 className="mt-2 text-2xl sm:text-3xl font-semibold text-white">Material Request and Expenses</h1>
                   <p className="mt-2 text-sm text-white/60">
                     Manage material requests and view project expense summaries.
                   </p>
@@ -528,41 +528,36 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
                                   className="rounded-2xl border border-white/10 bg-[#00273C]/45 overflow-hidden transition hover:border-white/15"
                                 >
                                   {/* Compact header — always visible */}
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleExpandApproved(req.id)}
-                                    className="w-full flex items-center gap-3 px-4 py-3 text-left"
-                                  >
-                                    <span className="shrink-0 grid h-7 w-7 place-items-center rounded-lg bg-[#FF7120]/15 text-[#FF7120] text-xs font-bold">
-                                      #{idx + 1}
-                                    </span>
-                                    <div className="flex-1 min-w-0 flex items-center gap-3">
-                                      <div className="min-w-0 flex-1">
-                                        <p className="text-sm font-medium text-white truncate">
-                                          {req.created_by_name || req.created_by_email || 'Unknown'}
-                                        </p>
-                                        <div className="flex items-center gap-3 text-xs text-white/45 mt-0.5">
-                                          <span className="capitalize">{req.priority}</span>
-                                          <span>·</span>
-                                          <span>{formatDate(req.request_date)}</span>
-                                          <span>·</span>
-                                          <span>{req.items?.length || 0} item{(req.items?.length || 0) !== 1 ? 's' : ''}</span>
+                                  <div className="w-full flex items-center gap-3 px-4 py-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleExpandApproved(req.id)}
+                                      className="flex-1 min-w-0 flex items-center gap-3 text-left focus:outline-none rounded-lg"
+                                    >
+                                      <span className="shrink-0 grid h-7 w-7 place-items-center rounded-lg bg-[#FF7120]/15 text-[#FF7120] text-xs font-bold">
+                                        #{idx + 1}
+                                      </span>
+                                      <div className="flex-1 min-w-0 flex items-center gap-3">
+                                        <div className="min-w-0 flex-1">
+                                          <p className="text-sm font-medium text-white truncate">
+                                            {req.created_by_name || req.created_by_email || 'Unknown'}
+                                          </p>
+                                          <div className="flex items-center gap-3 text-xs text-white/45 mt-0.5">
+                                            <span className="capitalize">{req.priority}</span>
+                                            <span>·</span>
+                                            <span>{formatDate(req.request_date)}</span>
+                                            <span>·</span>
+                                            <span>{req.items?.length || 0} item{(req.items?.length || 0) !== 1 ? 's' : ''}</span>
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                    {isExpanded
-                                      ? <ChevronUp className="h-4 w-4 text-white/40 shrink-0" />
-                                      : <ChevronDown className="h-4 w-4 text-white/40 shrink-0" />
-                                    }
-                                  </button>
+                                    </button>
 
-                                  {/* Expanded details */}
-                                  {isExpanded && (
-                                    <div className="border-t border-white/10 px-4 py-4 space-y-4">
-                                      {/* View Form button */}
+                                    <div className="flex items-center gap-3 shrink-0">
                                       <button
                                         type="button"
-                                        onClick={() => {
+                                        onClick={(e) => {
+                                          e.stopPropagation();
                                           setSelectedRequestId(req.id);
                                           setIsFormModalOpen(true);
                                         }}
@@ -571,6 +566,22 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
                                         <FileText className="h-3.5 w-3.5" />
                                         View Form
                                       </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleExpandApproved(req.id)}
+                                        className="p-1 hover:bg-white/5 rounded transition focus:outline-none"
+                                      >
+                                        {isExpanded
+                                          ? <ChevronUp className="h-4 w-4 text-white/40 shrink-0" />
+                                          : <ChevronDown className="h-4 w-4 text-white/40 shrink-0" />
+                                        }
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Expanded details */}
+                                  {isExpanded && (
+                                    <div className="border-t border-white/10 px-4 py-4 space-y-4">
 
                                       {/* Meta grid */}
                                       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
@@ -592,11 +603,11 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
                                         </div>
                                       </div>
 
-                                      {/* Studio Head note */}
-                                      {req.studio_head_comments && (
-                                        <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/10 p-3">
-                                          <p className="text-[10px] uppercase tracking-widest text-cyan-200/70">Studio Head Note</p>
-                                          <p className="text-sm text-cyan-100 mt-1">{req.studio_head_comments}</p>
+                                      {/* Notes */}
+                                      {req.notes && (
+                                        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                                          <p className="text-white/45 text-xs">Notes</p>
+                                          <p className="text-white/75 text-sm mt-1">{req.notes}</p>
                                         </div>
                                       )}
 
@@ -627,40 +638,9 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
                                         </div>
                                       )}
 
-                                      {/* Notes */}
-                                      {req.notes && (
-                                        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
-                                          <p className="text-white/45 text-xs">Notes</p>
-                                          <p className="text-white/75 text-sm mt-1">{req.notes}</p>
-                                        </div>
-                                      )}
-
-                                      {/* CEO decision note */}
-                                      {req.ceo_comments && (
-                                        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3">
-                                          <p className="text-[10px] uppercase tracking-widest text-emerald-200/70">CEO Note</p>
-                                          <p className="text-sm text-emerald-100 mt-1">{req.ceo_comments}</p>
-                                        </div>
-                                      )}
-
-                                      {/* Discussion thread (collapsed by default) */}
+                                      {/* Discussion thread */}
                                       <div className="border-t border-white/10 pt-3">
-                                        <button
-                                          type="button"
-                                          onClick={() => toggleDiscussion(req.id)}
-                                          className="inline-flex items-center gap-2 text-xs text-white/50 hover:text-white/80 transition"
-                                        >
-                                          {openDiscussionIds.has(req.id)
-                                            ? <ChevronUp className="h-3.5 w-3.5" />
-                                            : <ChevronDown className="h-3.5 w-3.5" />
-                                          }
-                                          Discussion
-                                        </button>
-                                        {openDiscussionIds.has(req.id) && (
-                                          <div className="mt-3">
-                                            <MaterialRequestCommentThread requestId={req.id} />
-                                          </div>
-                                        )}
+                                        <MaterialRequestCommentThread requestId={req.id} />
                                       </div>
                                     </div>
                                   )}
@@ -723,9 +703,6 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
                           <div className="flex justify-between items-start gap-3 mb-2">
                             <div className="min-w-0 flex-1">
                               <h3 className="font-bold text-white truncate text-sm">{request.project_name}</h3>
-                              <div className="mt-1">
-                                <Badge tone={statusMeta.tone} className="text-[10px] py-0 px-2 leading-5 h-5">{statusMeta.label}</Badge>
-                              </div>
                             </div>
                             <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded border ${priorityClass}`}>
                               {priority}
@@ -780,7 +757,6 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
                           <FileText className="h-3.5 w-3.5" />
                           View Form
                         </button>
-                        <Badge tone={selectedStatusMeta.tone}>{selectedStatusMeta.label}</Badge>
                       </div>
                     </div>
 
@@ -797,6 +773,14 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
                         </p>
                       </div>
                     </div>
+
+                    {/* Notes */}
+                    {selectedRequest.notes && (
+                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                        <p className="text-white/45 text-xs">Notes</p>
+                        <p className="text-white/75 text-sm mt-1">{selectedRequest.notes}</p>
+                      </div>
+                    )}
 
                     {/* Inline Form View (no image) or Attachment (image exists) */}
                     {(!selectedRequest.request_image && selectedRequest.items?.length > 0) ? (
@@ -847,7 +831,7 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
                             type="button"
                             onClick={handleApprove}
                             disabled={submittingDecision}
-                            className="inline-flex items-center gap-2 rounded-xl bg-emerald-500/85 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                            className="inline-flex items-center gap-2 rounded-xl bg-[#FF7120] px-4 py-2 text-sm font-semibold text-white hover:brightness-110 shadow-lg shadow-[#FF7120]/20 transition disabled:opacity-60 disabled:cursor-not-allowed"
                           >
                             <CheckCircle2 className="h-4 w-4" />
                             {submittingDecision ? 'Submitting...' : 'Approve Request'}
@@ -856,7 +840,7 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
                             type="button"
                             onClick={handleReject}
                             disabled={submittingDecision}
-                            className="inline-flex items-center gap-2 rounded-xl bg-red-500/85 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.03] px-4 py-2 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white transition disabled:opacity-60 disabled:cursor-not-allowed"
                           >
                             <XCircle className="h-4 w-4" />
                             Reject Request
@@ -868,25 +852,7 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
 
 
                     <div className="border-t border-white/10 pt-6">
-                      <button
-                        type="button"
-                        onClick={() => setShowDetailDiscussion(!showDetailDiscussion)}
-                        className="flex items-center gap-2 text-sm font-semibold text-white/70 hover:text-white transition group mb-4"
-                      >
-                        <MessageSquare className="h-4 w-4 text-[#FF7120]" />
-                        <span>Discussion Thread</span>
-                        {showDetailDiscussion ? (
-                          <ChevronUp className="h-4 w-4 opacity-50 group-hover:opacity-100" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 opacity-50 group-hover:opacity-100" />
-                        )}
-                      </button>
-                      
-                      {showDetailDiscussion && (
-                        <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                          <MaterialRequestCommentThread requestId={selectedRequest.id} />
-                        </div>
-                      )}
+                      <MaterialRequestCommentThread requestId={selectedRequest.id} />
                     </div>
                   </div>
                 )}

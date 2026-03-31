@@ -168,9 +168,6 @@ const RequestListItem = ({ request, isSelected, onSelect }) => {
             <div className="flex justify-between items-start gap-3 mb-2">
                 <div className="min-w-0 flex-1">
                     <h3 className="font-bold text-white truncate text-sm">{request.project_name}</h3>
-                    <div className="mt-1">
-                        <Badge tone={statusMeta.tone} className="text-[10px] py-0 px-2 leading-5 h-5">{statusMeta.label}</Badge>
-                    </div>
                 </div>
                 <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded border ${priorityClass}`}>
                     {priority}
@@ -212,6 +209,10 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
   const [selectedExpensesProject, setSelectedExpensesProject] = useState(null);
   const [expensesFormRequest, setExpensesFormRequest] = useState(null);
 
+  // ── Approved-tab project view ──────────────────────
+  const [selectedApprovedProject, setSelectedApprovedProject] = useState(null);
+  const [expandedApprovedIds, setExpandedApprovedIds] = useState(new Set());
+
   // Group approved requests by project (client-side)
   const approvedByProjectMap = useMemo(() => {
     const map = new Map(); // key = project id (or 'unlinked'), value = { project, requests[] }
@@ -247,6 +248,25 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
   useEffect(() => {
     fetchRequests();
   }, []);
+
+  // Auto-select first project in approved tab
+  useEffect(() => {
+    if (activeTab === 'approved' && approvedByProjectMap.length > 0 && !selectedApprovedProject) {
+      setSelectedApprovedProject(approvedByProjectMap[0].id);
+    }
+  }, [activeTab, approvedByProjectMap, selectedApprovedProject]);
+
+  const toggleExpandApproved = (requestId) => {
+    setExpandedApprovedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(requestId)) {
+        next.delete(requestId);
+      } else {
+        next.add(requestId);
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!activeRequests.length) {
@@ -469,6 +489,232 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
               />
             </section>
 
+            {/* ── APPROVED TAB: Project-grouped layout ─────────── */}
+            {activeTab === 'approved' && (
+              <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+                {/* Left panel — Project list */}
+                <div className="lg:col-span-1">
+                  <div className={`${cardClass} flex flex-col h-full p-5 space-y-4`}>
+                    <div className="flex items-center gap-2">
+                      <FolderOpen className="h-4 w-4 text-[#FF7120]" />
+                      <h2 className="text-lg font-semibold text-white">Projects</h2>
+                    </div>
+
+                    {loading && <p className="text-sm text-white/60 py-6 text-center">Loading...</p>}
+
+                    {!loading && approvedByProjectMap.length === 0 && (
+                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 text-sm text-white/55 text-center">
+                        No approved material requests yet.
+                      </div>
+                    )}
+
+                    {!loading && approvedByProjectMap.length > 0 && (
+                      <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
+                        {approvedByProjectMap.map((group) => {
+                          const isSelected = selectedApprovedProject === group.id;
+                          return (
+                            <button
+                              key={group.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedApprovedProject(group.id);
+                                setExpandedApprovedIds(new Set());
+                              }}
+                              className={`w-full rounded-2xl border p-4 text-left transition ${
+                                isSelected
+                                  ? 'border-[#FF7120]/50 bg-[#FF7120]/10 shadow-[0_0_24px_rgba(255,113,32,0.12)]'
+                                  : 'border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]'
+                              }`}
+                            >
+                              <p className="text-sm font-semibold text-white truncate">{group.name}</p>
+                              <div className="mt-2 flex items-center gap-3 text-xs text-white/50">
+                                <span className="inline-flex items-center gap-1">
+                                  <MapPin className="h-3 w-3" />
+                                  {group.location}
+                                </span>
+                                <span className="inline-flex items-center gap-1">
+                                  <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                                  {group.requests.length} request{group.requests.length !== 1 ? 's' : ''}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right panel — Approved requests for selected project */}
+                <div className="lg:col-span-2">
+                  <div className={`${cardClass} flex flex-col h-full p-6`}>
+                    {(() => {
+                      const activeGroup = approvedByProjectMap.find((g) => g.id === selectedApprovedProject);
+                      if (!activeGroup) {
+                        return (
+                          <div className="h-full grid place-items-center text-center py-12">
+                            <div>
+                              <FolderOpen className="mx-auto h-9 w-9 text-white/25" />
+                              <p className="mt-3 text-white/70">Select a project to view approved requests.</p>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-5">
+                          {/* Header */}
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-[11px] uppercase tracking-[0.16em] text-white/45">Approved Requests</p>
+                              <h3 className="mt-1 text-xl font-semibold text-white">{activeGroup.name}</h3>
+                            </div>
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-200">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              {activeGroup.requests.length} approved
+                            </span>
+                          </div>
+
+                          {/* Request Cards */}
+                          <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
+                            {activeGroup.requests.map((req, idx) => {
+                              const isExpanded = expandedApprovedIds.has(req.id);
+                              return (
+                                <div
+                                  key={req.id}
+                                  className="rounded-2xl border border-white/10 bg-[#00273C]/45 overflow-hidden transition hover:border-white/15"
+                                >
+                                  {/* Compact header — always visible */}
+                                  <div className="w-full flex items-center gap-3 px-4 py-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleExpandApproved(req.id)}
+                                      className="flex-1 min-w-0 flex items-center gap-3 text-left focus:outline-none rounded-lg"
+                                    >
+                                      <span className="shrink-0 grid h-7 w-7 place-items-center rounded-lg bg-[#FF7120]/15 text-[#FF7120] text-xs font-bold">
+                                        #{idx + 1}
+                                      </span>
+                                      <div className="flex-1 min-w-0 flex items-center gap-3">
+                                        <div className="min-w-0 flex-1">
+                                          <p className="text-sm font-medium text-white truncate">
+                                            {req.created_by_name || req.created_by_email || 'Unknown'}
+                                          </p>
+                                          <div className="flex items-center gap-3 text-xs text-white/45 mt-0.5">
+                                            <span className="capitalize">{req.priority}</span>
+                                            <span>·</span>
+                                            <span>{formatDate(req.request_date)}</span>
+                                            <span>·</span>
+                                            <span>{req.items?.length || 0} item{(req.items?.length || 0) !== 1 ? 's' : ''}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </button>
+
+                                    <div className="flex items-center gap-3 shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedRequestId(req.id);
+                                          setIsFormModalOpen(true);
+                                        }}
+                                        className="inline-flex items-center gap-2 px-3 py-1.5 border border-white/20 text-white text-xs font-medium rounded-lg hover:bg-white/10 transition"
+                                      >
+                                        <FileText className="h-3.5 w-3.5" />
+                                        View Form
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleExpandApproved(req.id)}
+                                        className="p-1 hover:bg-white/5 rounded transition focus:outline-none"
+                                      >
+                                        {isExpanded
+                                          ? <ChevronUp className="h-4 w-4 text-white/40 shrink-0" />
+                                          : <ChevronDown className="h-4 w-4 text-white/40 shrink-0" />
+                                        }
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Expanded details */}
+                                  {isExpanded && (
+                                    <div className="border-t border-white/10 px-4 py-4 space-y-4">
+
+                                      {/* Meta grid */}
+                                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                                        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-2">
+                                          <p className="text-white/45 text-xs">Request Date</p>
+                                          <p className="text-white mt-0.5">{formatDate(req.request_date)}</p>
+                                        </div>
+                                        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-2">
+                                          <p className="text-white/45 text-xs">Required Date</p>
+                                          <p className="text-white mt-0.5">{formatDate(req.required_date)}</p>
+                                        </div>
+                                        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-2">
+                                          <p className="text-white/45 text-xs">Priority</p>
+                                          <p className="text-white mt-0.5 capitalize">{req.priority}</p>
+                                        </div>
+                                        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-2">
+                                          <p className="text-white/45 text-xs">Location</p>
+                                          <p className="text-white mt-0.5 truncate">{req.delivery_location || '-'}</p>
+                                        </div>
+                                      </div>
+
+                                      {/* Notes */}
+                                      {req.notes && (
+                                        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                                          <p className="text-white/45 text-xs">Notes</p>
+                                          <p className="text-white/75 text-sm mt-1">{req.notes}</p>
+                                        </div>
+                                      )}
+
+                                      {/* Inline Form View (no image) or Attachment (image exists) */}
+                                      {(!req.request_image && req.items?.length > 0) ? (
+                                        <div className="mt-2 mb-4 border border-[#FF7120]/30 rounded-xl overflow-hidden shadow-lg bg-white overflow-x-auto print-container-wrapper">
+                                          <MaterialRequestFormModal 
+                                            isOpen={true} 
+                                            request={req} 
+                                            userRole={user?.role} 
+                                            inline={true} 
+                                          />
+                                        </div>
+                                      ) : req.request_image ? (
+                                        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 text-center">
+                                          <p className="text-white/45 text-xs text-left mb-2">Attachment</p>
+                                          <a href={req.request_image} target="_blank" rel="noopener noreferrer" className="inline-block w-full max-w-xs group relative">
+                                            <img src={req.request_image} alt="Request" className="w-full h-auto rounded-lg border border-white/10 transition group-hover:brightness-110" />
+                                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-black/20 rounded-lg">
+                                               <span className="bg-[#FF7120] text-white px-3 py-1.5 rounded-lg text-xs font-medium">View Full Image</span>
+                                            </div>
+                                          </a>
+                                        </div>
+                                      ) : (
+                                        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                                          <p className="text-white/45 text-xs mb-2">Materials List</p>
+                                          <p className="text-xs text-white/40 italic text-center py-4">No materials listed or image attached.</p>
+                                        </div>
+                                      )}
+
+                                      {/* Discussion thread */}
+                                      <div className="border-t border-white/10 pt-3">
+                                        <MaterialRequestCommentThread requestId={req.id} />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* ── PENDING / REJECTED / FORWARDED TABS: Standard list+detail layout ── */}
+            {activeTab !== 'approved' && (
             <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
               <div className="lg:col-span-1">
                   <div className={`${cardClass} flex flex-col h-full`}>
@@ -535,16 +781,6 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
                                       <FileText className="h-3.5 w-3.5" />
                                       View Form
                                   </button>
-                                  <button
-                                      type="button"
-                                      onClick={() => setActiveTab(selectedStatusMeta.tabId)}
-                                      className="rounded-full"
-                                      title={`Open ${selectedStatusMeta.label} tab`}
-                                  >
-                                      <Badge tone={selectedStatusMeta.tone} className="cursor-pointer">
-                                          {selectedStatusMeta.label}
-                                      </Badge>
-                                  </button>
                               </div>
                           </div>
                       </div>
@@ -564,6 +800,14 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
                         </p>
                       </div>
                     </div>
+
+                    {/* Notes */}
+                    {selectedRequest.notes && (
+                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                        <p className="text-white/45 text-xs">Notes</p>
+                        <p className="text-white/75 text-sm mt-1">{selectedRequest.notes}</p>
+                      </div>
+                    )}
 
                     {/* Inline Form View or Materials List */}
                     {(!selectedRequest.request_image && selectedRequest.items?.length > 0) ? (
@@ -630,7 +874,7 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
                             type="button"
                             onClick={handleApprove}
                             disabled={submittingDecision}
-                            className="inline-flex items-center gap-2 rounded-xl bg-emerald-500/85 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                            className="inline-flex items-center gap-2 rounded-xl bg-[#FF7120] px-4 py-2 text-sm font-semibold text-white hover:brightness-110 shadow-lg shadow-[#FF7120]/20 transition disabled:opacity-60 disabled:cursor-not-allowed"
                           >
                             <CheckCircle2 className="h-4 w-4" />
                             {submittingDecision ? 'Submitting...' : 'Approve and Forward to CEO'}
@@ -639,7 +883,7 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
                             type="button"
                             onClick={handleReject}
                             disabled={submittingDecision}
-                            className="inline-flex items-center gap-2 rounded-xl bg-red-500/85 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.03] px-4 py-2 text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white transition disabled:opacity-60 disabled:cursor-not-allowed"
                           >
                             <XCircle className="h-4 w-4" />
                             Reject Request
@@ -653,31 +897,14 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
 
 
                     <div className="border-t border-white/10 pt-6">
-                      <button
-                        type="button"
-                        onClick={() => setShowDetailDiscussion(!showDetailDiscussion)}
-                        className="flex items-center gap-2 text-sm font-semibold text-white/70 hover:text-white transition group mb-4"
-                      >
-                        <MessageSquare className="h-4 w-4 text-[#FF7120]" />
-                        <span>Discussion Thread</span>
-                        {showDetailDiscussion ? (
-                          <ChevronUp className="h-4 w-4 opacity-50 group-hover:opacity-100" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 opacity-50 group-hover:opacity-100" />
-                        )}
-                      </button>
-                      
-                      {showDetailDiscussion && (
-                        <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                          <MaterialRequestCommentThread requestId={selectedRequest.id} />
-                        </div>
-                      )}
+                      <MaterialRequestCommentThread requestId={selectedRequest.id} />
                     </div>
                   </div>
                 </section>
                 )}
               </div>
             </section>
+            )}
             </> /* end Material Request tab */
             )}
 

@@ -303,27 +303,55 @@ const AccountingMaterialRequestPage = ({ user }) => {
                               className="rounded-2xl border border-white/10 bg-[#00273C]/45 overflow-hidden transition hover:border-white/15"
                             >
                               {/* Compact header — always visible */}
-                              <button
-                                type="button"
-                                onClick={() => toggleExpandRequest(req.id)}
-                                className="w-full flex items-center gap-3 px-4 py-3 text-left"
-                              >
-                                <span className="shrink-0 grid h-7 w-7 place-items-center rounded-lg bg-[#FF7120]/15 text-[#FF7120] text-xs font-bold">
-                                  #{idx + 1}
-                                </span>
-                                <div className="flex-1 min-w-0 flex items-center gap-3">
-                                  <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-medium text-white truncate">
-                                      {req.created_by_name || req.created_by_email || 'Unknown'}
-                                    </p>
-
+                              <div className="w-full flex items-center gap-3 px-4 py-3">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpandRequest(req.id)}
+                                  className="flex-1 min-w-0 flex items-center gap-3 text-left focus:outline-none rounded-lg"
+                                >
+                                  <span className="shrink-0 grid h-7 w-7 place-items-center rounded-lg bg-[#FF7120]/15 text-[#FF7120] text-xs font-bold">
+                                    #{idx + 1}
+                                  </span>
+                                  <div className="flex-1 min-w-0 flex items-center gap-3">
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm font-medium text-white truncate">
+                                        {req.created_by_name || req.created_by_email || 'Unknown'}
+                                      </p>
+                                      <div className="flex items-center gap-3 text-xs text-white/45 mt-0.5">
+                                        <span className="capitalize">{req.priority || 'NORMAL'}</span>
+                                        <span>·</span>
+                                        <span>{formatDate(req.request_date)}</span>
+                                        <span>·</span>
+                                        <span>{req.items?.length || 0} item{(req.items?.length || 0) !== 1 ? 's' : ''}</span>
+                                      </div>
+                                    </div>
                                   </div>
+                                </button>
+
+                                <div className="flex items-center gap-3 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openModal(req);
+                                    }}
+                                    className="inline-flex items-center gap-2 px-3 py-1.5 border border-white/20 text-white text-xs font-medium rounded-lg hover:bg-white/10 transition"
+                                  >
+                                    <FileText className="h-3.5 w-3.5" />
+                                    View Form
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleExpandRequest(req.id)}
+                                    className="p-1 hover:bg-white/5 rounded transition focus:outline-none"
+                                  >
+                                    {isExpanded
+                                      ? <ChevronUp className="h-4 w-4 text-white/40 shrink-0" />
+                                      : <ChevronDown className="h-4 w-4 text-white/40 shrink-0" />
+                                    }
+                                  </button>
                                 </div>
-                                {isExpanded
-                                  ? <ChevronUp className="h-4 w-4 text-white/40 shrink-0" />
-                                  : <ChevronDown className="h-4 w-4 text-white/40 shrink-0" />
-                                }
-                              </button>
+                              </div>
 
                               {/* Expanded details */}
                               {isExpanded && (
@@ -349,10 +377,11 @@ const AccountingMaterialRequestPage = ({ user }) => {
                                     </div>
                                   </div>
 
-                                  {req.studio_head_comments && (
-                                    <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/10 p-3">
-                                      <p className="text-[10px] uppercase tracking-widest text-cyan-200/70">Studio Head Note</p>
-                                      <p className="text-sm text-cyan-100 mt-1">{req.studio_head_comments}</p>
+                                  {/* Notes */}
+                                  {req.notes && (
+                                    <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                                      <p className="text-white/45 text-xs">Notes</p>
+                                      <p className="text-white/75 text-sm mt-1">{req.notes}</p>
                                     </div>
                                   )}
 
@@ -387,27 +416,7 @@ const AccountingMaterialRequestPage = ({ user }) => {
                                   )}
 
                                       <div className="border-t border-white/10 pt-4 flex flex-col gap-4">
-                                         <button
-                                           type="button"
-                                           onClick={() => {
-                                              setShowDetailDiscussion(req.id === showDetailDiscussion ? null : req.id);
-                                           }}
-                                           className="flex items-center gap-2 text-xs font-semibold text-white/70 hover:text-white transition group w-fit"
-                                         >
-                                           <MessageSquare className="h-3.5 w-3.5 text-[#FF7120]" />
-                                           <span>Discussion Thread</span>
-                                           {showDetailDiscussion === req.id ? (
-                                             <ChevronUp className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100" />
-                                           ) : (
-                                             <ChevronDown className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100" />
-                                           )}
-                                         </button>
-                                         
-                                         {showDetailDiscussion === req.id && (
-                                           <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                                             <MaterialRequestCommentThread requestId={req.id} />
-                                           </div>
-                                         )}
+                                        <MaterialRequestCommentThread requestId={req.id} />
                                       </div>
                                 </div>
                               )}

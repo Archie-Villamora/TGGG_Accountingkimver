@@ -1096,12 +1096,6 @@ const MaterialRequest = ({ user }) => {
                       </div>
                     )}
 
-                    {request.ceo_comments && (
-                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3">
-                        <p className="text-[11px] uppercase tracking-[0.16em] text-emerald-200/70">CEO Note</p>
-                        <p className="text-sm text-emerald-100 mt-1">{request.ceo_comments}</p>
-                      </div>
-                    )}
 
                     <div className="flex flex-wrap items-center gap-3 pt-1">
                       {canEdit && (

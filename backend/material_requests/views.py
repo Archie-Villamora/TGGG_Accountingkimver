@@ -102,6 +102,29 @@ def remove_matreq_img_from_supabase(public_url):
     except Exception as e:
         print(f"Failed to delete old material request image: {e}")
 
+def upload_accounting_receipt_to_supabase(file_obj, user_id):
+    supabase_url = getattr(settings, 'SUPABASE_URL', None)
+    supabase_key = getattr(settings, 'SUPABASE_KEY', None)
+    if not supabase_url or not supabase_key:
+        return None
+    
+    supabase: Client = create_client(supabase_url, supabase_key)
+    file_extension = file_obj.name.split('.')[-1]
+    file_path = f"{user_id}/receipt_{uuid.uuid4().hex}.{file_extension}"
+    
+    file_content = file_obj.read()
+    try:
+        supabase.storage.from_('accounting_receipt').upload(
+            file=file_content,
+            path=file_path,
+            file_options={'content-type': file_obj.content_type, 'upsert': 'true'}
+        )
+    except Exception as e:
+        raise Exception(f"Failed to upload receipt to Supabase: {str(e)}")
+        
+    public_url = supabase.storage.from_('accounting_receipt').get_public_url(file_path)
+    return public_url
+
 
 class MaterialRequestViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
@@ -392,7 +415,78 @@ class MaterialRequestViewSet(viewsets.ModelViewSet):
             status=status.HTTP_403_FORBIDDEN,
         )
 
+    @action(detail=True, methods=['patch'])
+    def allocate_funds(self, request, pk=None):
+        if request.user.role != 'accounting':
+            return Response(
+                {'error': 'Only accounting can allocate funds.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
+        material_request = self.get_object()
+
+        if material_request.status != 'approved':
+            return Response(
+                {'error': 'Material request must be approved before funds can be allocated.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        budget_allocated = request.data.get('budget_allocated')
+        accounting_notes = request.data.get('accounting_notes', '')
+
+        if not budget_allocated:
+            return Response(
+                {'error': 'Budget allocated amount is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            from decimal import Decimal
+            budget_val = Decimal(str(budget_allocated))
+        except Exception:
+            return Response(
+                {'error': 'Invalid budget amount.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from django.utils import timezone
+
+        # Handle accounting_receipt upload
+        accounting_receipt_file = request.FILES.get('accounting_receipt')
+        if accounting_receipt_file:
+            try:
+                public_url = upload_accounting_receipt_to_supabase(accounting_receipt_file, request.user.id)
+                material_request.accounting_receipt = public_url
+            except Exception as e:
+                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        material_request.budget_allocated = budget_val
+        material_request.accounting_notes = accounting_notes
+        material_request.accounting_status = 'funds_released'
+        material_request.fund_release_date = timezone.now()
+        
+        update_fields = [
+            'budget_allocated',
+            'accounting_notes',
+            'accounting_status',
+            'fund_release_date',
+            'updated_at'
+        ]
+        if material_request.accounting_receipt:
+            update_fields.append('accounting_receipt')
+            
+        material_request.save(update_fields=update_fields)
+
+        # Create system comment for audit trail
+        MaterialRequestComment.objects.create(
+            material_request=material_request,
+            author=request.user,
+            content=f"Accounting Decision: Funds Released (₱{budget_val:,.2f}). Note: {accounting_notes}" if accounting_notes else f"Accounting Decision: Funds Released (₱{budget_val:,.2f}).",
+            is_system_comment=True
+        )
+
+        serializer = MaterialRequestSerializer(material_request, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['get', 'post'], url_path='comments')
     def comments(self, request, pk=None):

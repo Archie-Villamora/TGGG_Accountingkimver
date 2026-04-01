@@ -72,6 +72,16 @@ class MaterialRequest(models.Model):
         default='draft',
     )
 
+    budget_allocated = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    accounting_status = models.CharField(
+        max_length=20,
+        choices=[('pending_funds', 'Pending Funds'), ('funds_released', 'Funds Released')],
+        default='pending_funds'
+    )
+    fund_release_date = models.DateTimeField(null=True, blank=True)
+    accounting_notes = models.TextField(blank=True, null=True)
+    accounting_receipt = models.URLField(max_length=500, null=True, blank=True)
+
     reviewed_by_studio_head = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,

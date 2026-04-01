@@ -103,6 +103,11 @@ class MaterialRequestSerializer(serializers.ModelSerializer):
             'item_count',
             'created_at',
             'updated_at',
+            'budget_allocated',
+            'accounting_status',
+            'fund_release_date',
+            'accounting_notes',
+            'accounting_receipt',
         ]
         read_only_fields = [
             'created_by',
@@ -118,6 +123,11 @@ class MaterialRequestSerializer(serializers.ModelSerializer):
             'item_count',
             'created_at',
             'updated_at',
+            'budget_allocated',
+            'accounting_status',
+            'fund_release_date',
+            'accounting_notes',
+            'accounting_receipt',
         ]
 
     def get_reviewed_by_studio_head_name(self, obj):

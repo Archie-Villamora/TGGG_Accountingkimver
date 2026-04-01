@@ -105,6 +105,18 @@ const materialRequestService = {
       };
     }
   },
+
+  allocateFunds: async (id, payload) => {
+    try {
+      const response = await api.patch(`/material-requests/${id}/allocate_funds/`, payload);
+      return { success: true, data: response.data };
+    } catch (error) {
+      return {
+        success: false,
+        error: getErrorMessage(error, 'Failed to allocate funds'),
+      };
+    }
+  },
   
   getComments: async (id) => {
     try {

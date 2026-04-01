@@ -585,11 +585,11 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
                                   className="rounded-2xl border border-white/10 bg-[#00273C]/45 overflow-hidden transition hover:border-white/15"
                                 >
                                   {/* Compact header — always visible */}
-                                  <div className="w-full flex items-center gap-3 px-4 py-3">
+                                  <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3">
                                     <button
                                       type="button"
                                       onClick={() => toggleExpandApproved(req.id)}
-                                      className="flex-1 min-w-0 flex items-center gap-3 text-left focus:outline-none rounded-lg"
+                                      className="flex-1 min-w-0 flex items-center gap-3 text-left focus:outline-none rounded-lg p-1 hover:bg-white/5 transition -ml-1"
                                     >
                                       <span className="shrink-0 grid h-7 w-7 place-items-center rounded-lg bg-[#FF7120]/15 text-[#FF7120] text-xs font-bold">
                                         #{idx + 1}
@@ -599,18 +599,18 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
                                           <p className="text-sm font-medium text-white truncate">
                                             {req.created_by_name || req.created_by_email || 'Unknown'}
                                           </p>
-                                          <div className="flex items-center gap-3 text-xs text-white/45 mt-0.5">
-                                            <span className="capitalize">{req.priority}</span>
-                                            <span>·</span>
+                                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-white/45 mt-0.5">
+                                            <span className="capitalize">{req.priority || 'NORMAL'}</span>
+                                            <span className="hidden sm:inline">·</span>
                                             <span>{formatDate(req.request_date)}</span>
-                                            <span>·</span>
+                                            <span className="hidden sm:inline">·</span>
                                             <span>{req.items?.length || 0} item{(req.items?.length || 0) !== 1 ? 's' : ''}</span>
                                           </div>
                                         </div>
                                       </div>
                                     </button>
 
-                                    <div className="flex items-center gap-3 shrink-0">
+                                    <div className="flex flex-wrap items-center gap-2 shrink-0 sm:mt-0 pt-2 sm:pt-0 border-t border-white/5 sm:border-0 pl-10 sm:pl-0">
                                       <button
                                         type="button"
                                         onClick={(e) => {
@@ -626,7 +626,7 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
                                       <button
                                         type="button"
                                         onClick={() => toggleExpandApproved(req.id)}
-                                        className="p-1 hover:bg-white/5 rounded transition focus:outline-none"
+                                        className="p-1.5 hover:bg-white/10 rounded transition focus:outline-none hidden sm:block"
                                       >
                                         {isExpanded
                                           ? <ChevronUp className="h-4 w-4 text-white/40 shrink-0" />
@@ -667,6 +667,46 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
                                           <p className="text-white/75 text-sm mt-1">{req.notes}</p>
                                         </div>
                                       )}
+
+                                  {/* Accounting Formal Proof Details */}
+                                  {(req.accounting_notes || req.accounting_receipt) && (
+                                    <details className="group rounded-xl border border-[#04434a] bg-[#022127] overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                                      <summary className="flex items-center justify-between p-4 cursor-pointer select-none hover:bg-[#032e36] transition">
+                                        <div className="flex items-center gap-2">
+                                          <CheckCircle2 className="h-4 w-4 text-[#00e699]" />
+                                          <p className="text-[#00e699] text-xs font-bold uppercase tracking-wider">Fund Allocation Record</p>
+                                        </div>
+                                        <ChevronDown className="h-4 w-4 text-[#00e699]/50 group-open:rotate-180 transition-transform" />
+                                      </summary>
+                                      
+                                      <div className="px-4 pb-4 border-t border-[#04434a] pt-4">
+                                        {req.budget_allocated && (
+                                          <p className="text-[#00e699] font-bold mb-4 text-sm">
+                                            Released Amount: ₱{Number(req.budget_allocated).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
+                                          </p>
+                                        )}
+
+                                        {req.accounting_notes && (
+                                          <div className="bg-[#01141a] rounded-lg p-3 mb-4 border border-[#04434a]">
+                                            <p className="text-[#00e699]/70 text-[10px] uppercase mb-1 font-bold">Accounting Notes</p>
+                                            <p className="text-[#ccfbf0] text-sm whitespace-pre-wrap">{req.accounting_notes}</p>
+                                          </div>
+                                        )}
+
+                                        {req.accounting_receipt && (
+                                          <div>
+                                            <p className="text-[#00e699]/70 text-[10px] uppercase mb-2 font-bold">Attached Proof</p>
+                                            <a href={req.accounting_receipt} target="_blank" rel="noopener noreferrer" className="block w-full max-w-sm group/img relative">
+                                              <img src={req.accounting_receipt} alt="Accounting Proof" className="w-full h-auto rounded-lg border border-[#04434a] shadow-md transition group-hover/img:brightness-110" />
+                                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition bg-black/40 rounded-lg backdrop-blur-sm">
+                                                 <span className="bg-[#00e699] text-[#01141a] px-3 py-1.5 rounded-lg text-xs font-bold shadow-xl">View Full Document</span>
+                                              </div>
+                                            </a>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </details>
+                                  )}
 
                                       {/* Inline Form View (no image) or Attachment (image exists) */}
                                       {(!req.request_image && req.items?.length > 0) ? (

@@ -16,6 +16,43 @@ export const formatTime12 = (t) => {
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${period}`;
 };
 
+const formatDurationParts = (totalMinutes) => {
+  const minutes = Math.max(0, Math.round(Number(totalMinutes) || 0));
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  const hourLabel = hours === 1 ? 'hr' : 'hrs';
+  const minuteLabel = remainingMinutes === 1 ? 'min' : 'mins';
+
+  if (hours > 0 && remainingMinutes > 0) {
+    return `${hours}${hourLabel} and ${remainingMinutes} ${minuteLabel}`;
+  }
+
+  if (hours > 0) {
+    return `${hours}${hourLabel}`;
+  }
+
+  return `${remainingMinutes} ${minuteLabel}`;
+};
+
+/**
+ * Format decimal hours into a human-readable duration string.
+ * @param {number} decimalHours - Decimal hours (e.g., 1.5 for 1h 30m)
+ * @returns {string} Formatted string (e.g., "1hr and 30 mins")
+ */
+export const formatDurationFromHours = (decimalHours) => {
+  return formatDurationParts((Number(decimalHours) || 0) * 60);
+};
+
+/**
+ * Format minutes into a human-readable duration string.
+ * @param {number} totalMinutes - Duration in minutes
+ * @returns {string} Formatted string (e.g., "1hr and 30 mins")
+ */
+export const formatDurationFromMinutes = (totalMinutes) => {
+  return formatDurationParts(totalMinutes);
+};
+
 /**
  * Calculate minutes between two times
  * @param {string} timeIn - Check-in time in HH:MM format
@@ -106,12 +143,7 @@ export const calcSessionMinutes = (record) => {
  * @returns {string} Formatted string (e.g., "1h 30m") or "0"
  */
 export const formatLateDeduction = (decimalHours) => {
-  if (!decimalHours || decimalHours === 0) return '0';
-  const hours = Math.floor(decimalHours);
-  const mins = Math.round((decimalHours - hours) * 60);
-  if (hours === 0) return `${mins}m`;
-  if (mins === 0) return `${hours}h`;
-  return `${hours}h ${mins}m`;
+  return formatDurationFromHours(decimalHours);
 };
 
 /**
@@ -159,7 +191,7 @@ export const calculateTotalHours = (am, pm, ot) => {
     calcSessionMinutes(am) +
     calcSessionMinutes(pm) +
     calcSessionMinutes(ot);
-  return totalMins > 0 ? `${Math.floor(totalMins / 60)}h ${totalMins % 60}m` : '-';
+  return totalMins > 0 ? formatDurationFromMinutes(totalMins) : '-';
 };
 
 /**

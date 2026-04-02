@@ -54,14 +54,16 @@ export default function BimSpecialistDashboard({ user, onNavigate }) {
   const cardClass = 'rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.22)]';
 
   const formatHoursAndMinutes = (decimalHours) => {
-    const numericHours = Number(decimalHours) || 0;
-    const totalMinutes = Math.max(0, Math.round(numericHours * 60));
+    const totalMinutes = Math.max(0, Math.round((Number(decimalHours) || 0) * 60));
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
 
-    if (hours > 0 && minutes > 0) return `${hours}h and ${minutes} mins`;
-    if (hours > 0) return `${hours}h`;
-    return `${minutes} mins`;
+    const hourLabel = hours === 1 ? 'hr' : 'hrs';
+    const minuteLabel = minutes === 1 ? 'min' : 'mins';
+
+    if (hours > 0 && minutes > 0) return `${hours}${hourLabel} and ${minutes} ${minuteLabel}`;
+    if (hours > 0) return `${hours}${hourLabel}`;
+    return `${minutes} ${minuteLabel}`;
   };
 
   const monthOptions = useMemo(
@@ -114,7 +116,7 @@ export default function BimSpecialistDashboard({ user, onNavigate }) {
     const records = filteredSummaryRecords || [];
     const workedDates = new Set();
     let totalMinutes = 0;
-    let totalLate = 0;
+    let totalLateHours = 0;
     let overtimeMinutes = 0;
 
     records.forEach((row) => {
@@ -130,8 +132,9 @@ export default function BimSpecialistDashboard({ user, onNavigate }) {
       });
       totalMinutes += sessionMinutes;
 
-      if (row?.is_late || row?.status === 'late') {
-        totalLate += 1;
+      const lateHours = Number(row?.late_deduction_hours || 0);
+      if (Number.isFinite(lateHours) && lateHours > 0) {
+        totalLateHours += lateHours;
       }
 
       if (sessionType === 'overtime') {
@@ -143,7 +146,7 @@ export default function BimSpecialistDashboard({ user, onNavigate }) {
     return {
       totalHours: (totalMinutes / 60),
       totalDaysWorked: workedDates.size,
-      totalLate,
+      totalLate: totalLateHours,
       totalOvertimeHours: (overtimeMinutes / 60),
     };
   }, [filteredSummaryRecords]);
@@ -191,7 +194,7 @@ export default function BimSpecialistDashboard({ user, onNavigate }) {
         {isAttendanceTotalsOpen && (
           <div className="px-4 sm:px-6 pb-4 sm:pb-6 space-y-4 border-t border-white/10">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-              <label className="flex flex-col gap-1 text-xs text-white/70">
+              <label className="flex flex-col gap-1 pt-2 text-xs text-white/70">
                 Month
                 <select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} className="rounded-lg border border-white/15 bg-[#001f35] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF7120]/60">
                   <option value="all">All Months</option>
@@ -200,7 +203,7 @@ export default function BimSpecialistDashboard({ user, onNavigate }) {
                   ))}
                 </select>
               </label>
-              <label className="flex flex-col gap-1 text-xs text-white/70">
+              <label className="flex flex-col gap-1 pt-2 text-xs text-white/70">
                 Year
                 <select value={filterYear} onChange={(e) => setFilterYear(e.target.value)} className="rounded-lg border border-white/15 bg-[#001f35] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF7120]/60">
                   <option value="all">All Years</option>
@@ -209,11 +212,11 @@ export default function BimSpecialistDashboard({ user, onNavigate }) {
                   ))}
                 </select>
               </label>
-              <label className="flex flex-col gap-1 text-xs text-white/70">
+              <label className="flex flex-col gap-1 pt-2 text-xs text-white/70">
                 Start Date
                 <input type="date" value={rangeStartDate} onChange={(e) => setRangeStartDate(e.target.value)} className="rounded-lg border border-white/15 bg-[#001f35] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF7120]/60 [color-scheme:dark]" />
               </label>
-              <label className="flex flex-col gap-1 text-xs text-white/70">
+              <label className="flex flex-col gap-1 pt-2 text-xs text-white/70">
                 End Date
                 <input type="date" value={rangeEndDate} onChange={(e) => setRangeEndDate(e.target.value)} className="rounded-lg border border-white/15 bg-[#001f35] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#FF7120]/60 [color-scheme:dark]" />
               </label>
@@ -222,7 +225,7 @@ export default function BimSpecialistDashboard({ user, onNavigate }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
               <div className="rounded-xl border border-white/10 bg-[#021B2C]/70 p-3"><p className="text-xs text-white/60">Total Hours</p><p className="mt-1 text-2xl font-semibold text-white">{formatHoursAndMinutes(attendanceTotals.totalHours)}</p></div>
               <div className="rounded-xl border border-white/10 bg-[#021B2C]/70 p-3"><p className="text-xs text-white/60">Total Days Worked</p><p className="mt-1 text-2xl font-semibold text-white">{attendanceTotals.totalDaysWorked}</p></div>
-              <div className="rounded-xl border border-white/10 bg-[#021B2C]/70 p-3"><p className="text-xs text-white/60">Total Late</p><p className="mt-1 text-2xl font-semibold text-white">{attendanceTotals.totalLate}</p></div>
+              <div className="rounded-xl border border-white/10 bg-[#021B2C]/70 p-3"><p className="text-xs text-white/60">Total Late</p><p className="mt-1 text-2xl font-semibold text-white">{formatHoursAndMinutes(attendanceTotals.totalLate)}</p></div>
               <div className="rounded-xl border border-white/10 bg-[#021B2C]/70 p-3"><p className="text-xs text-white/60">Total Overtime Worked</p><p className="mt-1 text-2xl font-semibold text-white">{formatHoursAndMinutes(attendanceTotals.totalOvertimeHours)}</p></div>
             </div>
           </div>

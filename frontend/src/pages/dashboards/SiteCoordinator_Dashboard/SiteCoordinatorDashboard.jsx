@@ -10,7 +10,7 @@ import WorkDocCard from '../../../components/attendance/WorkDocCard';
 import AttendanceHistoryTable from '../../../components/attendance/AttendanceHistoryTable';
 import useMyAttendance from '../../../hooks/useMyAttendance';
 import { CardSkeleton } from '../../../components/SkeletonLoader';
-import { calcSessionMinutes } from '../../../utils/attendanceFormatters';
+import { calcSessionMinutes, formatDurationFromHours } from '../../../utils/attendanceFormatters';
 
 export default function SiteCoordinatorDashboard({ user, onNavigate }) {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -92,7 +92,7 @@ export default function SiteCoordinatorDashboard({ user, onNavigate }) {
     const records = filteredSummaryRecords || [];
     const workedDates = new Set();
     let totalMinutes = 0;
-    let totalLate = 0;
+    let totalLateHours = 0;
     let overtimeMinutes = 0;
 
     records.forEach((row) => {
@@ -104,8 +104,9 @@ export default function SiteCoordinatorDashboard({ user, onNavigate }) {
       const sessionMinutes = calcSessionMinutes(row);
       totalMinutes += sessionMinutes;
 
-      if (row?.is_late || row?.status === 'late') {
-        totalLate += 1;
+      const lateHours = Number(row?.late_deduction_hours || 0);
+      if (Number.isFinite(lateHours) && lateHours > 0) {
+        totalLateHours += lateHours;
       }
 
       if (row?.session_type === 'overtime') {
@@ -116,7 +117,7 @@ export default function SiteCoordinatorDashboard({ user, onNavigate }) {
     return {
       totalHours: (totalMinutes / 60),
       totalDaysWorked: workedDates.size,
-      totalLate,
+      totalLate: totalLateHours,
       totalOvertimeHours: (overtimeMinutes / 60),
     };
   }, [filteredSummaryRecords]);
@@ -158,7 +159,7 @@ export default function SiteCoordinatorDashboard({ user, onNavigate }) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-            <label className="flex flex-col gap-1 text-xs text-white/70">
+            <label className="flex flex-col gap-1 pt-2 text-xs text-white/70">
               Month
               <select
                 value={filterMonth}
@@ -172,7 +173,7 @@ export default function SiteCoordinatorDashboard({ user, onNavigate }) {
               </select>
             </label>
 
-            <label className="flex flex-col gap-1 text-xs text-white/70">
+            <label className="flex flex-col gap-1 pt-2 text-xs text-white/70">
               Year
               <select
                 value={filterYear}
@@ -186,7 +187,7 @@ export default function SiteCoordinatorDashboard({ user, onNavigate }) {
               </select>
             </label>
 
-            <label className="flex flex-col gap-1 text-xs text-white/70">
+            <label className="flex flex-col gap-1 pt-2 text-xs text-white/70">
               Start Date
               <input
                 type="date"
@@ -196,7 +197,7 @@ export default function SiteCoordinatorDashboard({ user, onNavigate }) {
               />
             </label>
 
-            <label className="flex flex-col gap-1 text-xs text-white/70">
+            <label className="flex flex-col gap-1 pt-2 text-xs text-white/70">
               End Date
               <input
                 type="date"
@@ -210,7 +211,7 @@ export default function SiteCoordinatorDashboard({ user, onNavigate }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             <div className="rounded-xl border border-white/10 bg-[#021B2C]/70 p-3">
               <p className="text-xs text-white/60">Total Hours</p>
-              <p className="mt-1 text-2xl font-semibold text-white">{attendanceTotals.totalHours.toFixed(2)}h</p>
+              <p className="mt-1 text-2xl font-semibold text-white">{formatDurationFromHours(attendanceTotals.totalHours)}</p>
             </div>
             <div className="rounded-xl border border-white/10 bg-[#021B2C]/70 p-3">
               <p className="text-xs text-white/60">Total Days Worked</p>
@@ -218,11 +219,11 @@ export default function SiteCoordinatorDashboard({ user, onNavigate }) {
             </div>
             <div className="rounded-xl border border-white/10 bg-[#021B2C]/70 p-3">
               <p className="text-xs text-white/60">Total Late</p>
-              <p className="mt-1 text-2xl font-semibold text-white">{attendanceTotals.totalLate}</p>
+              <p className="mt-1 text-2xl font-semibold text-white">{formatDurationFromHours(attendanceTotals.totalLate)}</p>
             </div>
             <div className="rounded-xl border border-white/10 bg-[#021B2C]/70 p-3">
               <p className="text-xs text-white/60">Total Overtime Worked</p>
-              <p className="mt-1 text-2xl font-semibold text-white">{attendanceTotals.totalOvertimeHours.toFixed(2)}h</p>
+              <p className="mt-1 text-2xl font-semibold text-white">{formatDurationFromHours(attendanceTotals.totalOvertimeHours)}</p>
             </div>
           </div>
         </div>

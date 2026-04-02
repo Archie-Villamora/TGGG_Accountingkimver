@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../../components/ui/dialog';
 import { Label } from '../../../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import { formatDurationFromHours } from '../../../utils/attendanceFormatters';
 import {
   Search,
   Filter,
@@ -680,7 +681,7 @@ export function EmployeeManagement() {
                 </div>
                 <div className="bg-background rounded-lg p-3">
                   <p className="text-xs text-muted-foreground mb-1">Total Hours</p>
-                  <p className="text-2xl font-bold text-primary">{isAttendanceLoading ? '...' : attendanceMetrics.totalHours.toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-primary">{isAttendanceLoading ? '...' : formatDurationFromHours(attendanceMetrics.totalHours)}</p>
                 </div>
                 <div className="bg-background rounded-lg p-3">
                   <p className="text-xs text-muted-foreground mb-1">On-Time</p>
@@ -694,12 +695,12 @@ export function EmployeeManagement() {
 
               <div className="bg-background rounded-lg p-3">
                 <p className="text-xs text-muted-foreground mb-1">Total Late</p>
-                <p className="text-2xl font-bold text-primary">{isAttendanceLoading ? '...' : `${attendanceMetrics.totalLate.toFixed(2)}h`}</p>
+                <p className="text-2xl font-bold text-primary">{isAttendanceLoading ? '...' : formatDurationFromHours(attendanceMetrics.totalLate)}</p>
               </div>
 
               <div className="bg-background rounded-lg p-3 mt-3">
                 <p className="text-xs text-muted-foreground mb-1">Total Overtime</p>
-                <p className="text-2xl font-bold text-primary">{isAttendanceLoading ? '...' : `${attendanceMetrics.totalOvertime.toFixed(2)}h`}</p>
+                <p className="text-2xl font-bold text-primary">{isAttendanceLoading ? '...' : formatDurationFromHours(attendanceMetrics.totalOvertime)}</p>
               </div>
             </CardContent>
           </Card>

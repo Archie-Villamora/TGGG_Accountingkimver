@@ -141,7 +141,7 @@ const CommentItem = ({ comment, requestId, onRefresh }) => {
  * Props:
  *   requestId   {number}  – material request pk
  */
-const MaterialRequestCommentThread = ({ requestId }) => {
+const MaterialRequestCommentThread = ({ requestId, leftAction, rightAction }) => {
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
     const [posting, setPosting] = useState(false);
@@ -175,24 +175,38 @@ const MaterialRequestCommentThread = ({ requestId }) => {
 
     return (
         <div className="space-y-4">
-            <button
-                type="button"
-                onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 text-sm font-semibold text-white/70 hover:text-white transition-colors group"
-            >
-                <MessageSquare className="h-4 w-4 text-[#FF7120]" />
-                <span>Discussion Thread</span>
-                {comments.length > 0 && (
-                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/60">
-                        {comments.length}
-                    </span>
+            <div className="flex items-center justify-between gap-4 w-full">
+                <div className="flex items-center gap-4">
+                    {leftAction && (
+                        <div className="shrink-0">
+                            {leftAction}
+                        </div>
+                    )}
+                    <button
+                        type="button"
+                        onClick={() => setIsOpen(!isOpen)}
+                        className="flex items-center gap-2 text-sm font-semibold text-white/70 hover:text-white transition-colors group"
+                    >
+                        <MessageSquare className="h-4 w-4 text-[#FF7120]" />
+                        <span>Discussion Thread</span>
+                        {comments.length > 0 && (
+                            <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/60">
+                                {comments.length}
+                            </span>
+                        )}
+                        {isOpen ? (
+                            <ChevronUp className="h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity ml-1" />
+                        ) : (
+                            <ChevronDown className="h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity ml-1" />
+                        )}
+                    </button>
+                </div>
+                {rightAction && (
+                    <div className="shrink-0">
+                        {rightAction}
+                    </div>
                 )}
-                {isOpen ? (
-                    <ChevronUp className="h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity ml-1" />
-                ) : (
-                    <ChevronDown className="h-4 w-4 opacity-50 group-hover:opacity-100 transition-opacity ml-1" />
-                )}
-            </button>
+            </div>
 
             {isOpen && (
                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300 pt-2 border-t border-white/5">

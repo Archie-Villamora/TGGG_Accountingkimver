@@ -213,10 +213,28 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
   const [selectedApprovedProject, setSelectedApprovedProject] = useState(null);
   const [expandedApprovedIds, setExpandedApprovedIds] = useState(new Set());
 
-  // Group approved requests by project (client-side)
+  // Group approved requests by project (client-side) - ONLY include those NOT yet processed for the active queue
   const approvedByProjectMap = useMemo(() => {
-    const map = new Map(); // key = project id (or 'unlinked'), value = { project, requests[] }
-    approvedRequests.forEach((req) => {
+    const map = new Map();
+    approvedRequests.filter(r => r.accounting_status !== 'funds_released').forEach((req) => {
+      const key = req.project || 'unlinked';
+      if (!map.has(key)) {
+        map.set(key, {
+          id: key,
+          name: req.project_name || 'Unlinked Requests',
+          location: req.delivery_location || '-',
+          requests: [],
+        });
+      }
+      map.get(key).requests.push(req);
+    });
+    return Array.from(map.values());
+  }, [approvedRequests]);
+
+  // Group processed requests for the Expenses tab
+  const expensesByProjectMap = useMemo(() => {
+    const map = new Map();
+    approvedRequests.filter(r => r.accounting_status === 'funds_released').forEach((req) => {
       const key = req.project || 'unlinked';
       if (!map.has(key)) {
         map.set(key, {
@@ -254,7 +272,11 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
     if (activeTab === 'approved' && approvedByProjectMap.length > 0 && !selectedApprovedProject) {
       setSelectedApprovedProject(approvedByProjectMap[0].id);
     }
-  }, [activeTab, approvedByProjectMap, selectedApprovedProject]);
+    // Auto-select first project in expenses tab
+    if (pageTab === 'expenses' && expensesByProjectMap.length > 0 && !selectedExpensesProject) {
+      setSelectedExpensesProject(expensesByProjectMap[0].id);
+    }
+  }, [activeTab, pageTab, approvedByProjectMap, expensesByProjectMap, selectedApprovedProject, selectedExpensesProject]);
 
   const toggleExpandApproved = (requestId) => {
     setExpandedApprovedIds((prev) => {
@@ -409,8 +431,8 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
               <div className="p-6 sm:p-8 flex flex-col xl:flex-row xl:items-end xl:justify-between gap-6">
                   <div className="max-w-3xl">
                       <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#FF7120]/80">Studio Head Dashboard</p>
-                      <h1 className="mt-3 text-3xl sm:text-4xl font-semibold text-white">Material Request</h1>
-                      <p className="mt-3 text-sm text-white/60 max-w-2xl">Review and manage project-based material requests.</p>
+                      <h1 className="mt-3 text-3xl sm:text-4xl font-semibold text-white">Material Request and Expenses</h1>
+                      <p className="mt-3 text-sm text-white/60 max-w-2xl">Manage material requests and view project expense summaries.</p>
                   </div>
                   <button
                       type="button"
@@ -502,24 +524,21 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
 
                     {loading && <p className="text-sm text-white/60 py-6 text-center">Loading...</p>}
 
-                    {!loading && approvedByProjectMap.length === 0 && (
+                    {!loading && expensesByProjectMap.length === 0 && (
                       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 text-sm text-white/55 text-center">
-                        No approved material requests yet.
+                        No processed projects with expenses yet.
                       </div>
                     )}
 
-                    {!loading && approvedByProjectMap.length > 0 && (
+                    {!loading && expensesByProjectMap.length > 0 && (
                       <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
-                        {approvedByProjectMap.map((group) => {
-                          const isSelected = selectedApprovedProject === group.id;
+                        {expensesByProjectMap.map((group) => {
+                          const isSelected = selectedExpensesProject === group.id;
                           return (
                             <button
                               key={group.id}
                               type="button"
-                              onClick={() => {
-                                setSelectedApprovedProject(group.id);
-                                setExpandedApprovedIds(new Set());
-                              }}
+                              onClick={() => setSelectedExpensesProject(group.id)}
                               className={`w-full rounded-2xl border p-4 text-left transition ${
                                 isSelected
                                   ? 'border-[#FF7120]/50 bg-[#FF7120]/10 shadow-[0_0_24px_rgba(255,113,32,0.12)]'
@@ -527,14 +546,10 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
                               }`}
                             >
                               <p className="text-sm font-semibold text-white truncate">{group.name}</p>
-                              <div className="mt-2 flex items-center gap-3 text-xs text-white/50">
-                                <span className="inline-flex items-center gap-1">
-                                  <MapPin className="h-3 w-3" />
-                                  {group.location}
-                                </span>
+                              <div className="mt-2 flex items-center text-xs text-white/50">
                                 <span className="inline-flex items-center gap-1">
                                   <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-                                  {group.requests.length} request{group.requests.length !== 1 ? 's' : ''}
+                                  {group.requests.length} processed request{group.requests.length !== 1 ? 's' : ''}
                                 </span>
                               </div>
                             </button>
@@ -963,15 +978,15 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
 
                     {loading && <p className="text-sm text-white/60 py-6 text-center">Loading...</p>}
 
-                    {!loading && approvedByProjectMap.length === 0 && (
+                    {!loading && expensesByProjectMap.length === 0 && (
                       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 text-sm text-white/55 text-center">
-                        No approved projects with expenses yet.
+                        No processed projects with expenses yet.
                       </div>
                     )}
 
-                    {!loading && approvedByProjectMap.length > 0 && (
+                    {!loading && expensesByProjectMap.length > 0 && (
                       <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
-                        {approvedByProjectMap.map((group) => {
+                        {expensesByProjectMap.map((group) => {
                           const isSelected = selectedExpensesProject === group.id;
                           return (
                             <button
@@ -988,7 +1003,7 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
                               <div className="mt-2 flex items-center text-xs text-white/50">
                                 <span className="inline-flex items-center gap-1">
                                   <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-                                  {group.requests.length} request{group.requests.length !== 1 ? 's' : ''}
+                                  {group.requests.length} processed request{group.requests.length !== 1 ? 's' : ''}
                                 </span>
                               </div>
                             </button>
@@ -1003,7 +1018,7 @@ const StudioHeadMaterialRequestPage = ({ user, onNavigate }) => {
                 <div className="lg:col-span-2">
                   <div className={`${cardClass} flex flex-col h-full p-6`}>
                     {(() => {
-                      const activeGroup = approvedByProjectMap.find((g) => g.id === selectedExpensesProject);
+                      const activeGroup = expensesByProjectMap.find((g) => g.id === selectedExpensesProject);
                       if (!activeGroup) {
                         return (
                           <div className="h-full grid place-items-center text-center py-12">

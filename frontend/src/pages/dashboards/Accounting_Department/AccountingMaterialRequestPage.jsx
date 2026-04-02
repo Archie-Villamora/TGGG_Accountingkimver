@@ -83,7 +83,7 @@ const AccountingMaterialRequestPage = ({ user }) => {
   // Group requests by project for the main 'material-request' tab
   const requestsByProjectMap = useMemo(() => {
     const map = new Map();
-    filteredRequests.forEach((req) => {
+    filteredRequests.filter(r => r.accounting_status !== 'funds_released').forEach((req) => {
       const key = req.project || 'unlinked';
       if (!map.has(key)) {
         map.set(key, {
@@ -98,10 +98,10 @@ const AccountingMaterialRequestPage = ({ user }) => {
     return Array.from(map.values());
   }, [filteredRequests]);
 
-  // Group ONLY APPROVED requests by project for 'expenses' tab
+  // Group ONLY FUNDED requests by project for 'expenses' tab
   const approvedByProjectMap = useMemo(() => {
     const map = new Map();
-    filteredRequests.filter(r => r.status === 'approved').forEach((req) => {
+    filteredRequests.filter(r => r.status === 'approved' && r.accounting_status === 'funds_released').forEach((req) => {
       const key = req.project || 'unlinked';
       if (!map.has(key)) {
         map.set(key, {
@@ -159,8 +159,8 @@ const AccountingMaterialRequestPage = ({ user }) => {
         <div className="p-6 sm:p-8 flex flex-col xl:flex-row xl:items-end xl:justify-between gap-6">
           <div className="max-w-3xl">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#FF7120]/80">Accounting Department</p>
-            <h1 className="mt-3 text-3xl sm:text-4xl font-semibold text-white">Material Request</h1>
-            <p className="mt-3 text-sm text-white/60 max-w-2xl">Review and manage requisition forms and project-based material expenses.</p>
+            <h1 className="mt-3 text-3xl sm:text-4xl font-semibold text-white">Material Request and Expenses</h1>
+            <p className="mt-3 text-sm text-white/60 max-w-2xl">Manage material requests and view project expense summaries.</p>
           </div>
           <div className="flex items-center gap-4">
             <button
@@ -334,27 +334,6 @@ const AccountingMaterialRequestPage = ({ user }) => {
                                 </button>
 
                                 <div className="flex flex-wrap items-center gap-2 shrink-0 sm:mt-0 pt-2 sm:pt-0 border-t border-white/5 sm:border-0 pl-10 sm:pl-0">
-                                  {/* Fund Allocation controls (Accounting side) */}
-                                  {req.accounting_status === 'pending_funds' ? (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedRequestForAllocation(req);
-                                        setIsAllocationModalOpen(true);
-                                      }}
-                                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#FF7120] text-white text-xs font-medium rounded-lg hover:brightness-110 shadow-md shadow-[#FF7120]/30 transition"
-                                    >
-                                      <DollarSign className="h-3.5 w-3.5" />
-                                      Allocate Funds
-                                    </button>
-                                  ) : req.accounting_status === 'funds_released' ? (
-                                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-medium rounded-lg">
-                                      <CheckCircle2 className="h-3.5 w-3.5" />
-                                      Funds Released
-                                    </span>
-                                  ) : null}
-
                                   <button
                                     type="button"
                                     onClick={(e) => {
@@ -482,7 +461,28 @@ const AccountingMaterialRequestPage = ({ user }) => {
                                   )}
 
                                       <div className="border-t border-white/10 pt-4 flex flex-col gap-4">
-                                        <MaterialRequestCommentThread requestId={req.id} />
+                                        <MaterialRequestCommentThread 
+                                          requestId={req.id} 
+                                          rightAction={
+                                            req.accounting_status === 'pending_funds' ? (
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setSelectedRequestForAllocation(req);
+                                                  setIsAllocationModalOpen(true);
+                                                }}
+                                                className="inline-flex items-center justify-center min-w-[140px] px-6 py-2.5 bg-[#FF7120] text-white text-sm font-bold tracking-wide rounded-xl hover:brightness-110 shadow-lg shadow-[#FF7120]/30 transition"
+                                              >
+                                                Process
+                                              </button>
+                                            ) : req.accounting_status === 'funds_released' ? (
+                                              <span className="inline-flex items-center justify-center min-w-[140px] px-6 py-2.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-sm font-bold tracking-wide rounded-xl">
+                                                Processed
+                                              </span>
+                                            ) : null
+                                          }
+                                        />
                                       </div>
                                 </div>
                               )}
@@ -515,7 +515,7 @@ const AccountingMaterialRequestPage = ({ user }) => {
 
                   {!loading && approvedByProjectMap.length === 0 && (
                     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 text-sm text-white/55 text-center">
-                      No approved projects with expenses yet.
+                      No projects with allocated funds yet.
                     </div>
                   )}
 
@@ -583,7 +583,7 @@ const AccountingMaterialRequestPage = ({ user }) => {
                           </div>
                           <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-200">
                              <CheckCircle2 className="h-3.5 w-3.5" />
-                             {activeGroup.requests.length} approved
+                             {activeGroup.requests.length} funded
                           </span>
                         </div>
 

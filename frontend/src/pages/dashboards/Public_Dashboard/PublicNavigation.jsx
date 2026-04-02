@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import * as notifService from '../../../services/notificationService';
 import { 
   Bell, User, Home, Clock, CheckSquare, FolderKanban, ArrowUpDown, Check, Menu, Grip,
-  LayoutDashboard, Users, CalendarCheck, ClipboardCheck, Calendar, FileText, GitMerge, ClipboardList
+  LayoutDashboard, Users, CalendarCheck, ClipboardCheck, Calendar, FileText, GitMerge, ClipboardList,
+  CalendarDays, DollarSign
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/accounting-ui';
@@ -475,6 +476,7 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
                             title: 'Personal',
                             items: [
                               { id: 'attendance', label: 'Attendance', icon: Clock, path: 'attendance' },
+                              { id: 'ceo-calendar', label: 'Calendar', icon: CalendarDays, path: 'ceo-calendar' },
                             ]
                           },
                           {
@@ -487,7 +489,9 @@ const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
                           {
                             title: 'Management',
                             items: [
-                              { id: 'ceo-material-requests', label: 'Material Request', icon: ClipboardList, path: 'ceo-material-requests' },
+                              { id: 'ceo-material-requests', label: 'Material request & expenses', icon: ClipboardList, path: 'ceo-material-requests' },
+                              { id: 'ceo-employees', label: 'Employees', icon: Users, path: 'ceo-employees' },
+                              { id: 'ceo-payroll', label: 'Payroll Records', icon: DollarSign, path: 'ceo-payroll' },
                             ]
                           }
                         ];

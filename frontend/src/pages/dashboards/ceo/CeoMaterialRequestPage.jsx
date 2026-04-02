@@ -144,10 +144,28 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
   const [selectedExpensesProject, setSelectedExpensesProject] = useState(null);
   const [expensesFormRequest, setExpensesFormRequest] = useState(null);
 
-  // Group approved requests by project (client-side)
+  // Group approved requests by project (client-side) - ONLY include those NOT yet processed for the active queue
   const approvedByProjectMap = useMemo(() => {
-    const map = new Map(); // key = project id (or 'unlinked'), value = { project, requests[] }
-    approvedRequests.forEach((req) => {
+    const map = new Map();
+    approvedRequests.filter(r => r.accounting_status !== 'funds_released').forEach((req) => {
+      const key = req.project || 'unlinked';
+      if (!map.has(key)) {
+        map.set(key, {
+          id: key,
+          name: req.project_name || 'Unlinked Requests',
+          location: req.delivery_location || '-',
+          requests: [],
+        });
+      }
+      map.get(key).requests.push(req);
+    });
+    return Array.from(map.values());
+  }, [approvedRequests]);
+
+  // Group processed requests for the Expenses tab
+  const expensesByProjectMap = useMemo(() => {
+    const map = new Map();
+    approvedRequests.filter(r => r.accounting_status === 'funds_released').forEach((req) => {
       const key = req.project || 'unlinked';
       if (!map.has(key)) {
         map.set(key, {
@@ -185,6 +203,13 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
       setSelectedApprovedProject(approvedByProjectMap[0].id);
     }
   }, [activeTab, approvedByProjectMap, selectedApprovedProject]);
+
+  // Auto-select first project in expenses tab
+  useEffect(() => {
+    if (pageTab === 'expenses' && expensesByProjectMap.length > 0 && !selectedExpensesProject) {
+      setSelectedExpensesProject(expensesByProjectMap[0].id);
+    }
+  }, [pageTab, expensesByProjectMap, selectedExpensesProject]);
 
   const toggleExpandApproved = (requestId) => {
     setExpandedApprovedIds((prev) => {
@@ -918,15 +943,15 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
 
                     {loading && <p className="text-sm text-white/60 py-6 text-center">Loading...</p>}
 
-                    {!loading && approvedByProjectMap.length === 0 && (
+                    {!loading && expensesByProjectMap.length === 0 && (
                       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 text-sm text-white/55 text-center">
-                        No approved projects with expenses yet.
+                        No processed projects with expenses yet.
                       </div>
                     )}
 
-                    {!loading && approvedByProjectMap.length > 0 && (
+                    {!loading && expensesByProjectMap.length > 0 && (
                       <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
-                        {approvedByProjectMap.map((group) => {
+                        {expensesByProjectMap.map((group) => {
                           const isSelected = selectedExpensesProject === group.id;
                           return (
                             <button
@@ -943,7 +968,7 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
                               <div className="mt-2 flex items-center text-xs text-white/50">
                                 <span className="inline-flex items-center gap-1">
                                   <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-                                  {group.requests.length} request{group.requests.length !== 1 ? 's' : ''}
+                                  {group.requests.length} processed request{group.requests.length !== 1 ? 's' : ''}
                                 </span>
                               </div>
                             </button>
@@ -958,7 +983,7 @@ const CeoMaterialRequestPage = ({ user, onNavigate, onLogout }) => {
                 <div className="lg:col-span-2">
                   <div className={`${cardClass} flex flex-col h-full p-6`}>
                     {(() => {
-                      const activeGroup = approvedByProjectMap.find((g) => g.id === selectedExpensesProject);
+                      const activeGroup = expensesByProjectMap.find((g) => g.id === selectedExpensesProject);
                       if (!activeGroup) {
                         return (
                           <div className="h-full grid place-items-center text-center py-12">

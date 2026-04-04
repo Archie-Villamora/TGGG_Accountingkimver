@@ -5,6 +5,7 @@ import PrintAttendance from '../../globalattendancereport/PrintAttendance';
 import {
   formatTime12,
   calculateTotalHours,
+  formatDurationFromHours,
 } from '../../../utils/attendanceFormatters';
 import {
   Avatar,
@@ -316,7 +317,7 @@ export function AttendanceLeave() {
                     const totalHoursFromTimes = [group.morning, group.afternoon, group.overtime]
                       .reduce((acc, r) => acc + (r ? getWorkedHours(r) : 0), 0);
                     const totalHoursLabel = calculateTotalHours(group.morning, group.afternoon, group.overtime);
-                    const fallbackHoursLabel = `${(totalMinsFromApi > 0 ? totalMinsFromApi / 60 : totalHoursFromTimes).toFixed(2)}h`;
+                    const fallbackHoursLabel = formatDurationFromHours(totalMinsFromApi > 0 ? totalMinsFromApi / 60 : totalHoursFromTimes);
 
                     return (
                       <div key={group.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg border border-border/50 transition-colors gap-4">

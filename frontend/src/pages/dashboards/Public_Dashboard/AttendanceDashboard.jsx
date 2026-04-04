@@ -17,7 +17,7 @@ import AttendanceHistoryTable from '../../../components/attendance/AttendanceHis
 import useMyAttendance from "../../../hooks/useMyAttendance";
 import { getEvents } from "../../../services/attendanceService";
 import { TableSkeleton, CardSkeleton } from "../../../components/SkeletonLoader";
-import { calcSessionMinutes } from '../../../utils/attendanceFormatters';
+import { calcSessionMinutes, formatDurationFromHours } from '../../../utils/attendanceFormatters';
 
 const AttendanceDashboard = ({
   user,
@@ -110,7 +110,7 @@ const AttendanceDashboard = ({
     const records = filteredSummaryRecords || [];
     const workedDates = new Set();
     let totalMinutes = 0;
-    let totalLate = 0;
+    let totalLateHours = 0;
     let overtimeMinutes = 0;
 
     records.forEach((row) => {
@@ -122,8 +122,9 @@ const AttendanceDashboard = ({
       const sessionMinutes = calcSessionMinutes(row);
       totalMinutes += sessionMinutes;
 
-      if (row?.is_late || row?.status === 'late') {
-        totalLate += 1;
+      const lateHours = Number(row?.late_deduction_hours || 0);
+      if (Number.isFinite(lateHours) && lateHours > 0) {
+        totalLateHours += lateHours;
       }
 
       if (row?.session_type === 'overtime') {
@@ -134,7 +135,7 @@ const AttendanceDashboard = ({
     return {
       totalHours: (totalMinutes / 60),
       totalDaysWorked: workedDates.size,
-      totalLate,
+      totalLate: totalLateHours,
       totalOvertimeHours: (overtimeMinutes / 60),
     };
   }, [filteredSummaryRecords]);
@@ -342,7 +343,7 @@ const AttendanceDashboard = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                   <div className="rounded-xl border border-white/10 bg-[#021B2C]/70 p-3">
                     <p className="text-xs text-white/60">Total Hours</p>
-                    <p className="mt-1 text-2xl font-semibold text-white">{attendanceTotals.totalHours.toFixed(2)}h</p>
+                    <p className="mt-1 text-2xl font-semibold text-white">{formatDurationFromHours(attendanceTotals.totalHours)}</p>
                   </div>
                   <div className="rounded-xl border border-white/10 bg-[#021B2C]/70 p-3">
                     <p className="text-xs text-white/60">Total Days Worked</p>
@@ -350,11 +351,11 @@ const AttendanceDashboard = ({
                   </div>
                   <div className="rounded-xl border border-white/10 bg-[#021B2C]/70 p-3">
                     <p className="text-xs text-white/60">Total Late</p>
-                    <p className="mt-1 text-2xl font-semibold text-white">{attendanceTotals.totalLate}</p>
+                    <p className="mt-1 text-2xl font-semibold text-white">{formatDurationFromHours(attendanceTotals.totalLate)}</p>
                   </div>
                   <div className="rounded-xl border border-white/10 bg-[#021B2C]/70 p-3">
                     <p className="text-xs text-white/60">Total Overtime Worked</p>
-                    <p className="mt-1 text-2xl font-semibold text-white">{attendanceTotals.totalOvertimeHours.toFixed(2)}h</p>
+                    <p className="mt-1 text-2xl font-semibold text-white">{formatDurationFromHours(attendanceTotals.totalOvertimeHours)}</p>
                   </div>
                 </div>
               </div>

@@ -25,12 +25,20 @@
 .alert-box {
   background: #001f35;
   border-radius: 16px;
-  padding: 2.5rem;
+  padding: 1.5rem;
   width: 90%;
   max-width: 420px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   animation: slideUp 0.3s ease;
   text-align: center;
+  margin: 1rem;
+}
+
+@media (min-width: 640px) {
+  .alert-box {
+    padding: 2.5rem;
+    margin: 0;
+  }
 }
 
 @keyframes slideUp {
@@ -46,16 +54,25 @@
 }
 
 .alert-icon {
-  width: 70px;
-  height: 70px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 1.5rem;
-  font-size: 2.5rem;
+  margin: 0 auto 1rem;
+  font-size: 1.75rem;
   font-weight: bold;
   animation: iconPop 0.4s ease 0.2s both;
+}
+
+@media (min-width: 640px) {
+  .alert-icon {
+    width: 70px;
+    height: 70px;
+    margin: 0 auto 1.5rem;
+    font-size: 2.5rem;
+  }
 }
 
 @keyframes iconPop {
@@ -96,34 +113,60 @@
 
 .alert-title {
   color: #ffffff;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 600;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
   letter-spacing: -0.02em;
 }
 
 .alert-message {
   color: #a0a4a8;
-  font-size: 1rem;
+  font-size: 0.875rem;
   line-height: 1.6;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .alert-title {
+    font-size: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .alert-message {
+    font-size: 1rem;
+    margin-bottom: 2rem;
+  }
 }
 
 .alert-buttons {
   display: flex;
-  gap: 0.75rem;
+  flex-direction: column-reverse;
+  gap: 0.5rem;
   justify-content: center;
 }
 
+@media (min-width: 640px) {
+  .alert-buttons {
+    flex-direction: row;
+    gap: 0.75rem;
+  }
+}
+
 .alert-btn {
-  padding: 0.75rem 2rem;
+  padding: 0.65rem 1.5rem;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   transition: all 0.2s;
   min-width: 100px;
+}
+
+@media (min-width: 640px) {
+  .alert-btn {
+    padding: 0.75rem 2rem;
+    font-size: 0.95rem;
+  }
 }
 
 .alert-btn-confirm {

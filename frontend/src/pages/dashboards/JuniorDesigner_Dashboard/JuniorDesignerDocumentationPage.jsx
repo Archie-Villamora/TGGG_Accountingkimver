@@ -4,6 +4,9 @@ import JuniorDesignerSidebar from './components/JuniorDesignerSidebar';
 import bimDocumentationService from '../../../services/bimDocumentationService';
 import CommentThread from '../../../components/CommentThread';
 import { toast } from 'sonner';
+import Alert from '../../../components/Alert';
+
+const MAX_UPLOAD_FILES = 5;
 
 const JuniorDesignerDocumentationPage = ({ user, onNavigate }) => {
     const [activeTab, setActiveTab] = useState('create');
@@ -19,6 +22,9 @@ const JuniorDesignerDocumentationPage = ({ user, onNavigate }) => {
     const [openThreadDocId, setOpenThreadDocId] = useState(null);
     const [editingDocId, setEditingDocId] = useState(null);
     const [editingRejectedDoc, setEditingRejectedDoc] = useState(false);
+    const [localFilePreviews, setLocalFilePreviews] = useState([]);
+    const [existingEditFiles, setExistingEditFiles] = useState([]);
+    const [alertConfig, setAlertConfig] = useState({ show: false, type: '', title: '', message: '' });
 
     const cardClass = 'rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.22)]';
 
@@ -38,6 +44,20 @@ const JuniorDesignerDocumentationPage = ({ user, onNavigate }) => {
     useEffect(() => {
         fetchDocumentations();
     }, []);
+
+    useEffect(() => {
+        const previews = imageFiles.map((file) => ({
+            id: `${file.name}-${file.lastModified}-${file.size}`,
+            file_name: file.name,
+            file_url: URL.createObjectURL(file),
+            is_image: file.type.startsWith('image/'),
+        }));
+        setLocalFilePreviews(previews);
+
+        return () => {
+            previews.forEach((preview) => URL.revokeObjectURL(preview.file_url));
+        };
+    }, [imageFiles]);
 
     const fetchDocumentations = async () => {
         setLoading(true);
@@ -65,6 +85,7 @@ const JuniorDesignerDocumentationPage = ({ user, onNavigate }) => {
         setDocType('');
         setDocDescription('');
         setImageFiles([]);
+        setExistingEditFiles([]);
         setEditingDocId(null);
         setEditingRejectedDoc(false);
     };
@@ -75,6 +96,7 @@ const JuniorDesignerDocumentationPage = ({ user, onNavigate }) => {
         setDocType(doc.doc_type || '');
         setDocDescription(doc.description || '');
         setImageFiles([]);
+        setExistingEditFiles(Array.isArray(doc.files) ? doc.files : []);
         setEditingDocId(doc.id);
         setEditingRejectedDoc(isStudioHeadRejected(doc));
         setActiveTab('create');
@@ -133,6 +155,14 @@ const JuniorDesignerDocumentationPage = ({ user, onNavigate }) => {
             toast.error('Validation Error', { description: 'Please enter a type.' });
             return;
         }
+        if ((imageFiles.length + existingEditFiles.length) === 0) {
+            toast.error('Validation Error', { description: 'Please attach at least one file before saving.' });
+            return;
+        }
+        if (imageFiles.length > MAX_UPLOAD_FILES) {
+            toast.error('Validation Error', { description: `You can upload up to ${MAX_UPLOAD_FILES} files only.` });
+            return;
+        }
 
         setLoading(true);
         const result = editingDocId
@@ -188,17 +218,17 @@ const JuniorDesignerDocumentationPage = ({ user, onNavigate }) => {
     };
 
     const deleteDocumentation = async (docId) => {
-        if (!window.confirm('Are you sure you want to delete this documentation?')) return;
-
-        setLoading(true);
-        const result = await bimDocumentationService.deleteDocumentation(docId);
-        if (result.success) {
-            toast.success('Documentation Deleted', { description: 'Documentation deleted successfully!' });
-            fetchDocumentations();
-        } else {
-            toast.error('Deletion Failed', { description: 'Error: ' + result.error });
-        }
-        setLoading(false);
+        askConfirmation('Are you sure you want to delete this documentation?', async () => {
+            setLoading(true);
+            const result = await bimDocumentationService.deleteDocumentation(docId);
+            if (result.success) {
+                toast.success('Documentation Deleted', { description: 'Documentation deleted successfully!' });
+                fetchDocumentations();
+            } else {
+                toast.error('Deletion Failed', { description: 'Error: ' + result.error });
+            }
+            setLoading(false);
+        });
     };
 
     const getDisplayType = (type) => {
@@ -227,8 +257,92 @@ const JuniorDesignerDocumentationPage = ({ user, onNavigate }) => {
     const zoomOut = () => setZoomScale((prev) => Math.max(prev - 0.25, 0.5));
     const zoomReset = () => setZoomScale(1);
 
+    const removeSelectedFile = (fileId) => {
+        setImageFiles((current) => current.filter((file) => `${file.name}-${file.lastModified}-${file.size}` !== fileId));
+    };
+
+    const askConfirmation = (message, onConfirm) => {
+        setAlertConfig({
+            show: true,
+            type: 'warning',
+            title: 'Confirmation',
+            message,
+            showCancel: true,
+            onConfirm: async () => {
+                setAlertConfig((prev) => ({ ...prev, show: false }));
+                if (onConfirm) await onConfirm();
+            },
+        });
+    };
+
+    const removeExistingFile = async (fileId) => {
+        if (!editingDocId || !fileId) return;
+        askConfirmation('Remove this attached file?', async () => {
+            const result = await bimDocumentationService.removeFile(editingDocId, fileId);
+            if (!result.success) {
+                toast.error('Remove Failed', { description: result.error || 'Failed to remove file.' });
+                return;
+            }
+
+            setExistingEditFiles((current) => current.filter((file) => file.id !== fileId));
+            toast.success('File Removed', { description: 'Attached file removed successfully.' });
+        });
+    };
+
+    const ALLOWED_MIME_TYPES = [
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+        'application/pdf',
+        'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+
+    const handleFileSelection = (e) => {
+        const selectedFiles = Array.from(e.target.files || []);
+        if (selectedFiles.length === 0) return;
+
+        // Validate file types
+        const invalidFiles = selectedFiles.filter(file => !ALLOWED_MIME_TYPES.includes(file.type));
+        if (invalidFiles.length > 0) {
+            toast.error('Invalid File Type', { 
+                description: `Only images, PDF, and Word files are allowed. Rejected: ${invalidFiles.map(f => f.name).join(', ')}`
+            });
+            e.target.value = ''; // Reset input
+            return;
+        }
+
+        // Calculate remaining capacity
+        const currentCount = imageFiles.length;
+        const remainingSlots = MAX_UPLOAD_FILES - currentCount;
+
+        if (remainingSlots <= 0) {
+            toast.error('Upload Limit Reached', { description: `Maximum ${MAX_UPLOAD_FILES} files allowed.` });
+            e.target.value = '';
+            return;
+        }
+
+        // Append files up to the limit
+        const filesToAdd = selectedFiles.slice(0, remainingSlots);
+        if (selectedFiles.length > remainingSlots) {
+            toast.warning('Some Files Skipped', { 
+                description: `Only ${remainingSlots} more file(s) can be added. ${selectedFiles.length - remainingSlots} file(s) were not added.`
+            });
+        }
+
+        setImageFiles(prev => [...prev, ...filesToAdd]);
+        e.target.value = ''; // Reset input to allow re-selecting same files
+    };
+
     return (
         <div className="min-h-screen bg-[#00273C] relative">
+            {alertConfig.show && (
+                <Alert
+                    type={alertConfig.type}
+                    title={alertConfig.title}
+                    message={alertConfig.message}
+                    onClose={() => setAlertConfig((prev) => ({ ...prev, show: false }))}
+                    showCancel={alertConfig.showCancel}
+                    onConfirm={alertConfig.onConfirm}
+                />
+            )}
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
                 <div className="absolute top-40 -right-40 h-[520px] w-[520px] rounded-full bg-cyan-400/10 blur-[90px]" />
             </div>
@@ -243,26 +357,26 @@ const JuniorDesignerDocumentationPage = ({ user, onNavigate }) => {
 
                     <main className="flex-1 min-w-0 space-y-6">
                         <div className={cardClass}>
-                            <div className="flex gap-1 p-2 border-b border-white/10">
+                            <div className="flex flex-col sm:flex-row gap-2 p-3 sm:p-2 border-b border-white/10">
                                 <button
                                     onClick={() => setActiveTab('create')}
                                     className={`flex-1 py-3 px-4 rounded-xl text-sm font-semibold transition ${
                                         activeTab === 'create'
                                             ? 'bg-[#FF7120] text-white'
-                                            : 'text-white/60 hover:text-white'
+                                            : 'text-white/60 hover:text-white hover:bg-white/5 border border-[#FF7120]/30'
                                     }`}
                                 >
-                                    Create Design Documentation
+                                    Create<span className="hidden sm:inline"> Design</span> Documentation
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('manage')}
                                     className={`flex-1 py-3 px-4 rounded-xl text-sm font-semibold transition ${
                                         activeTab === 'manage'
                                             ? 'bg-[#FF7120] text-white'
-                                            : 'text-white/60 hover:text-white'
+                                            : 'text-white/60 hover:text-white hover:bg-white/5 border border-[#FF7120]/30'
                                     }`}
                                 >
-                                    Manage Documentation
+                                    Manage<span className="hidden sm:inline"> Documentation</span>
                                 </button>
                             </div>
                         </div>
@@ -333,17 +447,149 @@ const JuniorDesignerDocumentationPage = ({ user, onNavigate }) => {
                                         />
                                     </div>
                                     <div className="rounded-xl border border-white/10 bg-[#00273C]/40 p-4">
-                                        <label className="block text-white/70 text-sm font-semibold mb-3">Images / References / Docs</label>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <label className="block text-white/70 text-sm font-semibold">Images / References / Docs</label>
+                                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                                                imageFiles.length >= MAX_UPLOAD_FILES 
+                                                    ? 'bg-red-500/20 text-red-300' 
+                                                    : 'bg-white/10 text-white/60'
+                                            }`}>
+                                                {imageFiles.length}/{MAX_UPLOAD_FILES}
+                                            </span>
+                                        </div>
                                         <div className="relative">
                                             <input
                                                 type="file"
                                                 multiple
                                                 accept=".pdf,.doc,.docx,image/*"
-                                                onChange={(e) => setImageFiles(Array.from(e.target.files || []))}
-                                                className="block w-full text-sm text-white/70 file:mr-3 file:rounded-lg file:border-0 file:bg-[#FF7120]/20 file:px-3 file:py-2 file:text-[#FF7120] file:cursor-pointer hover:file:bg-[#FF7120]/30"
+                                                onChange={handleFileSelection}
+                                                disabled={imageFiles.length >= MAX_UPLOAD_FILES}
+                                                className={`block w-full text-sm text-white/70 file:mr-3 file:rounded-lg file:border-0 file:px-3 file:py-2 file:cursor-pointer transition ${
+                                                    imageFiles.length >= MAX_UPLOAD_FILES
+                                                        ? 'opacity-50 cursor-not-allowed file:bg-white/10 file:text-white/40'
+                                                        : 'file:bg-[#FF7120]/20 file:text-[#FF7120] hover:file:bg-[#FF7120]/30'
+                                                }`}
                                             />
-                                            {imageFiles.length > 0 && (
-                                                <p className="text-xs text-emerald-400 mt-2">{imageFiles.length} file(s) selected</p>
+                                            {imageFiles.length >= MAX_UPLOAD_FILES && (
+                                                <p className="text-xs text-amber-400 mt-2">Maximum files reached. Remove a file to add more.</p>
+                                            )}
+                                            <p className="text-xs text-white/50 mt-2">Accept: Images, PDF, Word files</p>
+                                            {localFilePreviews.length > 0 && (
+                                                <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                    {localFilePreviews.map((file) => (
+                                                        <div
+                                                            key={file.id}
+                                                            className="group relative rounded-lg border border-white/10 bg-black/20 p-2 hover:border-white/20 transition"
+                                                        >
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    if (file.is_image) {
+                                                                        openImageZoom(file);
+                                                                        return;
+                                                                    }
+                                                                    window.open(file.file_url, '_blank', 'noopener,noreferrer');
+                                                                }}
+                                                                className="w-full text-left"
+                                                                title={file.file_name}
+                                                            >
+                                                                {file.is_image ? (
+                                                                    <img
+                                                                        src={file.file_url}
+                                                                        alt={file.file_name}
+                                                                        className="h-20 w-full object-cover rounded-md"
+                                                                    />
+                                                                ) : (
+                                                                    <div className="h-20 w-full rounded-md bg-white/5 grid place-items-center">
+                                                                        {file.file_name?.toLowerCase().endsWith('.pdf') ? (
+                                                                            <svg className="h-8 w-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                                                <text x="7" y="17" fontSize="6" fill="currentColor" fontWeight="bold">PDF</text>
+                                                                            </svg>
+                                                                        ) : (
+                                                                            <svg className="h-8 w-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                                                <text x="5" y="17" fontSize="5" fill="currentColor" fontWeight="bold">DOC</text>
+                                                                            </svg>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                                <p className="mt-1 text-[11px] text-white/70 truncate">{file.file_name}</p>
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    removeSelectedFile(file.id);
+                                                                }}
+                                                                className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 text-white grid place-items-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                                                title="Remove file"
+                                                            >
+                                                                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {editingDocId && existingEditFiles.length > 0 && (
+                                                <div className="mt-3 space-y-2">
+                                                    <p className="text-xs text-white/60 font-semibold">Existing attached files</p>
+                                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                        {existingEditFiles.map((file) => (
+                                                            <div key={file.id} className="group relative rounded-lg border border-white/10 bg-black/20 p-2 hover:border-white/20 transition">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        if ((file.is_image || file.file_type === 'image') && file.file_url) {
+                                                                            openImageZoom(file);
+                                                                            return;
+                                                                        }
+                                                                        if (file.file_url) {
+                                                                            window.open(file.file_url, '_blank', 'noopener,noreferrer');
+                                                                        }
+                                                                    }}
+                                                                    className="w-full text-left"
+                                                                    title={file.file_name}
+                                                                >
+                                                                    {(file.is_image || file.file_type === 'image') && file.file_url ? (
+                                                                        <img
+                                                                            src={file.file_url}
+                                                                            alt={file.file_name}
+                                                                            className="h-20 w-full object-cover rounded-md"
+                                                                        />
+                                                                    ) : (
+                                                                        <div className="h-20 w-full rounded-md bg-white/5 grid place-items-center">
+                                                                            {file.file_name?.toLowerCase().endsWith('.pdf') ? (
+                                                                                <svg className="h-8 w-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                                                    <text x="7" y="17" fontSize="6" fill="currentColor" fontWeight="bold">PDF</text>
+                                                                                </svg>
+                                                                            ) : (
+                                                                                <svg className="h-8 w-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                                                    <text x="5" y="17" fontSize="5" fill="currentColor" fontWeight="bold">DOC</text>
+                                                                                </svg>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                    <p className="mt-1 text-[11px] text-white/70 truncate">{file.file_name}</p>
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeExistingFile(file.id)}
+                                                                    className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 text-white grid place-items-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                                                    title="Remove file"
+                                                                >
+                                                                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                    </svg>
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
                                             )}
                                         </div>
                                     </div>

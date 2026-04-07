@@ -123,14 +123,14 @@ export default function WorkDocCard({
             {/* Card content — dims + blocks interaction when locked */}
             <div className={disabled ? 'pointer-events-none select-none opacity-40' : ''}>
             {/* Header */}
-            <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
+            <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-3 shrink-0">
                     <div>
                         <h3 className="text-white font-semibold tracking-tight text-[clamp(0.95rem,2.4vw,1.1rem)]">
                             Time Out
                         </h3>
                         {isEditing && (
-                            <p className="mt-0.5 text-white/50 text-sm">
+                            <p className="mt-0.5 text-white/50 text-xs sm:text-sm">
                                 Document your work before clocking out.
                             </p>
                         )}
@@ -139,17 +139,18 @@ export default function WorkDocCard({
                 <button
                     type="button"
                     onClick={() => setIsEditing(!isEditing)}
-                    className="inline-flex items-center gap-2 text-[0.85rem] font-semibold transition bg-transparent border-none text-white hover:text-[#FF7120]"
+                    className="inline-flex items-center gap-1.5 sm:gap-2 text-[0.75rem] sm:text-[0.85rem] font-semibold transition bg-transparent border-none text-white hover:text-[#FF7120] shrink-0"
                 >
                     {isEditing ? (
                         <>
-                            <X className="h-4 w-4" />
-                            <span className="hidden sm:inline">Close</span>
+                            <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                            <span>Close</span>
                         </>
                     ) : (
                         <>
-                            <Plus className="h-4 w-4" />
-                            Work Documentation
+                            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                            <span className="sm:hidden">Doc</span>
+                            <span className="hidden sm:inline">Work Documentation</span>
                         </>
                     )}
                 </button>

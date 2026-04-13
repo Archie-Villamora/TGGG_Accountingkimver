@@ -330,3 +330,51 @@ class MaterialRequestWorkflowTests(APITestCase):
         )
         self.assertIsNotNone(notification)
         self.assertIn('fully approved', notification.title.lower())
+
+    def test_studio_head_rejection_notifies_request_creator(self):
+        request_id = self._create_and_submit_request(creator=self.site_engineer)
+
+        self.client.force_authenticate(self.studio_head)
+        reject_response = self.client.post(
+            f'/api/material-requests/{request_id}/approval_action/',
+            {'action': 'reject', 'comments': 'Need quantity correction.'},
+            format='json',
+        )
+        self.assertEqual(reject_response.status_code, status.HTTP_200_OK)
+
+        notification = (
+            TodoNotification.objects
+            .filter(recipient=self.site_engineer, type='matreq_rejected')
+            .order_by('-created_at')
+            .first()
+        )
+        self.assertIsNotNone(notification)
+        self.assertIn('rejected', notification.title.lower())
+
+    def test_ceo_rejection_notifies_request_creator(self):
+        request_id = self._create_and_submit_request(creator=self.site_engineer)
+
+        self.client.force_authenticate(self.studio_head)
+        studio_head_response = self.client.post(
+            f'/api/material-requests/{request_id}/approval_action/',
+            {'action': 'approve', 'comments': 'Forwarding to CEO.'},
+            format='json',
+        )
+        self.assertEqual(studio_head_response.status_code, status.HTTP_200_OK)
+
+        self.client.force_authenticate(self.ceo)
+        reject_response = self.client.post(
+            f'/api/material-requests/{request_id}/approval_action/',
+            {'action': 'reject', 'comments': 'Budget is currently unavailable.'},
+            format='json',
+        )
+        self.assertEqual(reject_response.status_code, status.HTTP_200_OK)
+
+        notification = (
+            TodoNotification.objects
+            .filter(recipient=self.site_engineer, type='matreq_rejected')
+            .order_by('-created_at')
+            .first()
+        )
+        self.assertIsNotNone(notification)
+        self.assertIn('ceo', notification.message.lower())

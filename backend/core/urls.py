@@ -33,6 +33,8 @@ urlpatterns = [
     path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
     # App URLs
     path('api/accounts/', include('accounts.urls')),
+    # Backward-compatible auth/account routes used by older frontend builds/tests
+    path('api/auth/', include(('accounts.urls', 'accounts'), namespace='accounts_auth')),
     path('api/attendance/', include('attendance.urls')),
     path('api/payroll/', include('payroll.urls')),
     path('api/bim-docs/', include('bim_documentation.urls')),

@@ -33,7 +33,8 @@ export default function Login({ onLoginSuccess }) {
     setIsLoading(true);
 
     try {
-      const data = await login(email, password);
+      const normalizedEmail = email.trim().toLowerCase();
+      const data = await login(normalizedEmail, password);
 
       if (data.success) {
         localStorage.setItem('token', data.token);
@@ -62,7 +63,8 @@ export default function Login({ onLoginSuccess }) {
     setIsLoading(true);
 
     try {
-      const data = await register({ email, password, firstName, lastName });
+      const normalizedEmail = email.trim().toLowerCase();
+      const data = await register({ email: normalizedEmail, password, firstName, lastName });
 
       if (data.success) {
         setModalState({

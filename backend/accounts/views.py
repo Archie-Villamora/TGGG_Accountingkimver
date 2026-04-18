@@ -177,16 +177,18 @@ def normalize_role_input(raw_role):
 @permission_classes([AllowAny])
 def login_view(request):
     """Login endpoint - returns JWT token and user info"""
-    email = request.data.get('email')
+    email = str(request.data.get('email', '')).strip()
     password = request.data.get('password')
     
     if not email or not password:
         return Response({
             'error': 'Email and password are required'
         }, status=status.HTTP_400_BAD_REQUEST)
+
+    normalized_email = email.lower()
     
     try:
-        user = CustomUser.objects.get(email=email)
+        user = CustomUser.objects.get(email__iexact=normalized_email)
         if user.check_password(password):
             if not user.is_active:
                 return Response({'error': 'Account not yet approved by Studio Head/Admin.'}, status=status.HTTP_403_FORBIDDEN)

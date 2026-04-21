@@ -450,7 +450,7 @@ const CommentItem = ({ comment, docId, currentUserId, onRefresh }) => {
  *   docId       {number}  – documentation pk
  *   currentUser {object}  – { id, role, ... }
  */
-const CommentThread = ({ docId, currentUser, collapsible = false, defaultOpen = true }) => {
+const CommentThread = ({ docId, currentUser, collapsible = false, defaultOpen = false }) => {
     const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState('');
     const [posting, setPosting] = useState(false);

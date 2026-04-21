@@ -58,13 +58,29 @@ const getStatusMeta = (doc) => {
         };
     }
 
+    if (doc.status === 'pending_bim_review') {
+        if (doc.reviewed_by_studio_head && !doc.reviewed_by_bim) {
+            return {
+                tabId: 'pending',
+                label: 'Awaiting BIM Approval',
+                tone: 'forwarded',
+            };
+        }
+
+        return {
+            tabId: 'pending',
+            label: 'Needs Review',
+            tone: 'pending',
+        };
+    }
+
     let tabId = 'pending';
 
     if (doc.status === 'approved') {
         tabId = 'approved';
     } else if (doc.status === 'rejected') {
         tabId = 'rejected';
-    } else if (doc.status === 'pending_ceo_review' && doc.reviewed_by_studio_head) {
+    } else if (doc.status === 'pending_ceo_review' && doc.reviewed_by_studio_head && doc.reviewed_by_bim) {
         tabId = 'forwarded';
     }
 
@@ -302,8 +318,15 @@ const StudioHeadBimDocumentationPage = ({
         if (result.success) {
             const docs = Array.isArray(result.data) ? result.data : (result.data?.results || []);
 
-            setPendingDocs(docs.filter((doc) => doc.status === 'pending_studio_head_review'));
-            setForwardedDocs(docs.filter((doc) => doc.status === 'pending_ceo_review'));
+            setPendingDocs(docs.filter((doc) => (
+                doc.status === 'pending_studio_head_review'
+                || doc.status === 'pending_bim_review'
+            )));
+            setForwardedDocs(docs.filter((doc) => (
+                doc.status === 'pending_ceo_review'
+                && !!doc.reviewed_by_studio_head
+                && !!doc.reviewed_by_bim
+            )));
             setApprovedDocs(docs.filter((doc) => doc.status === 'approved'));
             setRejectedDocs(docs.filter((doc) => doc.status === 'rejected'));
         } else {
@@ -328,7 +351,9 @@ const StudioHeadBimDocumentationPage = ({
 
             updatedDoc = {
                 ...found,
-                status: action === 'approve' ? 'pending_ceo_review' : 'rejected',
+                status: action === 'approve'
+                    ? (found.reviewed_by_bim ? 'pending_ceo_review' : 'pending_bim_review')
+                    : 'rejected',
                 reviewed_by_studio_head: user?.id || found.reviewed_by_studio_head || true,
                 reviewed_by_studio_head_name: reviewerName,
                 studio_head_reviewed_at: reviewedAt,
@@ -343,9 +368,13 @@ const StudioHeadBimDocumentationPage = ({
             return;
         }
 
-        if (action === 'approve') {
+        if (action === 'approve' && updatedDoc.status === 'pending_ceo_review') {
             setForwardedDocs((current) => [updatedDoc, ...current.filter((doc) => doc.id !== docId)]);
             setActiveTab('forwarded');
+        } else if (action === 'approve') {
+            // Still pending BIM approval in parallel flow.
+            setPendingDocs((current) => [updatedDoc, ...current.filter((doc) => doc.id !== docId)]);
+            setActiveTab('pending');
         } else {
             setRejectedDocs((current) => [updatedDoc, ...current.filter((doc) => doc.id !== docId)]);
             setActiveTab('rejected');
@@ -361,7 +390,11 @@ const StudioHeadBimDocumentationPage = ({
         const result = await bimDocumentationService.approvalAction(selectedDoc.id, 'approve', approvalComments);
 
         if (result.success) {
-            setMessage('Documentation approved and forwarded to CEO.');
+            setMessage(
+                selectedDoc.reviewed_by_bim
+                    ? 'Documentation approved and forwarded to CEO.'
+                    : 'Documentation approved by Studio Head. Waiting for BIM approval.'
+            );
             setApprovalComments('');
             applyLocalDecision(selectedDoc.id, 'approve', approvalComments);
             fetchDocumentations({ silent: true });
@@ -416,7 +449,9 @@ const StudioHeadBimDocumentationPage = ({
     };
 
     const requiresDecision = Boolean(
-        selectedDoc && selectedDoc.status === 'pending_studio_head_review' && !selectedDoc.reviewed_by_studio_head
+        selectedDoc
+        && !selectedDoc.reviewed_by_studio_head
+        && (selectedDoc.status === 'pending_studio_head_review' || selectedDoc.status === 'pending_bim_review')
     );
     const statusMeta = getStatusMeta(selectedDoc);
     const attachmentCount = selectedDoc ? (selectedDoc.files?.length ?? selectedDoc.file_count ?? 0) : 0;
@@ -663,17 +698,24 @@ const StudioHeadBimDocumentationPage = ({
                                                         ? 'border-cyan-500/20 bg-cyan-500/10 text-cyan-100'
                                                         : statusMeta.tabId === 'approved'
                                                             ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-100'
-                                                            : 'border-red-500/20 bg-red-500/10 text-red-100'
+                                                            : statusMeta.tabId === 'pending'
+                                                                ? 'border-blue-500/20 bg-blue-500/10 text-blue-100'
+                                                                : 'border-red-500/20 bg-red-500/10 text-red-100'
                                                 }`}>
                                                     <p className="text-sm font-semibold">
                                                         {statusMeta.tabId === 'forwarded'
                                                             ? 'Forwarded to CEO'
                                                             : statusMeta.tabId === 'approved'
                                                                 ? 'Approved'
-                                                                : 'Rejected'}
+                                                                : statusMeta.tabId === 'pending'
+                                                                    ? 'Awaiting BIM Approval'
+                                                                    : 'Rejected'}
                                                     </p>
                                                     <p className="mt-2 text-sm leading-7 opacity-90 whitespace-pre-wrap">
-                                                        {selectedDoc.studio_head_comments || 'No additional note was saved for this decision.'}
+                                                        {selectedDoc.studio_head_comments
+                                                            || (statusMeta.tabId === 'pending'
+                                                                ? 'Studio Head approval is recorded. Waiting for BIM approval.'
+                                                                : 'No additional note was saved for this decision.')}
                                                     </p>
                                                     <p className="mt-3 text-xs opacity-70">
                                                         Recorded {formatDateTime(selectedDoc.studio_head_reviewed_at || selectedDoc.updated_at)}

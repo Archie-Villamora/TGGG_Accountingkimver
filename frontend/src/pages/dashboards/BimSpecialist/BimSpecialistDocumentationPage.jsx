@@ -113,13 +113,17 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
             const juniorForBimReviewDocs = docs.filter((doc) => (
                 !isOwnedByCurrentUser(doc)
                 && doc.status === 'pending_bim_review'
+                && !doc.reviewed_by_bim
             ));
             const juniorFinalApprovedDocs = docs.filter((doc) => (
                 !isOwnedByCurrentUser(doc)
-                && doc.status === 'approved'
                 && !!doc.reviewed_by_bim
-                && !!doc.reviewed_by_studio_head
-                && !!doc.reviewed_by_ceo
+                && (
+                    doc.status === 'pending_bim_review'
+                    || doc.status === 'pending_studio_head_review'
+                    || doc.status === 'pending_ceo_review'
+                    || doc.status === 'approved'
+                )
             ));
             const juniorFinalRejectedDocs = docs.filter((doc) => (
                 !isOwnedByCurrentUser(doc)
@@ -216,7 +220,7 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
     };
 
     const isForwardedToCeo = (doc) => {
-        return doc?.status === 'pending_ceo_review' && !!doc?.reviewed_by_studio_head;
+        return doc?.status === 'pending_ceo_review' && !!doc?.reviewed_by_studio_head && !!doc?.reviewed_by_bim;
     };
 
     const getStatusColor = (doc) => {
@@ -242,6 +246,9 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
 
     const getStatusLabel = (doc) => {
         if (doc?.status === 'pending_bim_review') {
+            if (doc?.reviewed_by_studio_head) {
+                return 'Approved by Studio Head - Awaiting BIM Review';
+            }
             return 'Awaiting BIM Review';
         }
         if (doc?.status === 'pending_studio_head_review') {
@@ -278,7 +285,9 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
         ? completedManageDocs
         : savedDocs.filter((doc) => matchesManageStatusFilter(doc, manageStatusFilter))
     );
-    const juniorOutcomeDocs = juniorOutcomeFilter === 'rejected' ? juniorRejectedDocs : juniorApprovedDocs;
+    const juniorOutcomeDocs = juniorOutcomeFilter === 'pending'
+        ? juniorPendingReviewDocs
+        : (juniorOutcomeFilter === 'rejected' ? juniorRejectedDocs : juniorApprovedDocs);
 
     const saveDocumentation = async (e) => {
         e.preventDefault();
@@ -375,10 +384,10 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
         const result = await bimDocumentationService.approvalAction(docId, action, comment);
         if (result.success) {
             toast.success(
-                action === 'approve' ? 'Forwarded to Studio Head' : 'Documentation Rejected',
+                action === 'approve' ? 'Documentation Approved' : 'Documentation Rejected',
                 {
                     description: action === 'approve'
-                        ? 'Junior Architect documentation approved by BIM and sent to Studio Head.'
+                        ? 'Junior Architect documentation approved by BIM.'
                         : 'Junior Architect documentation rejected and returned for revision.',
                 }
             );
@@ -1047,10 +1056,21 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
                                             <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-2.5 rounded-xl border border-white/10 bg-white/[0.02] px-2.5 py-2.5 w-full sm:w-auto">
                                                 <button
                                                     type="button"
+                                                    onClick={() => setJuniorOutcomeFilter('pending')}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                                                        juniorOutcomeFilter === 'pending'
+                                                            ? 'bg-[#FF7120]/20 text-[#FFb07a] border border-[#FF7120]/40'
+                                                            : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
+                                                    }`}
+                                                >
+                                                    Pending ({juniorPendingReviewDocs.length})
+                                                </button>
+                                                <button
+                                                    type="button"
                                                     onClick={() => setJuniorOutcomeFilter('approved')}
                                                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
                                                         juniorOutcomeFilter === 'approved'
-                                                            ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-500/40'
+                                                            ? 'bg-[#FF7120]/20 text-[#FFb07a] border border-[#FF7120]/40'
                                                             : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
                                                     }`}
                                                 >
@@ -1061,7 +1081,7 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
                                                     onClick={() => setJuniorOutcomeFilter('rejected')}
                                                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
                                                         juniorOutcomeFilter === 'rejected'
-                                                            ? 'bg-red-500/20 text-red-200 border border-red-500/40'
+                                                            ? 'bg-[#FF7120]/20 text-[#FFb07a] border border-[#FF7120]/40'
                                                             : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
                                                     }`}
                                                 >
@@ -1075,14 +1095,23 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
                                 <div className="p-4 sm:p-6">
                                     {loading && <p className="text-center text-white/60">Loading...</p>}
 
-                                    {!loading && juniorPendingReviewDocs.length > 0 && (
-                                        <div className="mb-6 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:p-4">
-                                            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                                                <h3 className="text-sm sm:text-base font-semibold text-white">Pending Review ({juniorPendingReviewDocs.length})</h3>
-                                                <Badge tone="pending">Pending BIM Review</Badge>
-                                            </div>
+                                    {!loading && juniorOutcomeDocs.length === 0 && (
+                                        <EmptyStatePanel
+                                            Icon={juniorOutcomeFilter === 'approved' ? CheckCircle2 : Clock3}
+                                            accent={juniorOutcomeFilter === 'approved' ? 'green' : 'orange'}
+                                            title={juniorOutcomeFilter === 'pending'
+                                                ? 'No pending BIM reviews'
+                                                : (juniorOutcomeFilter === 'rejected' ? 'No rejected submissions yet' : 'No approved submissions yet')}
+                                            subtitle={juniorOutcomeFilter === 'pending'
+                                                ? 'Junior Architect submissions waiting for BIM approval will show here.'
+                                                : (juniorOutcomeFilter === 'rejected'
+                                                    ? 'Rejected Junior Architect documentation will show here when available.'
+                                                    : 'Approved Junior Architect documentation will show here once finalized.')}
+                                        />
+                                    )}
 
-                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 auto-rows-fr">
+                                    {!loading && juniorOutcomeFilter === 'pending' && juniorPendingReviewDocs.length > 0 && (
+                                        <div className="mb-6 grid grid-cols-1 lg:grid-cols-2 gap-4 auto-rows-fr">
                                                 {juniorPendingReviewDocs.map((doc) => {
                                                     const files = doc.files || [];
                                                     const previewableImages = files.filter((file) => (file.is_image || file.file_type === 'image') && file.file_url);
@@ -1169,7 +1198,7 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
                                                                     disabled={decisionLoading}
                                                                     className="flex-1 rounded-lg bg-emerald-600/20 text-emerald-300 text-xs font-semibold py-2 hover:bg-emerald-600/30 transition disabled:opacity-50"
                                                                 >
-                                                                    {decisionLoading ? 'Processing...' : 'Approve and Forward'}
+                                                                    {decisionLoading ? 'Processing...' : 'Approve'}
                                                                 </button>
                                                                 <button
                                                                     type="button"
@@ -1183,32 +1212,10 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
                                                         </div>
                                                     );
                                                 })}
-                                            </div>
                                         </div>
                                     )}
 
-                                    {!loading && juniorOutcomeDocs.length === 0 && (
-                                        <EmptyStatePanel
-                                            Icon={juniorOutcomeFilter === 'rejected' ? Clock3 : CheckCircle2}
-                                            accent={juniorOutcomeFilter === 'rejected' ? 'orange' : 'green'}
-                                            title={juniorOutcomeFilter === 'rejected' ? 'No rejected submissions yet' : 'No approved submissions yet'}
-                                            subtitle={juniorOutcomeFilter === 'rejected'
-                                                ? 'Rejected Junior Architect documentation will show here when available.'
-                                                : 'Approved Junior Architect documentation will show here once finalized.'}
-                                        />
-                                    )}
-
-                                    {!loading && juniorOutcomeDocs.length > 0 && (
-                                        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:p-4">
-                                            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                                                <h3 className="text-sm sm:text-base font-semibold text-white">
-                                                    {juniorOutcomeFilter === 'rejected' ? `Rejected (${juniorOutcomeDocs.length})` : `Completed (${juniorOutcomeDocs.length})`}
-                                                </h3>
-                                                <Badge tone={juniorOutcomeFilter === 'rejected' ? 'rejected' : 'approved'}>
-                                                    {juniorOutcomeFilter === 'rejected' ? 'Rejected' : 'Approved'}
-                                                </Badge>
-                                            </div>
-
+                                    {!loading && juniorOutcomeFilter !== 'pending' && juniorOutcomeDocs.length > 0 && (
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 auto-rows-fr">
                                             {juniorOutcomeDocs.map((doc) => {
                                                 const files = doc.files || [];
@@ -1298,7 +1305,6 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
                                                     </div>
                                                 );
                                             })}
-                                        </div>
                                         </div>
                                     )}
                                 </div>

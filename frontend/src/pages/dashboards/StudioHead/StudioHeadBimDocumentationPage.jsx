@@ -12,6 +12,7 @@ import PublicNavigation from '../Public_Dashboard/PublicNavigation';
 import bimDocumentationService from '../../../services/bimDocumentationService';
 import CommentThread from '../../../components/CommentThread';
 import StudioHeadSidebar from './components/StudioHeadSidebar';
+import { toast } from 'sonner';
 
 const cardClass = 'rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.22)]';
 
@@ -58,13 +59,29 @@ const getStatusMeta = (doc) => {
         };
     }
 
+    if (doc.status === 'pending_bim_review') {
+        if (doc.reviewed_by_studio_head && !doc.reviewed_by_bim) {
+            return {
+                tabId: 'pending',
+                label: 'Awaiting BIM Approval',
+                tone: 'forwarded',
+            };
+        }
+
+        return {
+            tabId: 'pending',
+            label: 'Needs Review',
+            tone: 'pending',
+        };
+    }
+
     let tabId = 'pending';
 
     if (doc.status === 'approved') {
         tabId = 'approved';
     } else if (doc.status === 'rejected') {
         tabId = 'rejected';
-    } else if (doc.status === 'pending_ceo_review' && doc.reviewed_by_studio_head) {
+    } else if (doc.status === 'pending_ceo_review' && doc.reviewed_by_studio_head && doc.reviewed_by_bim) {
         tabId = 'forwarded';
     }
 
@@ -240,7 +257,7 @@ const StudioHeadBimDocumentationPage = ({
     navigationCurrentPage = 'studio-head-bim-docs',
     sidebarCurrentPage = 'studio-head-bim-docs',
     documentationQuery = {},
-    showListStudioHeadNote = true,
+    showListStudioHeadNote = false,
 }) => {
     const [activeTab, setActiveTab] = useState('pending');
     const [pendingDocs, setPendingDocs] = useState([]);
@@ -251,7 +268,6 @@ const StudioHeadBimDocumentationPage = ({
     const [approvalComments, setApprovalComments] = useState('');
     const [loading, setLoading] = useState(false);
     const [submittingDecision, setSubmittingDecision] = useState(false);
-    const [message, setMessage] = useState('');
     const [previewImage, setPreviewImage] = useState(null);
 
     const reviewerName = useMemo(() => {
@@ -302,12 +318,19 @@ const StudioHeadBimDocumentationPage = ({
         if (result.success) {
             const docs = Array.isArray(result.data) ? result.data : (result.data?.results || []);
 
-            setPendingDocs(docs.filter((doc) => doc.status === 'pending_studio_head_review'));
-            setForwardedDocs(docs.filter((doc) => doc.status === 'pending_ceo_review'));
+            setPendingDocs(docs.filter((doc) => (
+                doc.status === 'pending_studio_head_review'
+                || doc.status === 'pending_bim_review'
+            )));
+            setForwardedDocs(docs.filter((doc) => (
+                doc.status === 'pending_ceo_review'
+                && !!doc.reviewed_by_studio_head
+                && !!doc.reviewed_by_bim
+            )));
             setApprovedDocs(docs.filter((doc) => doc.status === 'approved'));
             setRejectedDocs(docs.filter((doc) => doc.status === 'rejected'));
         } else {
-            setMessage(`Failed to load documentations: ${result.error}`);
+            toast.error('Load Failed', { description: `Failed to load documentations: ${result.error}` });
         }
 
         if (!silent) {
@@ -328,7 +351,9 @@ const StudioHeadBimDocumentationPage = ({
 
             updatedDoc = {
                 ...found,
-                status: action === 'approve' ? 'pending_ceo_review' : 'rejected',
+                status: action === 'approve'
+                    ? (found.reviewed_by_bim ? 'pending_ceo_review' : 'pending_bim_review')
+                    : 'rejected',
                 reviewed_by_studio_head: user?.id || found.reviewed_by_studio_head || true,
                 reviewed_by_studio_head_name: reviewerName,
                 studio_head_reviewed_at: reviewedAt,
@@ -343,9 +368,13 @@ const StudioHeadBimDocumentationPage = ({
             return;
         }
 
-        if (action === 'approve') {
+        if (action === 'approve' && updatedDoc.status === 'pending_ceo_review') {
             setForwardedDocs((current) => [updatedDoc, ...current.filter((doc) => doc.id !== docId)]);
             setActiveTab('forwarded');
+        } else if (action === 'approve') {
+            // Still pending BIM approval in parallel flow.
+            setPendingDocs((current) => [updatedDoc, ...current.filter((doc) => doc.id !== docId)]);
+            setActiveTab('pending');
         } else {
             setRejectedDocs((current) => [updatedDoc, ...current.filter((doc) => doc.id !== docId)]);
             setActiveTab('rejected');
@@ -361,12 +390,16 @@ const StudioHeadBimDocumentationPage = ({
         const result = await bimDocumentationService.approvalAction(selectedDoc.id, 'approve', approvalComments);
 
         if (result.success) {
-            setMessage('Documentation approved and forwarded to CEO.');
+            toast.success(
+                selectedDoc.reviewed_by_bim
+                    ? 'Documentation approved and forwarded to CEO.'
+                    : 'Documentation approved by Studio Head. Waiting for BIM approval.'
+            );
             setApprovalComments('');
             applyLocalDecision(selectedDoc.id, 'approve', approvalComments);
             fetchDocumentations({ silent: true });
         } else {
-            setMessage(`Error: ${result.error}`);
+            toast.error('Approval Failed', { description: result.error || 'Failed to approve documentation.' });
         }
 
         setSubmittingDecision(false);
@@ -376,7 +409,7 @@ const StudioHeadBimDocumentationPage = ({
         if (!selectedDoc) return;
 
         if (!approvalComments.trim()) {
-            setMessage('Please provide a reason before rejecting this documentation.');
+            toast.error('Validation Error', { description: 'Please provide a reason before rejecting this documentation.' });
             return;
         }
 
@@ -384,12 +417,12 @@ const StudioHeadBimDocumentationPage = ({
         const result = await bimDocumentationService.approvalAction(selectedDoc.id, 'reject', approvalComments);
 
         if (result.success) {
-            setMessage('Documentation rejected and returned for revision.');
+            toast.success('Documentation rejected and returned for revision.');
             setApprovalComments('');
             applyLocalDecision(selectedDoc.id, 'reject', approvalComments);
             fetchDocumentations({ silent: true });
         } else {
-            setMessage(`Error: ${result.error}`);
+            toast.error('Rejection Failed', { description: result.error || 'Failed to reject documentation.' });
         }
 
         setSubmittingDecision(false);
@@ -398,7 +431,6 @@ const StudioHeadBimDocumentationPage = ({
     const handleTabChange = (tabId) => {
         setActiveTab(tabId);
         setApprovalComments('');
-        setMessage('');
     };
 
     const openImagePreview = (file) => {
@@ -416,7 +448,9 @@ const StudioHeadBimDocumentationPage = ({
     };
 
     const requiresDecision = Boolean(
-        selectedDoc && selectedDoc.status === 'pending_studio_head_review' && !selectedDoc.reviewed_by_studio_head
+        selectedDoc
+        && !selectedDoc.reviewed_by_studio_head
+        && (selectedDoc.status === 'pending_studio_head_review' || selectedDoc.status === 'pending_bim_review')
     );
     const statusMeta = getStatusMeta(selectedDoc);
     const attachmentCount = selectedDoc ? (selectedDoc.files?.length ?? selectedDoc.file_count ?? 0) : 0;
@@ -445,16 +479,6 @@ const StudioHeadBimDocumentationPage = ({
                                 </div>
                             </div>
                         </section>
-
-                        {message && (
-                            <div className={`rounded-xl border px-4 py-3 text-sm ${
-                                message.startsWith('Error') || message.startsWith('Failed')
-                                    ? 'border-red-500/20 bg-red-500/10 text-red-200'
-                                    : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-200'
-                            }`}>
-                                {message}
-                            </div>
-                        )}
 
                         <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                             <SummaryCard
@@ -555,18 +579,11 @@ const StudioHeadBimDocumentationPage = ({
                                             </div>
                                         </div>
 
-                                        <div className="p-6 space-y-6">
+                                        <div className="p-6 flex-1 min-h-0 flex flex-col gap-6">
                                             <div>
                                                 <h3 className="text-sm font-semibold text-white mb-2">Description</h3>
                                                 <p className="text-sm text-white/72 whitespace-pre-wrap leading-7">
                                                     {selectedDoc.description || 'No description was provided for this submission.'}
-                                                </p>
-                                            </div>
-
-                                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                                                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/35">Studio Head Note</p>
-                                                <p className="mt-2 text-sm text-white/72 whitespace-pre-wrap leading-7">
-                                                    {selectedDoc.studio_head_comments || 'No Studio Head note has been saved for this documentation yet.'}
                                                 </p>
                                             </div>
 
@@ -657,31 +674,9 @@ const StudioHeadBimDocumentationPage = ({
                                                         </button>
                                                     </div>
                                                 </div>
-                                            ) : (
-                                                <div className={`rounded-xl border px-4 py-4 ${
-                                                    statusMeta.tabId === 'forwarded'
-                                                        ? 'border-cyan-500/20 bg-cyan-500/10 text-cyan-100'
-                                                        : statusMeta.tabId === 'approved'
-                                                            ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-100'
-                                                            : 'border-red-500/20 bg-red-500/10 text-red-100'
-                                                }`}>
-                                                    <p className="text-sm font-semibold">
-                                                        {statusMeta.tabId === 'forwarded'
-                                                            ? 'Forwarded to CEO'
-                                                            : statusMeta.tabId === 'approved'
-                                                                ? 'Approved'
-                                                                : 'Rejected'}
-                                                    </p>
-                                                    <p className="mt-2 text-sm leading-7 opacity-90 whitespace-pre-wrap">
-                                                        {selectedDoc.studio_head_comments || 'No additional note was saved for this decision.'}
-                                                    </p>
-                                                    <p className="mt-3 text-xs opacity-70">
-                                                        Recorded {formatDateTime(selectedDoc.studio_head_reviewed_at || selectedDoc.updated_at)}
-                                                    </p>
-                                                </div>
-                                            )}
+                                            ) : null}
 
-                                            <div className="border-t border-white/10 pt-6">
+                                            <div className="mt-auto border-t border-white/10 pt-6">
                                                 <CommentThread docId={selectedDoc.id} currentUser={user} collapsible defaultOpen={false} />
                                             </div>
                                         </div>

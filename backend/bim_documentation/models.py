@@ -86,19 +86,19 @@ class BimDocumentation(models.Model):
         return f"{self.title} - {self.created_by}"
 
     def approve_bim(self, user, comments=''):
-        """Mark as approved by BIM Specialist and forward to Studio Head."""
+        """Mark as approved by BIM Specialist; advance to CEO only when Studio Head has approved too."""
         self.reviewed_by_bim = user
         self.bim_reviewed_at = timezone.now()
         self.bim_comments = comments
-        self.status = 'pending_studio_head_review'
+        self.status = 'pending_ceo_review' if self.reviewed_by_studio_head_id else 'pending_bim_review'
         self.save()
     
     def approve_studio_head(self, user, comments=''):
-        """Mark as approved by Studio Head and forward to CEO."""
+        """Mark as approved by Studio Head; advance to CEO only when BIM has approved too."""
         self.reviewed_by_studio_head = user
         self.studio_head_reviewed_at = timezone.now()
         self.studio_head_comments = comments
-        self.status = 'pending_ceo_review'
+        self.status = 'pending_ceo_review' if self.reviewed_by_bim_id else 'pending_bim_review'
         self.save()
     
     def approve_ceo(self, user, comments=''):

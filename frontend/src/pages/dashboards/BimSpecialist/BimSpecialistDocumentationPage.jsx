@@ -3,6 +3,7 @@ import PublicNavigation from '../Public_Dashboard/PublicNavigation';
 import BimSpecialistSidebar from './components/BimSpecialistSidebar';
 import bimDocumentationService from '../../../services/bimDocumentationService';
 import CommentThread from '../../../components/CommentThread';
+import { CheckCircle2, Clock3, FolderOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import Alert from '../../../components/Alert';
 
@@ -15,21 +16,24 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
     const [docDate, setDocDate] = useState(TODAY_ISO);
     const [docType, setDocType] = useState('');
     const [docDescription, setDocDescription] = useState('');
+    const [manageSubTab, setManageSubTab] = useState('all');
+    const [manageStatusFilter, setManageStatusFilter] = useState('all');
     const [imageFiles, setImageFiles] = useState([]);
     const [savedDocs, setSavedDocs] = useState([]);
     const [juniorPendingReviewDocs, setJuniorPendingReviewDocs] = useState([]);
     const [juniorApprovedDocs, setJuniorApprovedDocs] = useState([]);
+    const [juniorRejectedDocs, setJuniorRejectedDocs] = useState([]);
+    const [juniorOutcomeFilter, setJuniorOutcomeFilter] = useState('approved');
     const [reviewComments, setReviewComments] = useState({});
     const [decisionLoadingByDoc, setDecisionLoadingByDoc] = useState({});
     const [loading, setLoading] = useState(false);
     const [zoomedImage, setZoomedImage] = useState(null);
     const [zoomScale, setZoomScale] = useState(1);
-    const [openThreadDocId, setOpenThreadDocId] = useState(null);
-    const [openJuniorThreadDocId, setOpenJuniorThreadDocId] = useState(null);
     const [editingDocId, setEditingDocId] = useState(null);
     const [editingRejectedDoc, setEditingRejectedDoc] = useState(false);
     const [localFilePreviews, setLocalFilePreviews] = useState([]);
     const [existingEditFiles, setExistingEditFiles] = useState([]);
+    const [expandedPreviewByCard, setExpandedPreviewByCard] = useState({});
     const [alertConfig, setAlertConfig] = useState({ show: false, type: '', title: '', message: '' });
 
     const cardClass = 'rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.22)]';
@@ -47,13 +51,28 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
         return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold border ${cls}`}>{children}</span>;
     };
 
+    const EmptyStatePanel = ({ Icon, title, subtitle, accent = 'orange', compact = false }) => {
+        const tone = accent === 'green'
+            ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
+            : 'bg-[#FF7120]/10 border-[#FF7120]/25 text-[#FF7120]';
+
+        return (
+            <div className={`rounded-xl bg-transparent text-center ${compact ? 'p-4' : 'p-8'}`}>
+                <div className={`mx-auto ${compact ? 'mb-2.5 h-10 w-10 rounded-xl' : 'mb-4 h-14 w-14 rounded-2xl'} border flex items-center justify-center ${tone}`}>
+                    <Icon className={compact ? 'h-4.5 w-4.5' : 'h-6 w-6'} />
+                </div>
+                <p className={`${compact ? 'text-sm' : 'text-lg'} font-semibold text-white/90`}>{title}</p>
+                <p className={`mt-2 ${compact ? 'text-xs max-w-[260px]' : 'text-sm max-w-[300px]'} text-white/55 mx-auto`}>{subtitle}</p>
+            </div>
+        );
+    };
+
     // Load documentation when account changes
     useEffect(() => {
         setSavedDocs([]);
         setJuniorPendingReviewDocs([]);
         setJuniorApprovedDocs([]);
-        setOpenThreadDocId(null);
-        setOpenJuniorThreadDocId(null);
+        setJuniorRejectedDocs([]);
         fetchDocumentations();
     }, [user?.id, user?.email]);
 
@@ -93,19 +112,21 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
             const ownDocs = docs.filter((doc) => isOwnedByCurrentUser(doc));
             const juniorForBimReviewDocs = docs.filter((doc) => (
                 !isOwnedByCurrentUser(doc)
-                && doc.status === 'pending_bim_review'
+                && ['pending_bim_review', 'pending_studio_head_review', 'pending_ceo_review'].includes(doc.status)
             ));
             const juniorFinalApprovedDocs = docs.filter((doc) => (
                 !isOwnedByCurrentUser(doc)
                 && doc.status === 'approved'
-                && !!doc.reviewed_by_bim
-                && !!doc.reviewed_by_studio_head
-                && !!doc.reviewed_by_ceo
+            ));
+            const juniorFinalRejectedDocs = docs.filter((doc) => (
+                !isOwnedByCurrentUser(doc)
+                && doc.status === 'rejected'
             ));
 
             setSavedDocs(ownDocs);
             setJuniorPendingReviewDocs(juniorForBimReviewDocs);
             setJuniorApprovedDocs(juniorFinalApprovedDocs);
+            setJuniorRejectedDocs(juniorFinalRejectedDocs);
         } else {
             toast.error('Load Failed', { description: 'Failed to load documentations: ' + result.error });
         }
@@ -148,6 +169,18 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
         }));
     };
 
+    const getPreviewCardKey = (section, docId) => `${section}-${docId}`;
+
+    const isPreviewExpanded = (section, docId) => Boolean(expandedPreviewByCard[getPreviewCardKey(section, docId)]);
+
+    const togglePreviewExpanded = (section, docId) => {
+        const key = getPreviewCardKey(section, docId);
+        setExpandedPreviewByCard((current) => ({
+            ...current,
+            [key]: !current[key],
+        }));
+    };
+
     const isStudioHeadRejected = (doc) => {
         return doc?.status === 'rejected' && !!doc?.reviewed_by_studio_head && !doc?.reviewed_by_ceo;
     };
@@ -179,7 +212,7 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
     };
 
     const isForwardedToCeo = (doc) => {
-        return doc?.status === 'pending_ceo_review' && !!doc?.reviewed_by_studio_head;
+        return doc?.status === 'pending_ceo_review' && !!doc?.reviewed_by_studio_head && !!doc?.reviewed_by_bim;
     };
 
     const getStatusColor = (doc) => {
@@ -205,13 +238,26 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
 
     const getStatusLabel = (doc) => {
         if (doc?.status === 'pending_bim_review') {
-            return 'Awaiting BIM Review';
+            const awaitingBim = !doc?.reviewed_by_bim;
+            const awaitingStudioHead = !doc?.reviewed_by_studio_head;
+
+            if (awaitingBim && awaitingStudioHead) {
+                return 'Awaiting Approval';
+            }
+            if (awaitingBim) {
+                return 'Awaiting BIM Approval';
+            }
+            if (awaitingStudioHead) {
+                return 'Awaiting Studio Head Approval';
+            }
+
+            return 'Awaiting Approval';
         }
         if (doc?.status === 'pending_studio_head_review') {
-            return 'Awaiting Studio Head Review';
+            return 'Awaiting Studio Head Approval';
         }
         if (isForwardedToCeo(doc)) {
-            return 'Forwarded to the CEO';
+            return 'Awaiting CEO Final Review';
         }
 
         const labels = {
@@ -221,6 +267,29 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
         };
         return labels[doc?.status] || doc?.status;
     };
+
+    const isPendingStatus = (status) => (
+        status === 'pending_bim_review'
+        || status === 'pending_studio_head_review'
+        || status === 'pending_ceo_review'
+    );
+
+    const matchesManageStatusFilter = (doc, filter) => {
+        if (filter === 'all') return true;
+        if (filter === 'pending') return isPendingStatus(doc?.status);
+        if (filter === 'approved') return doc?.status === 'approved';
+        if (filter === 'rejected') return doc?.status === 'rejected';
+        return true;
+    };
+
+    const completedManageDocs = savedDocs.filter((doc) => doc?.status === 'approved');
+    const manageDocs = (manageSubTab === 'completed'
+        ? completedManageDocs
+        : savedDocs.filter((doc) => matchesManageStatusFilter(doc, manageStatusFilter))
+    );
+    const juniorOutcomeDocs = juniorOutcomeFilter === 'pending'
+        ? juniorPendingReviewDocs
+        : (juniorOutcomeFilter === 'rejected' ? juniorRejectedDocs : juniorApprovedDocs);
 
     const saveDocumentation = async (e) => {
         e.preventDefault();
@@ -317,10 +386,10 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
         const result = await bimDocumentationService.approvalAction(docId, action, comment);
         if (result.success) {
             toast.success(
-                action === 'approve' ? 'Forwarded to Studio Head' : 'Documentation Rejected',
+                action === 'approve' ? 'Documentation Approved' : 'Documentation Rejected',
                 {
                     description: action === 'approve'
-                        ? 'Junior Architect documentation approved by BIM and sent to Studio Head.'
+                        ? 'Junior Architect documentation approved by BIM.'
                         : 'Junior Architect documentation rejected and returned for revision.',
                 }
             );
@@ -339,7 +408,6 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
             if (result.success) {
                 toast.success('Documentation Deleted', { description: 'Documentation deleted successfully!' });
                 setSavedDocs((current) => current.filter((doc) => doc.id !== docId));
-                setOpenThreadDocId((current) => (current === docId ? null : current));
                 fetchDocumentations({ silent: true });
             } else {
                 toast.error('Deletion Failed', { description: 'Error: ' + result.error });
@@ -751,27 +819,77 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
                         {activeTab === 'manage' && (
                             <div className={cardClass}>
                                 <div className="p-4 sm:p-6 border-b border-white/10">
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                        <div>
-                                            <h2 className="text-lg sm:text-2xl font-semibold text-white">Manage Documentation</h2>
-                                            <p className="text-white/60 text-xs sm:text-sm mt-1">View, edit, delete, or submit your documentation for review.</p>
+                                    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                                        <div className="max-w-2xl text-left space-y-1.5">
+                                            <h2 className="text-xl sm:text-2xl font-semibold tracking-tight leading-tight text-white">Manage Documentation</h2>
+                                            <p className="text-sm leading-relaxed text-white/65">View, edit, delete, or submit your documentation for review.</p>
                                         </div>
-                                        <button
-                                            onClick={fetchDocumentations}
-                                            className="self-start sm:self-auto px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-white/10 text-white/70 text-xs sm:text-sm hover:bg-white/20 transition"
-                                        >
-                                            Refresh
-                                        </button>
+
+                                        <div className="self-start lg:self-start flex flex-col items-start lg:items-end gap-2.5 w-full lg:w-auto">
+                                            <button
+                                                onClick={fetchDocumentations}
+                                                className="px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-white/10 text-white/75 text-xs sm:text-sm hover:bg-white/20 transition"
+                                            >
+                                                Refresh
+                                            </button>
+
+                                            <div className="flex flex-wrap lg:flex-nowrap items-center gap-2 sm:gap-2.5 rounded-xl border border-white/10 bg-white/[0.02] px-2.5 py-2.5 w-full lg:w-auto">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setManageSubTab('all')}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                                                        manageSubTab === 'all'
+                                                            ? 'bg-[#FF7120]/20 text-[#FFb07a] border border-[#FF7120]/40'
+                                                            : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
+                                                    }`}
+                                                >
+                                                    All Requests ({savedDocs.length})
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setManageSubTab('completed')}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                                                        manageSubTab === 'completed'
+                                                            ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-500/40'
+                                                            : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
+                                                    }`}
+                                                >
+                                                    Completed ({completedManageDocs.length})
+                                                </button>
+
+                                                <div className="h-5 w-px bg-white/15 hidden sm:block" />
+
+                                                <label className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55 whitespace-nowrap">Status</label>
+                                                <select
+                                                    value={manageSubTab === 'completed' ? 'approved' : manageStatusFilter}
+                                                    onChange={(e) => setManageStatusFilter(e.target.value)}
+                                                    disabled={manageSubTab === 'completed'}
+                                                    className="w-full sm:w-36 rounded-lg border border-white/15 bg-[#00273C]/70 px-3 py-1.5 text-xs text-white outline-none focus:border-[#FF7120]/50 disabled:opacity-60 disabled:cursor-not-allowed"
+                                                >
+                                                    <option value="all">All</option>
+                                                    <option value="pending">Pending</option>
+                                                    <option value="rejected">Rejected</option>
+                                                    <option value="approved">Approved</option>
+                                                </select>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="p-4 sm:p-6">
                                     {loading && <p className="text-center text-white/60">Loading...</p>}
-                                    {!loading && savedDocs.length === 0 && (
-                                        <p className="text-center text-white/55 py-8">No documentation yet. Create one to get started!</p>
+                                    {!loading && manageDocs.length === 0 && (
+                                        <EmptyStatePanel
+                                            Icon={manageSubTab === 'completed' ? CheckCircle2 : FolderOpen}
+                                            accent={manageSubTab === 'completed' ? 'green' : 'orange'}
+                                            title={manageSubTab === 'completed' ? 'No completed documentation yet' : 'Nothing matched your filter'}
+                                            subtitle={manageSubTab === 'completed'
+                                                ? 'Approved documentation will appear here once review is completed.'
+                                                : 'Try changing the status filter or create a new documentation draft.'}
+                                        />
                                     )}
-                                    {!loading && savedDocs.length > 0 && (
-                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                            {savedDocs.map((doc) => {
+                                    {!loading && manageDocs.length > 0 && (
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 auto-rows-fr">
+                                            {manageDocs.map((doc) => {
                                                 const files = doc.files || [];
                                                 const previewableImages = files.filter((file) => (file.is_image || file.file_type === 'image') && file.file_url);
                                                 const rejectedByStudioHead = isStudioHeadRejected(doc);
@@ -779,31 +897,36 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
                                                 const canEdit = doc.status === 'draft' || rejectedByStudioHead;
 
                                                 return (
-                                                <div key={doc.id} className="rounded-xl border border-white/10 bg-[#00273C]/40 p-3 sm:p-5 space-y-3 sm:space-y-4 hover:border-white/20 transition">
-                                                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-3">
-                                                        <div className="flex-1 min-w-0">
-                                                            <h3 className="text-base sm:text-lg font-semibold text-white truncate">{doc.title}</h3>
-                                                            <p className="text-[10px] sm:text-xs text-white/50 mt-1">Created: {new Date(doc.created_at).toLocaleDateString()}</p>
+                                                <div key={doc.id} className="h-full rounded-2xl border border-white/10 bg-[#00273C]/45 overflow-hidden p-3 sm:p-5 gap-3 sm:gap-4 hover:border-white/20 transition flex flex-col">
+                                                    <div className="space-y-3 pb-3 border-b border-white/10">
+                                                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-3">
+                                                            <div className="flex-1 min-w-0">
+                                                                <h3 className="text-base sm:text-lg font-semibold text-white leading-snug truncate">{doc.title}</h3>
+                                                            </div>
+                                                            <Badge tone={getStatusColor(doc)}>
+                                                                {getStatusLabel(doc)}
+                                                            </Badge>
                                                         </div>
-                                                        <Badge tone={getStatusColor(doc)}>
-                                                            {getStatusLabel(doc)}
-                                                        </Badge>
+
+                                                        <div className="flex gap-2.5 flex-wrap">
+                                                            <Badge tone="neutral">Doc Date: {doc.doc_date || '-'}</Badge>
+                                                            <Badge tone="neutral">Document Type: {getDisplayType(doc.doc_type)}</Badge>
+                                                        </div>
                                                     </div>
 
-                                                    <div className="flex gap-2 flex-wrap">
-                                                        <Badge tone="neutral">{doc.doc_date}</Badge>
-                                                        <Badge tone="neutral">{getDisplayType(doc.doc_type)}</Badge>
-                                                    </div>
-
+                                                    <div className="flex-1 space-y-3 pt-1">
                                                     {doc.description && (
-                                                        <p className="text-xs text-white/70 line-clamp-2">{doc.description}</p>
+                                                        <div className="space-y-1">
+                                                            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/50">Description</p>
+                                                            <p className="text-sm leading-relaxed text-white/80 line-clamp-2">{doc.description}</p>
+                                                        </div>
                                                     )}
 
-                                                    {previewableImages.length > 0 && (
+                                                    {previewableImages.length > 0 ? (
                                                         <div className="space-y-2">
-                                                            <p className="text-xs font-semibold text-white/70">Image Preview</p>
+                                                            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/50">Image Preview</p>
                                                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                                                {previewableImages.slice(0, 6).map((file) => (
+                                                                {previewableImages.slice(0, isPreviewExpanded('manage', doc.id) ? previewableImages.length : 3).map((file) => (
                                                                     <button
                                                                         key={file.id}
                                                                         type="button"
@@ -820,23 +943,25 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
                                                                     </button>
                                                                 ))}
                                                             </div>
+                                                            {previewableImages.length > 3 && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => togglePreviewExpanded('manage', doc.id)}
+                                                                    className="text-xs font-semibold text-[#7ec8ff] hover:text-[#9dd8ff] transition"
+                                                                >
+                                                                    {isPreviewExpanded('manage', doc.id)
+                                                                        ? 'Show fewer images'
+                                                                        : `+ ${previewableImages.length - 3} more image(s)`}
+                                                                </button>
+                                                            )}
                                                         </div>
-                                                    )}
-
-                                                    {(doc.files?.length ?? doc.file_count ?? 0) > 0 && (
-                                                        <div className="space-y-2">
-                                                            <p className="text-xs font-semibold text-white/70">Files ({doc.files?.length ?? doc.file_count ?? 0})</p>
-                                                            <div className="space-y-1">
-                                                                {(doc.files || []).slice(0, 3).map((file) => (
-                                                                    <p key={file.id} className="text-xs text-white/60 truncate">
-                                                                        {file.file_type === 'model' ? 'Model' : 'Image'} - {file.file_name}
-                                                                    </p>
-                                                                ))}
-                                                                {(doc.files?.length ?? 0) > 3 && (
-                                                                    <p className="text-xs text-white/50">+ {(doc.files?.length ?? 0) - 3} more file(s)</p>
-                                                                )}
-                                                            </div>
-                                                        </div>
+                                                    ) : (
+                                                        <EmptyStatePanel
+                                                            Icon={FolderOpen}
+                                                            compact
+                                                            title="No attachments included"
+                                                            subtitle="No files were attached to this documentation entry."
+                                                        />
                                                     )}
 
                                                     {(canSubmitForReview || canEdit) && (
@@ -871,30 +996,6 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
                                                         </div>
                                                     )}
 
-                                                    {doc.status === 'pending_bim_review' && (
-                                                        <div className="pt-2 px-3 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                                                            <p className="text-xs text-blue-300">Awaiting BIM review...</p>
-                                                        </div>
-                                                    )}
-
-                                                    {doc.status === 'pending_studio_head_review' && (
-                                                        <div className="pt-2 px-3 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                                                            <p className="text-xs text-blue-300">Awaiting Studio Head review...</p>
-                                                        </div>
-                                                    )}
-
-                                                    {doc.status === 'pending_ceo_review' && (
-                                                        <div className="pt-2 px-3 py-2 bg-green-500/10 border border-green-500/20 rounded-lg">
-                                                            <p className="text-xs text-green-300">Forwarded to the CEO</p>
-                                                        </div>
-                                                    )}
-
-                                                    {doc.status === 'approved' && (
-                                                        <div className="pt-2 px-3 py-2 bg-green-500/10 border border-green-500/20 rounded-lg">
-                                                            <p className="text-xs text-green-300">Documentation approved</p>
-                                                        </div>
-                                                    )}
-
                                                     {doc.status === 'rejected' && (
                                                         <div className="pt-2 px-3 py-2 bg-red-500/10 border border-red-500/20 rounded-lg">
                                                             <p className="text-xs text-red-300">
@@ -908,21 +1009,11 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
                                                         </div>
                                                     )}
 
-                                                    {/* Discussion thread toggle */}
+                                                    </div>
+
                                                     {doc.status !== 'draft' && (
-                                                        <div className="pt-2 border-t border-white/10">
-                                                            <button
-                                                                onClick={() => setOpenThreadDocId(openThreadDocId === doc.id ? null : doc.id)}
-                                                                className="w-full text-left text-xs font-semibold text-white/60 hover:text-white/90 transition flex items-center gap-2 py-1"
-                                                            >
-                                                                <span>Discussion</span>
-                                                                <span className="text-white/40">{openThreadDocId === doc.id ? 'Hide' : 'Show'}</span>
-                                                            </button>
-                                                            {openThreadDocId === doc.id && (
-                                                                <div className="mt-3">
-                                                                    <CommentThread docId={doc.id} currentUser={user} />
-                                                                </div>
-                                                            )}
+                                                        <div className="mt-auto pt-3 border-t border-white/10">
+                                                            <CommentThread docId={doc.id} currentUser={user} collapsible />
                                                         </div>
                                                     )}
                                                 </div>
@@ -937,64 +1028,117 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
                         {activeTab === 'junior-approved' && (
                             <div className={cardClass}>
                                 <div className="p-4 sm:p-6 border-b border-white/10">
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                        <div>
-                                            <h2 className="text-lg sm:text-2xl font-semibold text-white">Junior Architect Review</h2>
-                                            <p className="text-white/60 text-xs sm:text-sm mt-1">
-                                                Review Junior Architect documentation pending BIM decision, then browse finalized approvals.
+                                    <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+                                        <div className="max-w-2xl text-left space-y-1.5">
+                                            <h2 className="text-xl sm:text-2xl font-semibold tracking-tight leading-tight text-white">Junior Architect Review</h2>
+                                            <p className="text-sm leading-relaxed text-white/65">
+                                                Review Junior Architect documentation pending approval, then browse finalized approvals.
                                             </p>
                                         </div>
-                                        <button
-                                            onClick={fetchDocumentations}
-                                            className="self-start sm:self-auto px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-white/10 text-white/70 text-xs sm:text-sm hover:bg-white/20 transition"
-                                        >
-                                            Refresh
-                                        </button>
+                                        <div className="self-start sm:self-end flex flex-col items-start sm:items-end gap-2 w-full sm:w-auto">
+                                            <button
+                                                onClick={fetchDocumentations}
+                                                className="px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-white/10 text-white/75 text-xs sm:text-sm hover:bg-white/20 transition"
+                                            >
+                                                Refresh
+                                            </button>
+
+                                            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-2.5 rounded-xl border border-white/10 bg-white/[0.02] px-2.5 py-2.5 w-full sm:w-auto">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setJuniorOutcomeFilter('pending')}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                                                        juniorOutcomeFilter === 'pending'
+                                                            ? 'bg-[#FF7120]/20 text-[#FFb07a] border border-[#FF7120]/40'
+                                                            : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
+                                                    }`}
+                                                >
+                                                    Pending ({juniorPendingReviewDocs.length})
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setJuniorOutcomeFilter('approved')}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                                                        juniorOutcomeFilter === 'approved'
+                                                            ? 'bg-[#FF7120]/20 text-[#FFb07a] border border-[#FF7120]/40'
+                                                            : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
+                                                    }`}
+                                                >
+                                                    Approved ({juniorApprovedDocs.length})
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setJuniorOutcomeFilter('rejected')}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition ${
+                                                        juniorOutcomeFilter === 'rejected'
+                                                            ? 'bg-[#FF7120]/20 text-[#FFb07a] border border-[#FF7120]/40'
+                                                            : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
+                                                    }`}
+                                                >
+                                                    Rejected ({juniorRejectedDocs.length})
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div className="p-4 sm:p-6">
                                     {loading && <p className="text-center text-white/60">Loading...</p>}
 
-                                    {!loading && juniorPendingReviewDocs.length > 0 && (
-                                        <div className="mb-8">
-                                            <div className="mb-3 flex items-center justify-between">
-                                                <h3 className="text-sm sm:text-base font-semibold text-white">Needs BIM Review ({juniorPendingReviewDocs.length})</h3>
-                                                <Badge tone="pending">Pending BIM Review</Badge>
-                                            </div>
+                                    {!loading && juniorOutcomeDocs.length === 0 && (
+                                        <EmptyStatePanel
+                                            Icon={juniorOutcomeFilter === 'approved' ? CheckCircle2 : Clock3}
+                                            accent={juniorOutcomeFilter === 'approved' ? 'green' : 'orange'}
+                                            title={juniorOutcomeFilter === 'pending'
+                                                ? 'No pending approvals'
+                                                : (juniorOutcomeFilter === 'rejected' ? 'No rejected submissions yet' : 'No approved submissions yet')}
+                                            subtitle={juniorOutcomeFilter === 'pending'
+                                                ? 'Junior Architect submissions awaiting BIM, Studio Head, or CEO approval will show here.'
+                                                : (juniorOutcomeFilter === 'rejected'
+                                                    ? 'Rejected Junior Architect documentation will show here when available.'
+                                                    : 'Approved Junior Architect documentation will show here once finalized.')}
+                                        />
+                                    )}
 
-                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    {!loading && juniorOutcomeFilter === 'pending' && juniorPendingReviewDocs.length > 0 && (
+                                        <div className="mb-6 grid grid-cols-1 lg:grid-cols-2 gap-4 auto-rows-fr">
                                                 {juniorPendingReviewDocs.map((doc) => {
                                                     const files = doc.files || [];
                                                     const previewableImages = files.filter((file) => (file.is_image || file.file_type === 'image') && file.file_url);
                                                     const commentValue = reviewComments[doc.id] || '';
                                                     const decisionLoading = Boolean(decisionLoadingByDoc[doc.id]);
+                                                    const canBimDecide = doc.status === 'pending_bim_review' && !doc.reviewed_by_bim;
 
                                                     return (
-                                                        <div key={doc.id} className="rounded-xl border border-[#FF7120]/30 bg-[#00273C]/40 p-3 sm:p-5 space-y-3 sm:space-y-4">
-                                                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-3">
-                                                                <div className="flex-1 min-w-0">
-                                                                    <h3 className="text-base sm:text-lg font-semibold text-white truncate">{doc.title}</h3>
-                                                                    <p className="text-[10px] sm:text-xs text-white/50 mt-1">Created: {new Date(doc.created_at).toLocaleDateString()}</p>
-                                                                    <p className="text-[10px] sm:text-xs text-white/45 mt-1">By: {doc.created_by_name || doc.created_by_email || 'Junior Architect'}</p>
+                                                        <div key={doc.id} className="h-full rounded-2xl border border-white/10 bg-[#00273C]/45 overflow-hidden p-3 sm:p-5 gap-3 sm:gap-4 hover:border-white/20 transition flex flex-col">
+                                                            <div className="space-y-3 pb-3 border-b border-white/10">
+                                                                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-3">
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <h3 className="text-base sm:text-lg font-semibold text-white leading-snug truncate">{doc.title}</h3>
+                                                                        <p className="text-xs text-white/50 mt-1">By: {doc.created_by_name || doc.created_by_email || 'Junior Architect'}</p>
+                                                                    </div>
+                                                                    <Badge tone={getStatusColor(doc)}>{getStatusLabel(doc)}</Badge>
                                                                 </div>
-                                                                <Badge tone="pending">Awaiting BIM Review</Badge>
+
+                                                                <div className="flex gap-2.5 flex-wrap">
+                                                                    <Badge tone="neutral">Doc Date: {doc.doc_date || '-'}</Badge>
+                                                                    <Badge tone="neutral">Document Type: {getDisplayType(doc.doc_type)}</Badge>
+                                                                </div>
                                                             </div>
 
-                                                            <div className="flex gap-2 flex-wrap">
-                                                                <Badge tone="neutral">{doc.doc_date}</Badge>
-                                                                <Badge tone="neutral">{getDisplayType(doc.doc_type)}</Badge>
-                                                            </div>
-
+                                                            <div className="flex-1 space-y-3 pt-1">
                                                             {doc.description && (
-                                                                <p className="text-xs text-white/70 line-clamp-3">{doc.description}</p>
+                                                                <div className="space-y-1">
+                                                                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/50">Description</p>
+                                                                    <p className="text-sm leading-relaxed text-white/80 line-clamp-3">{doc.description}</p>
+                                                                </div>
                                                             )}
 
                                                             {previewableImages.length > 0 && (
                                                                 <div className="space-y-2">
-                                                                    <p className="text-xs font-semibold text-white/70">Image Preview</p>
+                                                                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/50">Image Preview</p>
                                                                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                                                        {previewableImages.slice(0, 6).map((file) => (
+                                                                        {previewableImages.slice(0, isPreviewExpanded('junior-pending', doc.id) ? previewableImages.length : 3).map((file) => (
                                                                             <button
                                                                                 key={file.id}
                                                                                 type="button"
@@ -1011,90 +1155,99 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
                                                                             </button>
                                                                         ))}
                                                                     </div>
+                                                                    {previewableImages.length > 3 && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => togglePreviewExpanded('junior-pending', doc.id)}
+                                                                            className="text-xs font-semibold text-[#7ec8ff] hover:text-[#9dd8ff] transition"
+                                                                        >
+                                                                            {isPreviewExpanded('junior-pending', doc.id)
+                                                                                ? 'Show fewer images'
+                                                                                : `+ ${previewableImages.length - 3} more image(s)`}
+                                                                        </button>
+                                                                    )}
                                                                 </div>
                                                             )}
 
-                                                            <div className="space-y-2">
-                                                                <label className="block text-xs font-semibold text-white/70">Review Comment</label>
-                                                                <textarea
-                                                                    value={commentValue}
-                                                                    onChange={(e) => setReviewComment(doc.id, e.target.value)}
-                                                                    rows={3}
-                                                                    placeholder="Add BIM review feedback (required when rejecting)."
-                                                                    className="w-full rounded-lg border border-white/15 bg-[#00273C]/60 px-3 py-2 text-xs text-white placeholder:text-white/45 outline-none resize-none focus:border-[#FF7120]/50"
-                                                                />
                                                             </div>
 
-                                                            <div className="flex gap-2 pt-1">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleJuniorReviewDecision(doc.id, 'approve')}
-                                                                    disabled={decisionLoading}
-                                                                    className="flex-1 rounded-lg bg-emerald-600/20 text-emerald-300 text-xs font-semibold py-2 hover:bg-emerald-600/30 transition disabled:opacity-50"
-                                                                >
-                                                                    {decisionLoading ? 'Processing...' : 'Approve and Forward'}
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleJuniorReviewDecision(doc.id, 'reject')}
-                                                                    disabled={decisionLoading}
-                                                                    className="flex-1 rounded-lg bg-red-600/20 text-red-300 text-xs font-semibold py-2 hover:bg-red-600/30 transition disabled:opacity-50"
-                                                                >
-                                                                    {decisionLoading ? 'Processing...' : 'Reject'}
-                                                                </button>
-                                                            </div>
+                                                            {canBimDecide && (
+                                                                <>
+                                                                    <div className="space-y-2 pt-3 border-t border-white/10">
+                                                                        <label className="block text-xs font-semibold text-white/70">Review Comment</label>
+                                                                        <textarea
+                                                                            value={commentValue}
+                                                                            onChange={(e) => setReviewComment(doc.id, e.target.value)}
+                                                                            rows={3}
+                                                                            placeholder="Add BIM review feedback (required when rejecting)."
+                                                                            className="w-full rounded-lg border border-white/15 bg-[#00273C]/60 px-3 py-2 text-xs text-white placeholder:text-white/45 outline-none resize-none focus:border-[#FF7120]/50"
+                                                                        />
+                                                                    </div>
+
+                                                                    <div className="flex gap-2 pt-1">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleJuniorReviewDecision(doc.id, 'approve')}
+                                                                            disabled={decisionLoading}
+                                                                            className="flex-1 rounded-lg bg-emerald-600/20 text-emerald-300 text-xs font-semibold py-2 hover:bg-emerald-600/30 transition disabled:opacity-50"
+                                                                        >
+                                                                            {decisionLoading ? 'Processing...' : 'Approve'}
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleJuniorReviewDecision(doc.id, 'reject')}
+                                                                            disabled={decisionLoading}
+                                                                            className="flex-1 rounded-lg bg-red-600/20 text-red-300 text-xs font-semibold py-2 hover:bg-red-600/30 transition disabled:opacity-50"
+                                                                        >
+                                                                            {decisionLoading ? 'Processing...' : 'Reject'}
+                                                                        </button>
+                                                                    </div>
+                                                                </>
+                                                            )}
                                                         </div>
                                                     );
                                                 })}
-                                            </div>
                                         </div>
                                     )}
 
-                                    {!loading && juniorPendingReviewDocs.length === 0 && (
-                                        <div className="mb-8 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                                            <p className="text-xs text-white/60">No Junior Architect documentations are currently waiting for BIM review.</p>
-                                        </div>
-                                    )}
-
-                                    {!loading && juniorApprovedDocs.length === 0 && (
-                                        <p className="text-center text-white/55 py-8">
-                                            No Junior Architect documentations are fully approved yet.
-                                        </p>
-                                    )}
-
-                                    {!loading && juniorApprovedDocs.length > 0 && (
-                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                            {juniorApprovedDocs.map((doc) => {
+                                    {!loading && juniorOutcomeFilter !== 'pending' && juniorOutcomeDocs.length > 0 && (
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 auto-rows-fr">
+                                            {juniorOutcomeDocs.map((doc) => {
                                                 const files = doc.files || [];
                                                 const previewableImages = files.filter((file) => (file.is_image || file.file_type === 'image') && file.file_url);
 
                                                 return (
-                                                    <div key={doc.id} className="rounded-xl border border-white/10 bg-[#00273C]/40 p-3 sm:p-5 space-y-3 sm:space-y-4 hover:border-white/20 transition">
-                                                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-3">
-                                                            <div className="flex-1 min-w-0">
-                                                                <h3 className="text-base sm:text-lg font-semibold text-white truncate">{doc.title}</h3>
-                                                                <p className="text-[10px] sm:text-xs text-white/50 mt-1">Created: {new Date(doc.created_at).toLocaleDateString()}</p>
-                                                                <p className="text-[10px] sm:text-xs text-white/45 mt-1">By: {doc.created_by_name || doc.created_by_email || 'Junior Architect'}</p>
+                                                    <div key={doc.id} className="h-full rounded-2xl border border-white/10 bg-[#00273C]/45 overflow-hidden p-3 sm:p-5 gap-3 sm:gap-4 hover:border-white/20 transition flex flex-col">
+                                                        <div className="space-y-3 pb-3 border-b border-white/10">
+                                                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-3">
+                                                                <div className="flex-1 min-w-0">
+                                                                    <h3 className="text-base sm:text-lg font-semibold text-white leading-snug truncate">{doc.title}</h3>
+                                                                    <p className="text-xs text-white/50 mt-1">By: {doc.created_by_name || doc.created_by_email || 'Junior Architect'}</p>
+                                                                </div>
+                                                                <Badge tone={getStatusColor(doc)}>
+                                                                    {getStatusLabel(doc)}
+                                                                </Badge>
                                                             </div>
-                                                            <Badge tone={getStatusColor(doc)}>
-                                                                {getStatusLabel(doc)}
-                                                            </Badge>
+
+                                                            <div className="flex gap-2.5 flex-wrap">
+                                                                <Badge tone="neutral">Doc Date: {doc.doc_date || '-'}</Badge>
+                                                                <Badge tone="neutral">Document Type: {getDisplayType(doc.doc_type)}</Badge>
+                                                            </div>
                                                         </div>
 
-                                                        <div className="flex gap-2 flex-wrap">
-                                                            <Badge tone="neutral">{doc.doc_date}</Badge>
-                                                            <Badge tone="neutral">{getDisplayType(doc.doc_type)}</Badge>
-                                                        </div>
-
+                                                        <div className="flex-1 space-y-3 pt-1">
                                                         {doc.description && (
-                                                            <p className="text-xs text-white/70 line-clamp-2">{doc.description}</p>
+                                                            <div className="space-y-1">
+                                                                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/50">Description</p>
+                                                                <p className="text-sm leading-relaxed text-white/80 line-clamp-2">{doc.description}</p>
+                                                            </div>
                                                         )}
 
                                                         {previewableImages.length > 0 && (
                                                             <div className="space-y-2">
-                                                                <p className="text-xs font-semibold text-white/70">Image Preview</p>
+                                                                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/50">Image Preview</p>
                                                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                                                    {previewableImages.slice(0, 6).map((file) => (
+                                                                    {previewableImages.slice(0, isPreviewExpanded('junior-approved', doc.id) ? previewableImages.length : 3).map((file) => (
                                                                         <button
                                                                             key={file.id}
                                                                             type="button"
@@ -1111,29 +1264,17 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
                                                                         </button>
                                                                     ))}
                                                                 </div>
-                                                            </div>
-                                                        )}
-
-                                                        {(doc.files?.length ?? doc.file_count ?? 0) > 0 && (
-                                                            <div className="space-y-2">
-                                                                <p className="text-xs font-semibold text-white/70">Files ({doc.files?.length ?? doc.file_count ?? 0})</p>
-                                                                <div className="space-y-1">
-                                                                    {(doc.files || []).slice(0, 3).map((file) => (
-                                                                        <p key={file.id} className="text-xs text-white/60 truncate">
-                                                                            {file.file_type === 'model' ? 'Model' : 'Image'} - {file.file_name}
-                                                                        </p>
-                                                                    ))}
-                                                                    {(doc.files?.length ?? 0) > 3 && (
-                                                                        <p className="text-xs text-white/50">+ {(doc.files?.length ?? 0) - 3} more file(s)</p>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        )}
-
-                                                        {doc.studio_head_comments && (
-                                                            <div className="pt-2 px-3 py-2 bg-cyan-500/10 border border-cyan-500/20 rounded-lg">
-                                                                <p className="text-xs text-cyan-300">Studio Head Note</p>
-                                                                <p className="text-xs text-cyan-200/80 mt-1 line-clamp-2">{doc.studio_head_comments}</p>
+                                                                {previewableImages.length > 3 && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => togglePreviewExpanded('junior-approved', doc.id)}
+                                                                        className="text-xs font-semibold text-[#7ec8ff] hover:text-[#9dd8ff] transition"
+                                                                    >
+                                                                        {isPreviewExpanded('junior-approved', doc.id)
+                                                                            ? 'Show fewer images'
+                                                                            : `+ ${previewableImages.length - 3} more image(s)`}
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         )}
 
@@ -1144,19 +1285,10 @@ const BimSpecialistDocumentationPage = ({ user, onNavigate }) => {
                                                             </div>
                                                         )}
 
-                                                        <div className="pt-2 border-t border-white/10">
-                                                            <button
-                                                                onClick={() => setOpenJuniorThreadDocId(openJuniorThreadDocId === doc.id ? null : doc.id)}
-                                                                className="w-full text-left text-xs font-semibold text-white/60 hover:text-white/90 transition flex items-center gap-2 py-1"
-                                                            >
-                                                                <span>Discussion</span>
-                                                                <span className="text-white/40">{openJuniorThreadDocId === doc.id ? 'Hide' : 'Show'}</span>
-                                                            </button>
-                                                            {openJuniorThreadDocId === doc.id && (
-                                                                <div className="mt-3">
-                                                                    <CommentThread docId={doc.id} currentUser={user} />
-                                                                </div>
-                                                            )}
+                                                        </div>
+
+                                                        <div className="mt-auto pt-3 border-t border-white/10">
+                                                            <CommentThread docId={doc.id} currentUser={user} collapsible />
                                                         </div>
                                                     </div>
                                                 );

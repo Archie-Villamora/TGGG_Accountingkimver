@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'storages',
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
@@ -272,6 +273,20 @@ import os
 
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL = '/media/'
+
+# S3 / MinIO Configuration
+AWS_ACCESS_KEY_ID = config('MINIO_ACCESS_KEY', default='minioadmin')
+AWS_SECRET_ACCESS_KEY = config('MINIO_SECRET_KEY', default='minioadminsecret')
+AWS_S3_ENDPOINT_URL = config('MINIO_ENDPOINT', default='http://localhost:9000')
+
+# Optional Custom Domain for generating frontend-accessible URLs
+AWS_S3_CUSTOM_DOMAIN = config('MINIO_CUSTOM_DOMAIN', default='localhost:9000')
+
+AWS_S3_FILE_OVERWRITE = False
+AWS_DEFAULT_ACL = 'public-read'
+
+# Set default storage
+DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 
 # Base URL for generating absolute URLs to uploaded media
 BASE_URL = config('BASE_URL', default='http://localhost:8000')

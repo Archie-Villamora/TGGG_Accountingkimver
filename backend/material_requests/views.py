@@ -487,22 +487,22 @@ class MaterialRequestViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        item_discounts_raw = request.data.get('item_discounts', [])
-        if isinstance(item_discounts_raw, str):
+        item_updates_raw = request.data.get('item_updates', request.data.get('item_discounts', []))
+        if isinstance(item_updates_raw, str):
             try:
-                item_discounts_raw = json.loads(item_discounts_raw)
+                item_updates_raw = json.loads(item_updates_raw)
             except (TypeError, ValueError):
                 return Response(
-                    {'error': 'Invalid item_discounts payload.'},
+                    {'error': 'Invalid item_updates payload.'},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        if item_discounts_raw is None:
-            item_discounts_raw = []
+        if item_updates_raw is None:
+            item_updates_raw = []
 
-        if not isinstance(item_discounts_raw, list):
+        if not isinstance(item_updates_raw, list):
             return Response(
-                {'error': 'item_discounts must be a list.'},
+                {'error': 'item_updates must be a list.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -511,10 +511,10 @@ class MaterialRequestViewSet(viewsets.ModelViewSet):
         updated_items_count = 0
         total_discount_value = Decimal('0.00')
 
-        for entry in item_discounts_raw:
+        for entry in item_updates_raw:
             if not isinstance(entry, dict):
                 return Response(
-                    {'error': 'Each item_discounts entry must be an object.'},
+                    {'error': 'Each item_updates entry must be an object.'},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -533,8 +533,41 @@ class MaterialRequestViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            item = request_items_by_id[item_id]
+
+            # Parse quantity
             try:
-                discount_val = Decimal(str(entry.get('discount', '0')))
+                if 'quantity' in entry and entry['quantity'] is not None:
+                    qty_val = Decimal(str(entry.get('quantity')))
+                else:
+                    qty_val = item.quantity
+            except (InvalidOperation, TypeError, ValueError):
+                return Response(
+                    {'error': f'Invalid quantity value for item id {item_id}.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Parse price
+            try:
+                if 'price' in entry and entry['price'] is not None:
+                    price_val = Decimal(str(entry.get('price')))
+                else:
+                    price_val = item.price
+            except (InvalidOperation, TypeError, ValueError):
+                return Response(
+                    {'error': f'Invalid price value for item id {item_id}.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if qty_val < 0 or price_val < 0:
+                return Response(
+                    {'error': f'Quantity and price cannot be negative for item id {item_id}.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Parse discount
+            try:
+                discount_val = Decimal(str(entry.get('discount', item.discount)))
             except (InvalidOperation, TypeError, ValueError):
                 return Response(
                     {'error': f'Invalid discount value for item id {item_id}.'},
@@ -547,8 +580,7 @@ class MaterialRequestViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            item = request_items_by_id[item_id]
-            gross_total = item.quantity * item.price
+            gross_total = qty_val * price_val
             if discount_val > gross_total:
                 return Response(
                     {'error': f'Discount cannot exceed gross total for "{item.name}".'},
@@ -556,10 +588,15 @@ class MaterialRequestViewSet(viewsets.ModelViewSet):
                 )
 
             new_total = gross_total - discount_val
-            if item.discount != discount_val or item.total != new_total:
+            
+            # Check if anything changed
+            if (item.quantity != qty_val or item.price != price_val or 
+                item.discount != discount_val or item.total != new_total):
+                item.quantity = qty_val
+                item.price = price_val
                 item.discount = discount_val
                 item.total = new_total
-                item.save(update_fields=['discount', 'total'])
+                item.save(update_fields=['quantity', 'price', 'discount', 'total'])
                 updated_items_count += 1
 
             total_discount_value += discount_val
@@ -594,9 +631,9 @@ class MaterialRequestViewSet(viewsets.ModelViewSet):
 
         # Create system comment for audit trail
         discount_note = (
-            f" Item discounts updated: {updated_items_count} item(s), "
+            f" Items updated: {updated_items_count} item(s) modified, "
             f"total discount ₱{total_discount_value:,.2f}."
-            if item_discounts_raw else ""
+            if item_updates_raw else ""
         )
         MaterialRequestComment.objects.create(
             material_request=material_request,

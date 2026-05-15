@@ -178,7 +178,7 @@ export default function App() {
 
   return (
     <>
-      <Toaster position="top-right" richColors={false} expand={false} closeButton />
+      <Toaster position="top-right" richColors={false} expand visibleToasts={4} closeButton />
       <Routes>
       <Route
         path="/login"

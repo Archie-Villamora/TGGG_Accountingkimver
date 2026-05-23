@@ -1,6 +1,6 @@
 """
 Payslip Image Generator using Pillow (PIL).
-Produces a landscape payslip layout that follows the provided sample structure.
+Produces a portrait payslip layout that precisely matches the provided sample.
 """
 
 import io
@@ -132,32 +132,33 @@ def _load_signature_image(source_url, max_width, max_height):
         return None
 
 
-def _draw_header_logo(img, draw, sheet_left, sheet_right, header_top, header_bottom):
-    """Draw brand logo in header exactly positioned like sample."""
+def _draw_header_logo(img, draw, left, right, top, logo_zone_bottom):
+    """
+    Draw brand logo in the upper portion of the header.
+    The logo is centered horizontally and scaled to fill ~80% of the header width.
+    """
     logo_path = _find_brand_logo_path()
     if not logo_path:
         return False
 
     try:
         logo = Image.open(logo_path).convert('RGBA')
-        header_w = sheet_right - sheet_left
-        header_h = header_bottom - header_top
-        
-        # Fit logo to header with proper aspect ratio
-        max_w = int(header_w * 0.88)
-        max_h = int(header_h * 0.75)
-
         if logo.width == 0 or logo.height == 0:
             return False
+
+        zone_w = right - left
+        zone_h = logo_zone_bottom - top
+
+        max_w = int(zone_w * 0.72)
+        max_h = int(zone_h * 0.82)
 
         ratio = min(max_w / logo.width, max_h / logo.height)
         target_w = max(1, int(logo.width * ratio))
         target_h = max(1, int(logo.height * ratio))
         logo = logo.resize((target_w, target_h), Image.LANCZOS)
 
-        # Center logo horizontally, place near top
-        x = sheet_left + (header_w - target_w) // 2
-        y = header_top + int(header_h * 0.12)
+        x = left + (zone_w - target_w) // 2
+        y = top + (zone_h - target_h) // 2
         img.paste(logo, (x, y), logo)
         return True
     except Exception:
@@ -165,212 +166,275 @@ def _draw_header_logo(img, draw, sheet_left, sheet_right, header_top, header_bot
 
 
 def generate_payslip_image(payslip_data):
-    """Generate a PNG payslip image from payslip data."""
+    """Generate a PNG payslip image from payslip data matching the provided sample."""
     payslip_details = payslip_data.get('payslip_details', {})
 
-    employee_name = str(payslip_data.get('employee_name', 'N/A'))
-    designation = str(payslip_data.get('employee_role', 'N/A')).title()
-    period_start = _fmt_period_date(payslip_data.get('period_start'))
-    period_end = _fmt_period_date(payslip_data.get('period_end'))
+    employee_name   = str(payslip_data.get('employee_name', 'N/A')).title()
+    designation     = str(payslip_details.get('designation') or payslip_data.get('employee_role', 'N/A')).title()
+    period_start    = _fmt_period_date(payslip_data.get('period_start'))
+    period_end      = _fmt_period_date(payslip_data.get('period_end'))
 
-    basic_salary = _to_decimal(payslip_data.get('base_salary', 0))
-    regular_ot = _to_decimal(payslip_details.get('regular_overtime', payslip_data.get('overtime_amount', 0)))
-    late_undertime = _to_decimal(payslip_details.get('late_undertime', 0))
-    rest_day = _to_decimal(payslip_details.get('rest_day', 0))
-    rest_day_ot = _to_decimal(payslip_details.get('rest_day_ot', 0))
-    holiday = _to_decimal(payslip_details.get('holiday', 0))
+    basic_salary     = _to_decimal(payslip_data.get('base_salary', 0))
+    monthly_amount   = _to_decimal(payslip_details.get('monthly', basic_salary))
+    regular_ot       = _to_decimal(payslip_details.get('regular_overtime', payslip_data.get('overtime_amount', 0)))
+    late_undertime   = _to_decimal(payslip_details.get('late_undertime', 0))
+    rest_day         = _to_decimal(payslip_details.get('rest_day', 0))
+    rest_day_ot      = _to_decimal(payslip_details.get('rest_day_ot', 0))
+    holiday          = _to_decimal(payslip_details.get('holiday', 0))
     payroll_allowance = _to_decimal(payslip_details.get('payroll_allowance', payslip_data.get('allowances_total', 0)))
-    company_loan = _to_decimal(payslip_details.get('company_loan_cash_advance', 0))
+    company_loan     = _to_decimal(payslip_details.get('company_loan_cash_advance', 0))
 
-    gross_salary = _to_decimal(payslip_data.get('gross_salary', 0))
+    gross_salary     = _to_decimal(payslip_details.get('gross_amount', payslip_data.get('gross_salary', 0)))
     total_deductions = _to_decimal(payslip_details.get('total_deductions', payslip_data.get('deductions_total', 0)))
-    payroll_tax = _to_decimal(payslip_details.get('payroll_tax', payslip_data.get('tax', 0)))
-    net_salary = _to_decimal(payslip_data.get('net_salary', 0))
+    payroll_tax      = _to_decimal(payslip_details.get('payroll_tax', payslip_data.get('tax', 0)))
+    net_salary       = _to_decimal(payslip_data.get('net_salary', 0))
 
     sss, philhealth, pagibig = _extract_contributions(payslip_details)
     net_taxable_salary = _to_decimal(
         payslip_details.get('net_taxable_salary', gross_salary - (sss + philhealth + pagibig))
     )
 
-    prepared_by = str(payslip_details.get('prepared_by', 'Accounting Department')).upper()
-    approved_by = str(payslip_details.get('approved_by_top_management', 'Top Management')).upper()
+    prepared_by             = str(payslip_details.get('prepared_by', 'Accounting Department')).upper()
+    approved_by             = str(payslip_details.get('approved_by_top_management', 'Top Management')).upper()
     prepared_by_signature_url = str(payslip_details.get('prepared_by_signature', '')).strip()
     approved_by_signature_url = str(payslip_details.get('approved_by_signature', '')).strip()
 
-    # Exact sample dimensions scaled for high quality output.
-    # Height is slightly extended so bottom labels are not clipped.
-    scale = 2.1
-    s = lambda value: int(round(value * scale))
+    # ── Canvas dimensions ─────────────────────────────────────────────────────
+    # Portrait orientation, ~960×780 logical units at 2× scale (≈1920×1560 px)
+    scale = 2.0
+    s = lambda v: int(round(v * scale))
 
-    width, height = s(960), s(804)
-    sheet_left, sheet_top, sheet_right, sheet_bottom = s(65), s(51), s(890), s(774)
+    W, H = s(930), s(790)
 
-    header_top, header_bottom = sheet_top, s(295)
-    strip_top, strip_bottom = s(295), s(313)
-    body_top, body_bottom = s(313), s(641)
-    net_bar_top, net_bar_bottom = s(607), s(641)
+    # Outer sheet bounds (with margin)
+    SL, ST, SR, SB = s(30), s(30), s(900), s(765)
 
-    img = Image.new('RGB', (width, height), '#DEDEDE')
+    # ── Zone boundaries ───────────────────────────────────────────────────────
+    # 1. Header (dark navy, logo + tagline)
+    HEADER_TOP    = ST
+    HEADER_BOTTOM = s(255)    # generous header height matching sample
+
+    # 2. Tagline band (bottom of header — same navy fill, distinct text)
+    TAGLINE_TOP    = s(214)
+    TAGLINE_BOTTOM = HEADER_BOTTOM
+
+    # 3. Period strip (orange)
+    STRIP_TOP    = HEADER_BOTTOM
+    STRIP_BOTTOM = s(275)
+
+    # 4. Main body
+    BODY_TOP    = STRIP_BOTTOM
+    BODY_BOTTOM = s(640)
+
+    # 5. Net pay bar (orange, inside body)
+    NET_TOP    = s(604)
+    NET_BOTTOM = s(640)
+
+    # 6. Signature block
+    SIG_TOP  = BODY_BOTTOM
+    SIG_BOTTOM = SB
+
+    # ── Colours ───────────────────────────────────────────────────────────────
+    BRAND_NAVY   = '#0C3352'
+    BRAND_ORANGE = '#F39024'
+    BLACK        = '#000000'
+    WHITE        = '#FFFFFF'
+    DARK_TEXT    = '#111111'
+    GRAY_TEXT    = '#2A2A2A'
+    LIGHT_GRAY   = '#F5F5F5'
+
+    # ── Image setup ───────────────────────────────────────────────────────────
+    img  = Image.new('RGB', (W, H), '#D0D0D0')
     draw = ImageDraw.Draw(img)
 
-    brand_blue = '#0F3A5C'
-    brand_orange = '#F39C3D'
-    black = '#000000'
-    white = '#FFFFFF'
-    text_gray = '#1A1A1A'
+    # ── Fonts ─────────────────────────────────────────────────────────────────
+    f_label     = get_font(s(11.5))
+    f_value     = get_font(s(11.5), bold=True)
+    f_section   = get_font(s(12),   bold=False)
+    f_row       = get_font(s(12.5), bold=False)
+    f_row_bold  = get_font(s(12.5), bold=True)
+    f_strip     = get_font(s(12),   bold=True)
+    f_net_label = get_font(s(14.5), bold=True)
+    f_net_value = get_font(s(14.5), bold=True)
+    f_tagline   = get_font(s(13.5), bold=True)
+    f_sign_lbl  = get_font(s(11))
+    f_sign_name = get_font(s(12),   bold=True)
+    f_sign_role = get_font(s(11))
 
-    # Exact font sizes matching sample
-    label_font = get_font(s(12.5), bold=False)
-    value_font = get_font(s(12.5), bold=True)
-    section_font = get_font(s(13.5), bold=False)
-    row_font = get_font(s(14.5), bold=False)
-    row_bold_font = get_font(s(14.8), bold=True)
-    strip_font = get_font(s(12.8), bold=True)
-    net_font = get_font(s(16), bold=True)
-    sign_label_font = get_font(s(12.5), bold=False)
-    sign_name_font = get_font(s(13.2), bold=True)
-    sign_role_font = get_font(s(11.8), bold=False)
-    tagline_font = get_font(s(15.5), bold=True)
+    # ═════════════════════════════════════════════════════════════════════════
+    # 1. HEADER BLOCK
+    # ═════════════════════════════════════════════════════════════════════════
+    draw.rectangle([(SL, HEADER_TOP), (SR, HEADER_BOTTOM)], fill=BRAND_NAVY)
 
-    # Outer sheet
-    draw.rectangle([(sheet_left, sheet_top), (sheet_right, sheet_bottom)], fill=white, outline=black, width=2)
-
-    # Header block
-    draw.rectangle([(sheet_left, header_top), (sheet_right, header_bottom)], fill=brand_blue, outline=black, width=2)
-    logo_drawn = _draw_header_logo(img, draw, sheet_left, sheet_right, header_top, header_bottom)
+    # Logo zone: top portion of header (above tagline band)
+    logo_drawn = _draw_header_logo(img, draw, SL, SR, HEADER_TOP, TAGLINE_TOP)
 
     if not logo_drawn:
-        fallback_title = get_font(s(40), bold=True)
-        fallback_subtitle = get_font(s(16), bold=True)
-        center_x = (sheet_left + sheet_right) // 2
-        draw.text((center_x, header_top + s(85)), 'TRIPLE G', fill=white, font=fallback_title, anchor='mm')
-        draw.text((center_x, header_top + s(125)), 'DESIGN STUDIO + CONSTRUCTION', fill=white, font=fallback_subtitle, anchor='mm')
+        # Fallback: draw text header
+        cx = (SL + SR) // 2
+        draw.text((cx, HEADER_TOP + s(70)),  'TRIPLE G',                   fill=WHITE, font=get_font(s(36), bold=True), anchor='mm')
+        draw.text((cx, HEADER_TOP + s(100)), 'DESIGN STUDIO + CONSTRUCTION', fill=WHITE, font=get_font(s(14), bold=True), anchor='mm')
+        draw.text((cx, HEADER_TOP + s(118)), '"We\'re in business to help develop the built environment and change the world."',
+                  fill=WHITE, font=get_font(s(10)), anchor='mm')
 
+    # Tagline text (bold, italic-style, white, centered at bottom of header)
+    tagline_cx = (SL + SR) // 2
+    tagline_cy = (TAGLINE_TOP + TAGLINE_BOTTOM) // 2
     draw.text(
-        ((sheet_left + sheet_right) // 2, header_bottom - s(26)),
+        (tagline_cx, tagline_cy),
         '"We\'re in business to help develop the built environment and change the world."',
-        fill=white,
-        font=tagline_font,
+        fill=WHITE,
+        font=f_tagline,
         anchor='mm',
     )
 
-    # Period strip
-    draw.rectangle([(sheet_left, strip_top), (sheet_right, strip_bottom)], fill=brand_orange, outline=black, width=1)
+    # ═════════════════════════════════════════════════════════════════════════
+    # 2. PERIOD STRIP (orange)
+    # ═════════════════════════════════════════════════════════════════════════
+    draw.rectangle([(SL, STRIP_TOP), (SR, STRIP_BOTTOM)], fill=BRAND_ORANGE)
+    strip_cx = (SL + SR) // 2
+    strip_cy = (STRIP_TOP + STRIP_BOTTOM) // 2
     draw.text(
-        ((sheet_left + sheet_right) // 2, (strip_top + strip_bottom) // 2),
-        f'TGGG PAYSLIP  {period_start} to {period_end}',
-        fill=black,
-        font=strip_font,
+        (strip_cx, strip_cy),
+        f'TGGG PAYSLIP   {period_start} to {period_end}',
+        fill=BLACK,
+        font=f_strip,
         anchor='mm',
     )
 
-    # Main body region
-    draw.rectangle([(sheet_left, body_top), (sheet_right, body_bottom)], fill=white, outline=black, width=2)
+    # ═════════════════════════════════════════════════════════════════════════
+    # 3. MAIN BODY
+    # ═════════════════════════════════════════════════════════════════════════
+    draw.rectangle([(SL, BODY_TOP), (SR, BODY_BOTTOM)], fill=WHITE, outline=BLACK, width=1)
 
-    # Employee and monthly row
-    draw.text((s(72), s(321)), 'Employee Name:', fill=text_gray, font=label_font)
-    draw.text((s(258), s(321)), employee_name, fill=black, font=value_font)
+    # Thin horizontal divider between header area rows
+    # Employee name row
+    EMP_Y  = BODY_TOP + s(12)
+    DESIG_Y = EMP_Y + s(19)
 
-    draw.text((s(72), s(344)), 'Designation:', fill=text_gray, font=label_font)
-    draw.text((s(258), s(344)), designation, fill=black, font=value_font)
+    draw.text((SL + s(8),   EMP_Y),  'Employee Name:', fill=GRAY_TEXT, font=f_label)
+    draw.text((SL + s(112), EMP_Y),  employee_name,    fill=BLACK,     font=f_value)
 
-    draw.text((s(605), s(344)), 'Monthly', fill=text_gray, font=label_font)
-    draw.text((s(882), s(344)), format_currency(basic_salary), fill=black, font=value_font, anchor='ra')
+    draw.text((SL + s(8),   DESIG_Y), 'Designation:',  fill=GRAY_TEXT, font=f_label)
+    draw.text((SL + s(112), DESIG_Y), designation,     fill=BLACK,     font=f_value)
 
-    # Section labels
-    draw.text((s(238), s(364)), 'Earnings:', fill=black, font=section_font)
-    draw.text((s(638), s(364)), 'Deductions:', fill=black, font=section_font)
+    # Monthly on same row as Designation, right column
+    MID_X = s(490)   # midpoint divider between left and right columns
+    draw.text((MID_X + s(85), DESIG_Y), 'Monthly', fill=GRAY_TEXT, font=f_label)
+    draw.text((SR - s(8),    DESIG_Y), format_currency(monthly_amount), fill=BLACK, font=f_value, anchor='ra')
 
-    # Main rows
-    left_label_x = s(113)
-    left_value_x = s(422)
-    right_label_x = s(546)
-    right_value_x = s(818)
-    row_start_y = s(384)
-    row_step = s(19.5)
+    # Section headers: Earnings / Deductions
+    SECTION_Y = DESIG_Y + s(19)
+    draw.text((SL + s(112), SECTION_Y), 'Earnings:',   fill=BLACK, font=f_section)
+    draw.text((MID_X + s(55), SECTION_Y), 'Deductions:', fill=BLACK, font=f_section)
+
+    # ── Row layout ────────────────────────────────────────────────────────────
+    LEFT_LABEL_X  = SL + s(42)     # left column label
+    LEFT_VALUE_X  = MID_X - s(18)  # left column value (right-aligned)
+    RIGHT_LABEL_X = MID_X + s(8)   # right column label
+    RIGHT_VALUE_X = SR - s(8)      # right column value (right-aligned)
+
+    ROW_START_Y = SECTION_Y + s(17)
+    ROW_STEP    = s(20)
 
     earnings_rows = [
-        ('Basic Salary', basic_salary),
+        ('Basic Salary',    basic_salary),
         ('Regular Overtime', regular_ot),
-        ('Late/Undertime', late_undertime),
-        ('Rest Day', rest_day),
-        ('Rest Day OT', rest_day_ot),
-        ('Holiday', holiday),
+        ('Late/Undertime',  late_undertime),
+        ('Rest Day',        rest_day),
+        ('Rest Day OT',     rest_day_ot),
+        ('Holiday',         holiday),
     ]
-    for index, (label, amount) in enumerate(earnings_rows):
-        y = row_start_y + (index * row_step)
-        draw.text((left_label_x, y), label, fill=text_gray, font=row_font)
-        draw.text((left_value_x, y), format_currency(amount), fill=black, font=row_font, anchor='ra')
+    for i, (label, amount) in enumerate(earnings_rows):
+        y = ROW_START_Y + i * ROW_STEP
+        draw.text((LEFT_LABEL_X,  y), label,                fill=DARK_TEXT, font=f_row)
+        draw.text((LEFT_VALUE_X,  y), format_currency(amount), fill=BLACK,  font=f_row, anchor='ra')
 
     deductions_rows = [
-        ('SSS', sss, False),
-        ('Philhealth', philhealth, False),
-        ('Pag-ibig', pagibig, False),
+        ('SSS',               sss,               False),
+        ('Philhealth',        philhealth,        False),
+        ('Pag-ibig',          pagibig,           False),
         ('NET Taxable Salary', net_taxable_salary, True),
-        ('Payroll Tax', payroll_tax, False),
-        ('Total Deductions', total_deductions, False),
+        ('Payroll Tax',       payroll_tax,        False),
+        ('Total Deductions',  total_deductions,   False),
     ]
-    for index, (label, amount, is_bold) in enumerate(deductions_rows):
-        y = row_start_y + (index * row_step)
-        font = row_bold_font if is_bold else row_font
-        draw.text((right_label_x, y), label, fill=text_gray if not is_bold else black, font=font)
-        draw.text((right_value_x, y), format_currency(amount), fill=black, font=font, anchor='ra')
+    for i, (label, amount, bold) in enumerate(deductions_rows):
+        y = ROW_START_Y + i * ROW_STEP
+        fnt = f_row_bold if bold else f_row
+        clr = BLACK if bold else DARK_TEXT
+        draw.text((RIGHT_LABEL_X, y), label,                fill=clr,   font=fnt)
+        draw.text((RIGHT_VALUE_X, y), format_currency(amount), fill=BLACK, font=fnt, anchor='ra')
 
-    # Lower rows before net bar
-    draw.text((left_label_x, s(558)), 'GROSS Amount', fill=black, font=row_bold_font)
-    draw.text((left_value_x, s(558)), format_currency(gross_salary), fill=black, font=row_bold_font, anchor='ra')
+    # ── GROSS Amount row (after earnings list, before net bar) ────────────────
+    GROSS_Y = NET_TOP - s(44)
+    draw.text((LEFT_LABEL_X,  GROSS_Y), 'GROSS Amount',         fill=BLACK, font=f_row_bold)
+    draw.text((LEFT_VALUE_X,  GROSS_Y), format_currency(gross_salary), fill=BLACK, font=f_row_bold, anchor='ra')
 
-    draw.text((right_label_x, s(558)), 'Payroll Allowance', fill=text_gray, font=row_font)
-    draw.text((right_value_x, s(558)), format_currency(payroll_allowance), fill=black, font=row_font, anchor='ra')
+    # Payroll Allowance & Company Loan (right column, below Total Deductions)
+    ALLOW_Y = GROSS_Y
+    LOAN_Y  = ALLOW_Y + s(20)
+    draw.text((RIGHT_LABEL_X, ALLOW_Y), 'Payroll Allowance',        fill=DARK_TEXT, font=f_row)
+    draw.text((RIGHT_VALUE_X, ALLOW_Y), format_currency(payroll_allowance), fill=BLACK, font=f_row, anchor='ra')
+    draw.text((RIGHT_LABEL_X, LOAN_Y),  'Company Loan/Cash Advance', fill=DARK_TEXT, font=f_row)
+    draw.text((RIGHT_VALUE_X, LOAN_Y),  format_currency(company_loan), fill=BLACK, font=f_row, anchor='ra')
 
-    draw.text((right_label_x, s(580)), 'Company Loan/Cash Advance', fill=text_gray, font=row_font)
-    draw.text((right_value_x, s(580)), format_currency(company_loan), fill=black, font=row_font, anchor='ra')
+    # ═════════════════════════════════════════════════════════════════════════
+    # 4. NET PAY BAR
+    # ═════════════════════════════════════════════════════════════════════════
+    draw.rectangle([(SL, NET_TOP), (SR, NET_BOTTOM)], fill=BRAND_ORANGE, outline=BLACK, width=1)
+    net_cy = (NET_TOP + NET_BOTTOM) // 2
+    NET_LABEL_X = SL + s(160)
+    NET_VALUE_X = SR - s(160)
+    draw.text((NET_LABEL_X, net_cy), 'SALARY NET PAY', fill=BLACK, font=f_net_label, anchor='mm')
+    draw.text((NET_VALUE_X, net_cy), format_currency(net_salary), fill=BLACK, font=f_net_value, anchor='mm')
 
-    # Net pay strip
-    net_bar_center_y = (net_bar_top + net_bar_bottom) // 2
-    net_bar_center_x = (sheet_left + sheet_right) // 2
-    draw.rectangle([(sheet_left, net_bar_top), (sheet_right, net_bar_bottom)], fill=brand_orange, outline=black, width=2)
-    draw.text((s(205), net_bar_center_y), 'SALARY NET PAY', fill=black, font=net_font, anchor='lm')
-    draw.text((s(718), net_bar_center_y), format_currency(net_salary), fill=black, font=net_font, anchor='rm')
+    # ═════════════════════════════════════════════════════════════════════════
+    # 5. SIGNATURE BLOCK
+    # ═════════════════════════════════════════════════════════════════════════
+    # White background for sig area
+    draw.rectangle([(SL, SIG_TOP), (SR, SIG_BOTTOM)], fill=WHITE, outline=BLACK, width=1)
 
-    # Signature block
-    draw.text((s(70), s(656)), 'Prepared By:', fill=text_gray, font=sign_label_font)
-    draw.text((s(568), s(656)), 'Approved by:', fill=text_gray, font=sign_label_font)
+    PREP_LABEL_X = SL + s(8)
+    APPR_LABEL_X = (SL + SR) // 2 + s(10)
 
-    left_line_y = s(704)
-    right_line_y = s(704)
-    draw.line([(s(65), left_line_y), (s(270), left_line_y)], fill=black, width=1)
-    draw.line([(s(563), right_line_y), (s(785), right_line_y)], fill=black, width=1)
+    SIG_LABEL_Y = SIG_TOP + s(8)
+    draw.text((PREP_LABEL_X, SIG_LABEL_Y), 'Prepared By:', fill=GRAY_TEXT, font=f_sign_lbl)
+    draw.text((APPR_LABEL_X, SIG_LABEL_Y), 'Approved by:', fill=GRAY_TEXT, font=f_sign_lbl)
 
-    left_signature = _load_signature_image(
-        prepared_by_signature_url,
-        max_width=s(170),
-        max_height=s(44),
-    )
-    if left_signature:
-        left_x = s(168) - (left_signature.width // 2)
-        left_y = s(675)
-        img.paste(left_signature, (left_x, left_y), left_signature)
+    # Signature images
+    SIG_IMG_Y = SIG_TOP + s(14)
+    LEFT_SIG_CX  = SL + s(95)
+    RIGHT_SIG_CX = (SL + SR) // 2 + s(112)
 
-    right_signature = _load_signature_image(
-        approved_by_signature_url,
-        max_width=s(170),
-        max_height=s(44),
-    )
-    if right_signature:
-        right_x = s(674) - (right_signature.width // 2)
-        right_y = s(675)
-        img.paste(right_signature, (right_x, right_y), right_signature)
+    left_sig = _load_signature_image(prepared_by_signature_url, max_width=s(160), max_height=s(38))
+    if left_sig:
+        img.paste(left_sig, (LEFT_SIG_CX - left_sig.width // 2, SIG_IMG_Y), left_sig)
 
-    draw.text((s(168), s(692)), prepared_by, fill=black, font=sign_name_font, anchor='mm')
-    draw.text((s(168), s(717)), 'Accounting Department', fill=text_gray, font=sign_role_font, anchor='mm')
+    right_sig = _load_signature_image(approved_by_signature_url, max_width=s(160), max_height=s(38))
+    if right_sig:
+        img.paste(right_sig, (RIGHT_SIG_CX - right_sig.width // 2, SIG_IMG_Y), right_sig)
 
-    draw.text((s(674), s(692)), approved_by, fill=black, font=sign_name_font, anchor='mm')
-    draw.text((s(674), s(717)), 'Top Management', fill=text_gray, font=sign_role_font, anchor='mm')
+    # Underline
+    LINE_Y = SIG_TOP + s(53)
+    draw.line([(SL + s(8), LINE_Y), (SL + s(188), LINE_Y)], fill=BLACK, width=1)
+    draw.line([((SL + SR) // 2 + s(10), LINE_Y), ((SL + SR) // 2 + s(210), LINE_Y)], fill=BLACK, width=1)
 
-    # Bottom "Approved By:" label matching sample
-    draw.text((s(70), s(759)), 'Approved By:', fill=text_gray, font=sign_label_font)
+    # Names and roles
+    NAME_Y = LINE_Y + s(7)
+    ROLE_Y = NAME_Y + s(13)
+    draw.text((LEFT_SIG_CX,  NAME_Y), prepared_by, fill=BLACK,     font=f_sign_name, anchor='mm')
+    draw.text((LEFT_SIG_CX,  ROLE_Y), 'Accounting Department', fill=GRAY_TEXT, font=f_sign_role, anchor='mm')
 
+    draw.text((RIGHT_SIG_CX, NAME_Y), approved_by,   fill=BLACK,     font=f_sign_name, anchor='mm')
+    draw.text((RIGHT_SIG_CX, ROLE_Y), 'Top Management', fill=GRAY_TEXT, font=f_sign_role, anchor='mm')
+
+    # Bottom "Approved By:" label
+    APPR_BOTTOM_Y = SIG_BOTTOM - s(12)
+    draw.text((SL + s(8), APPR_BOTTOM_Y), 'Approved By:', fill=GRAY_TEXT, font=f_sign_lbl)
+
+    # ═════════════════════════════════════════════════════════════════════════
+    # OUTPUT
+    # ═════════════════════════════════════════════════════════════════════════
     buffer = io.BytesIO()
     img.save(buffer, format='PNG', quality=95)
     buffer.seek(0)

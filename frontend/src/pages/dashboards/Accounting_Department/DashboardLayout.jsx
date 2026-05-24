@@ -301,7 +301,7 @@ export function DashboardLayout({
             </aside>
 
             <main className="flex-1 min-w-0">
-              {activeSection !== 'main' || activeTab === 'attendance' ? (
+              {activeSection !== 'main' || activeTab === 'attendance' || activeTab === 'employees' || activeTab === 'payroll' || activeTab === 'dashboard' ? (
                 children
               ) : (
                 <div className={cardClass}>

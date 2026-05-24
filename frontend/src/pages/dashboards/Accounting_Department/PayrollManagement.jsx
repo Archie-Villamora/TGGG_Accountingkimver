@@ -958,73 +958,19 @@ export function PayrollManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Analytics Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Employees Card */}
-        <Card className="border-0 shadow-lg bg-linear-to-br from-card to-card/50 backdrop-blur-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Employees</p>
-                <p className="text-2xl font-medium mt-2">{totalEmployees}</p>
-              </div>
-              <BarChart3 className="w-8 h-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Total Payroll Card */}
-        <Card className="border-0 shadow-lg bg-linear-to-br from-card to-card/50 backdrop-blur-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Payroll</p>
-                <p className="text-2xl font-medium mt-2 text-white">{formatCurrency(totalPayroll)}</p>
-              </div>
-              <DollarSign className="w-8 h-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Average Salary Card */}
-        <Card className="border-0 shadow-lg bg-linear-to-br from-card to-card/50 backdrop-blur-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Average Salary</p>
-                <p className="text-2xl font-medium mt-2 text-white">{formatCurrency(averageSalary)}</p>
-              </div>
-              <CheckCircle className="w-8 h-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Total Deductions Card */}
-        <Card className="border-0 shadow-lg bg-linear-to-br from-card to-card/50 backdrop-blur-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Deductions</p>
-                <p className="text-2xl font-medium mt-2 text-white">{formatCurrency(totalDeductions)}</p>
-              </div>
-              <AlertCircle className="w-8 h-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Payroll Actions */}
-      <Card className="border-0 shadow-lg bg-linear-to-br from-card to-card/50 backdrop-blur-sm">
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>Payroll Actions</CardTitle>
+      {/* Header Card */}
+      <div className="rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.22)]">
+        <div className="p-6 sm:p-8 flex flex-col xl:flex-row xl:items-end xl:justify-between gap-6">
+          <div className="max-w-3xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#FF7120]/80">Accounting Department</p>
+            <h1 className="mt-3 text-3xl sm:text-4xl font-semibold text-white">Payroll Management</h1>
+            <p className="mt-3 text-sm text-white/60 max-w-2xl">
+              Process employee payroll, adjust allowance eligibilities, manage government tax rates, and review past payroll records.
+            </p>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
             <Button
-              variant="outline"
-              className="gap-2"
+              className="gap-2 bg-[#FF7120] hover:bg-[#FF7120]/90 text-white border-0"
               onClick={handleProcessPayroll}
             >
               <Plus className="w-4 h-4" />
@@ -1032,7 +978,7 @@ export function PayrollManagement() {
             </Button>
             <Button
               variant="outline"
-              className="gap-2"
+              className="gap-2 border-white/10 hover:bg-white/10 text-white"
               onClick={handleOpenTaxDeductions}
             >
               <Settings className="w-4 h-4" />
@@ -1040,37 +986,84 @@ export function PayrollManagement() {
             </Button>
             <Button
               variant="outline"
-              className="gap-2"
+              className="gap-2 border-white/10 hover:bg-white/10 text-white"
               onClick={handleOpenAllowanceEligibility}
             >
               <UserCheck className="w-4 h-4" />
-              Payroll Allowance Eligibility
+              Allowance Eligibility
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+
+      {/* Analytics Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Employees Card */}
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-lg p-6 transition-all duration-300 hover:scale-[1.02] hover:border-[#FF7120]/30 hover:shadow-[0_10px_20px_rgba(0,0,0,0.15)] group">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-white/60 font-medium">Total Employees</p>
+              <p className="text-2xl font-bold mt-2 text-white">{totalEmployees}</p>
+            </div>
+            <BarChart3 className="w-8 h-8 text-[#FF7120] transition-transform duration-300 group-hover:scale-110" />
+          </div>
+        </div>
+
+        {/* Total Payroll Card */}
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-lg p-6 transition-all duration-300 hover:scale-[1.02] hover:border-[#FF7120]/30 hover:shadow-[0_10px_20px_rgba(0,0,0,0.15)] group">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-white/60 font-medium">Total Payroll</p>
+              <p className="text-2xl font-bold mt-2 text-white">{formatCurrency(totalPayroll)}</p>
+            </div>
+            <DollarSign className="w-8 h-8 text-[#FF7120] transition-transform duration-300 group-hover:scale-110" />
+          </div>
+        </div>
+
+        {/* Average Salary Card */}
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-lg p-6 transition-all duration-300 hover:scale-[1.02] hover:border-[#FF7120]/30 hover:shadow-[0_10px_20px_rgba(0,0,0,0.15)] group">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-white/60 font-medium">Average Salary</p>
+              <p className="text-2xl font-bold mt-2 text-white">{formatCurrency(averageSalary)}</p>
+            </div>
+            <CheckCircle className="w-8 h-8 text-[#FF7120] transition-transform duration-300 group-hover:scale-110" />
+          </div>
+        </div>
+
+        {/* Total Deductions Card */}
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-lg p-6 transition-all duration-300 hover:scale-[1.02] hover:border-[#FF7120]/30 hover:shadow-[0_10px_20px_rgba(0,0,0,0.15)] group">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-white/60 font-medium">Total Deductions</p>
+              <p className="text-2xl font-bold mt-2 text-white">{formatCurrency(totalDeductions)}</p>
+            </div>
+            <AlertCircle className="w-8 h-8 text-[#FF7120] transition-transform duration-300 group-hover:scale-110" />
+          </div>
+        </div>
+      </div>
 
       {/* Recent Payroll Records */}
-      <Card className="border-0 shadow-lg bg-linear-to-br from-card to-card/50 backdrop-blur-sm">
+      <Card className="border border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.22)] bg-[#001f35]/70 backdrop-blur-md rounded-2xl">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
+          <CardTitle className="text-white flex items-center justify-between">
             <span>Recent Payroll Records</span>
-            <span className="text-sm font-normal text-muted-foreground">({filteredPayrollRecords.length})</span>
+            <span className="text-sm font-normal text-white/60">({filteredPayrollRecords.length})</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Filter Section */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 rounded-lg bg-background/20 border border-white/10">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 rounded-lg bg-[#00273C]/60 border border-white/10">
             <div className="space-y-1.5">
-              <Label className="text-xs text-white/60">Filter by Employee</Label>
+              <Label className="text-xs text-white/60 font-medium">Filter by Employee</Label>
               <Select value={filterEmployee} onValueChange={setFilterEmployee}>
-                <SelectTrigger className="bg-background border-white/10 text-white h-9">
+                <SelectTrigger className="bg-[#00273C] border-white/10 text-white h-9">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Employees</SelectItem>
+                <SelectContent className="bg-[#001f35] border-white/10 text-white">
+                  <SelectItem value="all" className="text-white hover:bg-[#00273C]">All Employees</SelectItem>
                   {employees.map((emp) => (
-                    <SelectItem key={emp.id} value={emp.id}>
+                    <SelectItem key={emp.id} value={emp.id} className="text-white hover:bg-[#00273C]">
                       {emp.name}
                     </SelectItem>
                   ))}
@@ -1078,15 +1071,15 @@ export function PayrollManagement() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs text-white/60">Filter by Period</Label>
+              <Label className="text-xs text-white/60 font-medium">Filter by Period</Label>
               <Select value={filterPayrollPeriod} onValueChange={setFilterPayrollPeriod}>
-                <SelectTrigger className="bg-background border-white/10 text-white h-9">
+                <SelectTrigger className="bg-[#00273C] border-white/10 text-white h-9">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Periods</SelectItem>
-                  <SelectItem value="29 - 13">29 - 13</SelectItem>
-                  <SelectItem value="14 - 28">14 - 28</SelectItem>
+                <SelectContent className="bg-[#001f35] border-white/10 text-white">
+                  <SelectItem value="all" className="text-white hover:bg-[#00273C]">All Periods</SelectItem>
+                  <SelectItem value="29 - 13" className="text-white hover:bg-[#00273C]">29 - 13</SelectItem>
+                  <SelectItem value="14 - 28" className="text-white hover:bg-[#00273C]">14 - 28</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1098,7 +1091,7 @@ export function PayrollManagement() {
                   setFilterEmployee('all');
                   setFilterPayrollPeriod('all');
                 }}
-                className="w-full h-9"
+                className="w-full h-9 border-white/10 hover:bg-white/10 text-white"
               >
                 Reset Filters
               </Button>

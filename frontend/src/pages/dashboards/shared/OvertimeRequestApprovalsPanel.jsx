@@ -584,36 +584,36 @@ export default function OvertimeRequestApprovalsPanel({ reviewerRole = 'accounti
       {/* Status Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total / Visible Requests */}
-        <div className="rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-lg p-6">
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-lg p-6 transition-all duration-300 hover:scale-[1.02] hover:border-[#FF7120]/30 hover:shadow-[0_10px_20px_rgba(0,0,0,0.15)] group">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-white/60 font-medium">Visible Requests</p>
               <p className="text-2xl font-bold mt-2 text-white">{stats.total}</p>
             </div>
-            <FileText className="w-8 h-8 text-[#FF7120]" />
+            <FileText className="w-8 h-8 text-[#FF7120] transition-transform duration-300 group-hover:scale-110" />
           </div>
         </div>
 
         {/* Approved by Accounting */}
-        <div className="rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-lg p-6">
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-lg p-6 transition-all duration-300 hover:scale-[1.02] hover:border-[#FF7120]/30 hover:shadow-[0_10px_20px_rgba(0,0,0,0.15)] group">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-white/60 font-medium">Approved by Accounting</p>
               <p className="text-2xl font-bold mt-2 text-white">{stats.approved}</p>
               <p className="text-xs text-white/45 mt-1">Completed: {stats.completed}</p>
             </div>
-            <CheckCircle2 className="w-8 h-8 text-[#FF7120]" />
+            <CheckCircle2 className="w-8 h-8 text-[#FF7120] transition-transform duration-300 group-hover:scale-110" />
           </div>
         </div>
 
         {/* Needs Confirmation */}
-        <div className="rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-lg p-6">
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-lg p-6 transition-all duration-300 hover:scale-[1.02] hover:border-[#FF7120]/30 hover:shadow-[0_10px_20px_rgba(0,0,0,0.15)] group">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-white/60 font-medium">Needs {reviewer.label} Confirmation</p>
               <p className="text-2xl font-bold mt-2 text-white">{stats.pendingMine}</p>
             </div>
-            <Clock3 className="w-8 h-8 text-[#FF7120]" />
+            <Clock3 className="w-8 h-8 text-[#FF7120] transition-transform duration-300 group-hover:scale-110" />
           </div>
         </div>
       </div>

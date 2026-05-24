@@ -3,15 +3,35 @@ import { toast } from 'sonner';
 import { getAccountingEmployees, addAccountingEmployee, updateAccountingEmployee } from '../../../services/adminService';
 import { getAllAttendance } from '../../../services/attendanceService';
 import { getAllOvertime } from '../../../services/overtimeService';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
-import { Badge } from '../../../components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avatar';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../../../components/ui/dialog';
-import { Label } from '../../../components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Button,
+  Input,
+  Badge,
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../../components/ui/accounting-ui';
 import { formatDurationFromHours } from '../../../utils/attendanceFormatters';
 import {
   Search,
@@ -507,161 +527,169 @@ export function EmployeeManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            className="gap-2"
-            onClick={handleExportEmployees}
-            disabled={isExporting}
-          >
-            <Download className="w-4 h-4" />
-            {isExporting ? 'Exporting...' : 'Export'}
-          </Button>
-          <Dialog open={isAddEmployeeOpen} onOpenChange={setIsAddEmployeeOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="w-4 h-4" />
-                Add Employee
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Add New Employee</DialogTitle>
-              </DialogHeader>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name</Label>
-                  <Input id="firstName" value={formData.first_name} onChange={e => setFormData({ ...formData, first_name: e.target.value })} placeholder="Enter first name" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
-                  <Input id="lastName" value={formData.last_name} onChange={e => setFormData({ ...formData, last_name: e.target.value })} placeholder="Enter last name" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} placeholder="Enter email address" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="startDate">Start Date</Label>
-                  <Input id="startDate" type="date" value={formData.startDate} onChange={e => setFormData({ ...formData, startDate: e.target.value })} />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="temporaryPassword">Temporary Password</Label>
-                  <div className="relative">
-                    <Input
-                      id="temporaryPassword"
-                      type={showTemporaryPassword ? 'text' : 'password'}
-                      value={formData.temporary_password}
-                      onChange={e => setFormData({ ...formData, temporary_password: e.target.value })}
-                      placeholder="Set a temporary password (min. 8 characters)"
-                      className="pr-10"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowTemporaryPassword(prev => !prev)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      aria-label={showTemporaryPassword ? 'Hide temporary password' : 'Show temporary password'}
-                    >
-                      {showTemporaryPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+      {/* Header Card */}
+      <div className="rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.22)]">
+        <div className="p-6 sm:p-8 flex flex-col xl:flex-row xl:items-end xl:justify-between gap-6">
+          <div className="max-w-3xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#FF7120]/80">Accounting Department</p>
+            <h1 className="mt-3 text-3xl sm:text-4xl font-semibold text-white">Employee Management</h1>
+            <p className="mt-3 text-sm text-white/60 max-w-2xl">
+              Manage employee profiles, join dates, role assignments, and salary details.
+            </p>
+          </div>
+          <div className="flex flex-row items-center gap-3 shrink-0">
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={handleExportEmployees}
+              disabled={isExporting}
+            >
+              <Download className="w-4 h-4" />
+              {isExporting ? 'Exporting...' : 'Export PDF'}
+            </Button>
+            <Dialog open={isAddEmployeeOpen} onOpenChange={setIsAddEmployeeOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2 bg-[#FF7120] hover:bg-[#FF7120]/90 text-white border-0">
+                  <Plus className="w-4 h-4" />
+                  Add Employee
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-[#001f35] border-white/10 text-white">
+                <DialogHeader>
+                  <DialogTitle className="text-white">Add New Employee</DialogTitle>
+                </DialogHeader>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName" className="text-white/80">First Name</Label>
+                    <Input id="firstName" className="bg-[#00273C] border-white/10 text-white" value={formData.first_name} onChange={e => setFormData({ ...formData, first_name: e.target.value })} placeholder="Enter first name" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName" className="text-white/80">Last Name</Label>
+                    <Input id="lastName" className="bg-[#00273C] border-white/10 text-white" value={formData.last_name} onChange={e => setFormData({ ...formData, last_name: e.target.value })} placeholder="Enter last name" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email" className="text-white/80">Email</Label>
+                    <Input id="email" className="bg-[#00273C] border-white/10 text-white" type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} placeholder="Enter email address" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="startDate" className="text-white/80">Start Date</Label>
+                    <Input id="startDate" className="bg-[#00273C] border-white/10 text-white" type="date" value={formData.startDate} onChange={e => setFormData({ ...formData, startDate: e.target.value })} />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="temporaryPassword" className="text-white/80">Temporary Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="temporaryPassword"
+                        className="bg-[#00273C] border-white/10 text-white pr-10"
+                        type={showTemporaryPassword ? 'text' : 'password'}
+                        value={formData.temporary_password}
+                        onChange={e => setFormData({ ...formData, temporary_password: e.target.value })}
+                        placeholder="Set a temporary password (min. 8 characters)"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowTemporaryPassword(prev => !prev)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-white"
+                        aria-label={showTemporaryPassword ? 'Hide temporary password' : 'Show temporary password'}
+                      >
+                        {showTemporaryPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsAddEmployeeOpen(false)}>Cancel</Button>
-                <Button onClick={handleAddEmployee} disabled={isAddingEmployee}>
-                  {isAddingEmployee ? 'Adding...' : 'Add Employee'}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" className="border-white/10 hover:bg-white/10 text-white" onClick={() => setIsAddEmployeeOpen(false)}>Cancel</Button>
+                  <Button onClick={handleAddEmployee} disabled={isAddingEmployee} className="bg-[#FF7120] hover:bg-[#FF7120]/90 text-white border-0">
+                    {isAddingEmployee ? 'Adding...' : 'Add Employee'}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Employees</p>
-                <p className="text-2xl font-medium">{employeeStats.total}</p>
-              </div>
-              <Users className="w-8 h-8 text-primary" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Employees */}
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-lg p-6 transition-all duration-300 hover:scale-[1.02] hover:border-[#FF7120]/30 hover:shadow-[0_10px_20px_rgba(0,0,0,0.15)] group">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-white/60 font-medium">Total Employees</p>
+              <p className="text-2xl font-bold mt-2 text-white">{employeeStats.total}</p>
             </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Active</p>
-                <p className="text-2xl font-medium">{employeeStats.active}</p>
-              </div>
-              <UserCheck className="w-8 h-8 text-primary" />
+            <Users className="w-8 h-8 text-[#FF7120] transition-transform duration-300 group-hover:scale-110" />
+          </div>
+        </div>
+
+        {/* Active */}
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-lg p-6 transition-all duration-300 hover:scale-[1.02] hover:border-[#FF7120]/30 hover:shadow-[0_10px_20px_rgba(0,0,0,0.15)] group">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-white/60 font-medium">Active</p>
+              <p className="text-2xl font-bold mt-2 text-white">{employeeStats.active}</p>
             </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">On Leave</p>
-                <p className="text-2xl font-medium">{employeeStats.onLeave}</p>
-              </div>
-              <UserX className="w-8 h-8 text-primary" />
+            <UserCheck className="w-8 h-8 text-[#FF7120] transition-transform duration-300 group-hover:scale-110" />
+          </div>
+        </div>
+
+        {/* On Leave */}
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-lg p-6 transition-all duration-300 hover:scale-[1.02] hover:border-[#FF7120]/30 hover:shadow-[0_10px_20px_rgba(0,0,0,0.15)] group">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-white/60 font-medium">On Leave</p>
+              <p className="text-2xl font-bold mt-2 text-white">{employeeStats.onLeave}</p>
             </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Roles</p>
-                <p className="text-2xl font-medium">{roleFilters.length - 1}</p>
-              </div>
-              <Building className="w-8 h-8 text-primary" />
+            <UserX className="w-8 h-8 text-[#FF7120] transition-transform duration-300 group-hover:scale-110" />
+          </div>
+        </div>
+
+        {/* Roles */}
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-lg p-6 transition-all duration-300 hover:scale-[1.02] hover:border-[#FF7120]/30 hover:shadow-[0_10px_20px_rgba(0,0,0,0.15)] group">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-white/60 font-medium">Roles</p>
+              <p className="text-2xl font-bold mt-2 text-white">{roleFilters.length - 1}</p>
             </div>
-          </CardContent>
-        </Card>
+            <Building className="w-8 h-8 text-[#FF7120] transition-transform duration-300 group-hover:scale-110" />
+          </div>
+        </div>
       </div>
 
       {/* Filters and Search */}
-      <Card className="border-0 shadow-lg bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
+      <Card className="border border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.22)] bg-[#001f35]/70 backdrop-blur-md rounded-2xl">
         <CardContent className="p-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60 w-4 h-4" />
               <Input
                 placeholder="Search employees..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 bg-[#00273C] border-white/10 text-white placeholder:text-white/40"
               />
             </div>
             <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-              <SelectTrigger className="w-full sm:w-48">
+              <SelectTrigger className="w-full sm:w-48 bg-[#00273C] border-white/10 text-white">
                 <SelectValue>
                   {selectedDepartment === 'All' ? 'All Roles' : selectedDepartment}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-[#001f35] border-white/10 text-white">
                 {roleFilters.map(dept => (
-                  <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                  <SelectItem key={dept} value={dept} className="text-white hover:bg-[#00273C]">{dept}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="w-full sm:w-48">
+              <SelectTrigger className="w-full sm:w-48 bg-[#00273C] border-white/10 text-white">
                 <SelectValue>
                   {selectedStatus === 'All' ? 'All Statuses' : selectedStatus}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-[#001f35] border-white/10 text-white">
                 {statuses.map(status => (
-                  <SelectItem key={status} value={status}>{status}</SelectItem>
+                  <SelectItem key={status} value={status} className="text-white hover:bg-[#00273C]">{status}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -758,19 +786,21 @@ export function EmployeeManagement() {
 
       {/* Employee Detail Dialog */}
       <Dialog open={!!selectedEmployee} onOpenChange={() => closeEmployeeDialog()}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-[#001f35] border-white/10 text-white">
           {selectedEmployee && (
             <>
               <DialogHeader>
                 <div className="flex items-center gap-4">
-                  <Avatar className="w-16 h-16">
+                  <Avatar className="w-16 h-16 border border-white/10">
                     <AvatarImage src={selectedEmployee.avatar} alt={selectedEmployee.name} />
                     <AvatarFallback>{selectedEmployee.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <DialogTitle>{selectedEmployee.name || '---'}</DialogTitle>
-                    <p className="text-muted-foreground">{selectedEmployee.position || '---'}</p>
-                    {getStatusBadge(selectedEmployee.status)}
+                    <DialogTitle className="text-white">{selectedEmployee.name || '---'}</DialogTitle>
+                    <p className="text-white/60 text-sm mt-0.5">{selectedEmployee.position || '---'}</p>
+                    <div className="mt-2">
+                      {getStatusBadge(selectedEmployee.status)}
+                    </div>
                   </div>
                 </div>
               </DialogHeader>
@@ -778,31 +808,31 @@ export function EmployeeManagement() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
                   <div className="space-y-4">
                     <div>
-                      <h4 className="font-medium mb-2">Contact Information</h4>
+                      <h4 className="font-semibold text-white/80 mb-2">Contact Information</h4>
                       <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Mail className="w-4 h-4 text-muted-foreground" />
+                        <div className="flex items-center gap-2 text-sm text-white/70">
+                          <Mail className="w-4 h-4 text-[#FF7120]/80" />
                           {selectedEmployee.email || '---'}
                         </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <MapPin className="w-4 h-4 text-muted-foreground" />
+                        <div className="flex items-center gap-2 text-sm text-white/70">
+                          <MapPin className="w-4 h-4 text-[#FF7120]/80" />
                           {selectedEmployee.location || '---'}
                         </div>
                       </div>
                     </div>
                     <div>
-                      <h4 className="font-medium mb-2">Employment Details</h4>
+                      <h4 className="font-semibold text-white/80 mb-2">Employment Details</h4>
                       <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Building className="w-4 h-4 text-muted-foreground" />
+                        <div className="flex items-center gap-2 text-sm text-white/70">
+                          <Building className="w-4 h-4 text-[#FF7120]/80" />
                           {selectedEmployee.department || '---'}
                         </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Briefcase className="w-4 h-4 text-muted-foreground" />
+                        <div className="flex items-center gap-2 text-sm text-white/70">
+                          <Briefcase className="w-4 h-4 text-[#FF7120]/80" />
                           {selectedEmployee.position || '---'}
                         </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <div className="flex items-center gap-2 text-sm text-white/70">
+                          <Calendar className="w-4 h-4 text-[#FF7120]/80" />
                           Joined {selectedEmployee.joinDate ? new Date(selectedEmployee.joinDate).toLocaleDateString() : '---'}
                         </div>
                       </div>
@@ -810,79 +840,84 @@ export function EmployeeManagement() {
                   </div>
                   <div className="space-y-4">
                     <div>
-                      <h4 className="font-medium mb-2">Skills</h4>
+                      <h4 className="font-semibold text-white/80 mb-2">Skills</h4>
                       <div className="flex flex-wrap gap-2">
                         {selectedEmployee.skills && selectedEmployee.skills.length > 0 ? selectedEmployee.skills.map((skill, index) => (
-                          <Badge key={index} variant="secondary">{skill}</Badge>
-                        )) : <span className="text-sm text-muted-foreground">---</span>}
+                          <Badge key={index} variant="secondary" className="bg-[#00273C] border-white/10 text-white/80">{skill}</Badge>
+                        )) : <span className="text-sm text-white/60">---</span>}
                       </div>
                     </div>
                     <div>
-                      <h4 className="font-medium mb-2">Manager</h4>
-                      <p className="text-sm">{selectedEmployee.manager || '---'}</p>
+                      <h4 className="font-semibold text-white/80 mb-2">Manager</h4>
+                      <p className="text-sm text-white/70">{selectedEmployee.manager || '---'}</p>
                     </div>
                     <div>
-                      <h4 className="font-medium mb-2">Salary</h4>
-                      <p className="text-sm font-semibold text-green-600">{selectedEmployee.salary ? `₱${Number(selectedEmployee.salary).toLocaleString('en-PH')}` : '---'}</p>
+                      <h4 className="font-semibold text-white/80 mb-2">Salary</h4>
+                      <p className="text-sm font-semibold text-green-400">{selectedEmployee.salary ? `₱${Number(selectedEmployee.salary).toLocaleString('en-PH')}` : '---'}</p>
                     </div>
                   </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
                   <div className="space-y-2">
-                    <Label htmlFor="editFirstName">First Name</Label>
+                    <Label htmlFor="editFirstName" className="text-white/80">First Name</Label>
                     <Input
                       id="editFirstName"
+                      className="bg-[#00273C] border-white/10 text-white"
                       value={editFormData.first_name}
                       onChange={(e) => setEditFormData({ ...editFormData, first_name: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="editLastName">Last Name</Label>
+                    <Label htmlFor="editLastName" className="text-white/80">Last Name</Label>
                     <Input
                       id="editLastName"
+                      className="bg-[#00273C] border-white/10 text-white"
                       value={editFormData.last_name}
                       onChange={(e) => setEditFormData({ ...editFormData, last_name: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="editEmail">Email</Label>
+                    <Label htmlFor="editEmail" className="text-white/80">Email</Label>
                     <Input
                       id="editEmail"
                       type="email"
+                      className="bg-[#00273C] border-white/10 text-white"
                       value={editFormData.email}
                       onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="editStartDate">Start Date</Label>
+                    <Label htmlFor="editStartDate" className="text-white/80">Start Date</Label>
                     <Input
                       id="editStartDate"
                       type="date"
+                      className="bg-[#00273C] border-white/10 text-white"
                       value={editFormData.startDate}
                       onChange={(e) => setEditFormData({ ...editFormData, startDate: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="editStatus">Status</Label>
+                    <Label htmlFor="editStatus" className="text-white/80">Status</Label>
                     <Select
                       value={editFormData.status}
                       onValueChange={(value) => setEditFormData({ ...editFormData, status: value })}
                     >
-                      <SelectTrigger id="editStatus">
+                      <SelectTrigger id="editStatus" className="bg-[#00273C] border-white/10 text-white">
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Active">Active</SelectItem>
-                        <SelectItem value="Inactive">Inactive</SelectItem>
+                      <SelectContent className="bg-[#001f35] border-white/10 text-white">
+                        <SelectItem value="Active" className="text-white hover:bg-[#00273C]">Active</SelectItem>
+                        <SelectItem value="Inactive" className="text-white hover:bg-[#00273C]">Inactive</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="editSalary">Monthly Salary (₱)</Label>
+                    <Label htmlFor="editSalary" className="text-white/80">Monthly Salary (₱)</Label>
                     <Input
                       id="editSalary"
                       type="number"
+                      className="bg-[#00273C] border-white/10 text-white"
                       value={editFormData.salary}
                       onChange={(e) => setEditFormData({ ...editFormData, salary: e.target.value })}
                       placeholder="Enter monthly salary"
@@ -893,13 +928,13 @@ export function EmployeeManagement() {
                 </div>
               )}
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => (isEditingEmployee ? setIsEditingEmployee(false) : closeEmployeeDialog())}>
+                <Button variant="outline" className="border-white/10 hover:bg-white/10 text-white" onClick={() => (isEditingEmployee ? setIsEditingEmployee(false) : closeEmployeeDialog())}>
                   {isEditingEmployee ? 'Cancel' : 'Close'}
                 </Button>
                 {!isEditingEmployee ? (
-                  <Button onClick={startEditEmployee}>Edit Employee</Button>
+                  <Button onClick={startEditEmployee} className="bg-[#FF7120] hover:bg-[#FF7120]/90 text-white border-0">Edit Employee</Button>
                 ) : (
-                  <Button onClick={handleUpdateEmployee} disabled={isUpdatingEmployee}>
+                  <Button onClick={handleUpdateEmployee} disabled={isUpdatingEmployee} className="bg-[#FF7120] hover:bg-[#FF7120]/90 text-white border-0">
                     {isUpdatingEmployee ? 'Saving...' : 'Save Changes'}
                   </Button>
                 )}

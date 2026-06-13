@@ -10,10 +10,8 @@ import {
     User2,
     XCircle,
 } from 'lucide-react';
-import PublicNavigation from '../Public_Dashboard/PublicNavigation';
 import bimDocumentationService from '../../../services/bimDocumentationService';
 import CommentThread from '../../../components/CommentThread';
-import StudioHeadSidebar from './components/StudioHeadSidebar';
 import { toast } from 'sonner';
 
 const cardClass = 'rounded-2xl border border-white/10 bg-[#001f35]/70 backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.22)]';
@@ -461,20 +459,14 @@ const StudioHeadBimDocumentationPage = ({
     const attachmentCount = selectedDoc ? (selectedDoc.files?.length ?? selectedDoc.file_count ?? 0) : 0;
 
     return (
-        <div className="min-h-screen bg-[#00273C] relative">
+        <div className="w-full relative animate-fade-in">
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
                 <div className="absolute top-40 -right-40 h-[520px] w-[520px] rounded-full bg-cyan-400/10 blur-[90px]" />
             </div>
 
-            <PublicNavigation onNavigate={onNavigate} currentPage={navigationCurrentPage} user={user} />
+            
 
-            <div className="relative pt-28 px-3 sm:px-6 pb-10">
-                <div className="w-full flex flex-col lg:flex-row gap-6">
-                    <aside className="w-64 shrink-0 hidden lg:block">
-                        <StudioHeadSidebar currentPage={sidebarCurrentPage} onNavigate={onNavigate} />
-                    </aside>
 
-                    <main className="flex-1 min-w-0 space-y-6">
                         <section className={cardClass}>
                             <div className="p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
                                 <div className="max-w-3xl">
@@ -725,9 +717,7 @@ const StudioHeadBimDocumentationPage = ({
                                 )}
                             </div>
                         </section>
-                    </main>
-                </div>
-            </div>
+
 
             {previewImage && (
                 <div className="fixed inset-0 z-[90] bg-black/80 p-4 sm:p-8" onClick={closeImagePreview}>

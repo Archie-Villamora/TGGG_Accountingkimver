@@ -1,7 +1,5 @@
 import React from 'react';
 import { CalendarDays, DollarSign, FolderKanban, MapPinned, Users } from 'lucide-react';
-import PublicNavigation from '../Public_Dashboard/PublicNavigation';
-import CeoSidebar from './CeoSidebar';
 
 export default function CeoDashboardPage({ user, onNavigate, onLogout }) {
   const todayLabel = new Intl.DateTimeFormat('en-US', {
@@ -9,16 +7,10 @@ export default function CeoDashboardPage({ user, onNavigate, onLogout }) {
   }).format(new Date());
 
   return (
-    <div className="min-h-screen bg-[#00273C]">
-      <PublicNavigation onNavigate={onNavigate} currentPage="ceo-dashboard" user={user} onLogout={onLogout} />
+    <div className="w-full animate-fade-in">
+      
 
-      <div className="pt-28 px-4 sm:px-6 pb-10">
-        <div className="w-full flex flex-col lg:flex-row gap-6">
-          <aside className="hidden lg:block lg:w-64 shrink-0">
-            <CeoSidebar currentPage="ceo-dashboard" onNavigate={onNavigate} />
-          </aside>
 
-          <main className="flex-1 min-w-0">
             {/* Greeting */}
             <div className="mb-8">
               <p className="text-white/40 text-sm">{todayLabel}</p>
@@ -89,9 +81,7 @@ export default function CeoDashboardPage({ user, onNavigate, onLogout }) {
                 </div>
               </button>
             </div>
-          </main>
-        </div>
-      </div>
+
     </div>
   );
 }

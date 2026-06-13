@@ -3,8 +3,6 @@ import OvertimeForm from '../Public_Dashboard/OvertimeForm.jsx';
 import OvertimeStatus from '../Public_Dashboard/OvertimeStatus.jsx';
 import LeaveForm from '../Public_Dashboard/LeaveForm.jsx';
 import LeaveStatus from '../Public_Dashboard/LeaveStatus.jsx';
-import PublicNavigation from '../Public_Dashboard/PublicNavigation';
-import CeoSidebar from './CeoSidebar';
 
 const CeoOvertimePage = ({ user, token, onLogout, onNavigate }) => {
   const [activeTab, setActiveTab] = useState('ot-form');
@@ -49,16 +47,10 @@ const CeoOvertimePage = ({ user, token, onLogout, onNavigate }) => {
   );
 
   return (
-    <div className="min-h-screen" style={{ background: '#00273C' }}>
-      <PublicNavigation onNavigate={onNavigate} currentPage="overtime" user={user} onLogout={onLogout} />
+    <div className="w-full animate-fade-in">
+      
 
-      <div className="pt-28 px-3 sm:px-6 pb-6 w-full">
-        <div className="w-full flex flex-col lg:flex-row gap-6">
-          <aside className="hidden lg:block lg:w-64 shrink-0">
-            <CeoSidebar currentPage="overtime" onNavigate={onNavigate} onLogout={onLogout} />
-          </aside>
 
-          <div className="flex-1 min-w-0 space-y-4 sm:space-y-8">
             {activeTab === 'ot-form' && (
               <OvertimeForm
                 token={token}
@@ -89,9 +81,7 @@ const CeoOvertimePage = ({ user, token, onLogout, onNavigate }) => {
                 onTabChange={setActiveTab}
               />
             )}
-          </div>
-        </div>
-      </div>
+
     </div>
   );
 };

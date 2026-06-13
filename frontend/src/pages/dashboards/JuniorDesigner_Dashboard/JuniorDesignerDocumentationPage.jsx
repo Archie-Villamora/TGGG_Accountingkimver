@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import PublicNavigation from '../Public_Dashboard/PublicNavigation';
-import JuniorDesignerSidebar from './components/JuniorDesignerSidebar';
 import bimDocumentationService from '../../../services/bimDocumentationService';
 import CommentThread from '../../../components/CommentThread';
 import { FolderOpen } from 'lucide-react';
@@ -420,7 +418,7 @@ const JuniorDesignerDocumentationPage = ({ user, onNavigate }) => {
     };
 
     return (
-        <div className="min-h-screen bg-[#00273C] relative">
+        <div className="w-full relative animate-fade-in">
             {alertConfig.show && (
                 <Alert
                     type={alertConfig.type}
@@ -435,15 +433,9 @@ const JuniorDesignerDocumentationPage = ({ user, onNavigate }) => {
                 <div className="absolute top-40 -right-40 h-[520px] w-[520px] rounded-full bg-cyan-400/10 blur-[90px]" />
             </div>
 
-            <PublicNavigation onNavigate={onNavigate} currentPage="documentation" user={user} />
+            
 
-            <div className="relative pt-28 px-3 sm:px-6 pb-10">
-                <div className="w-full flex flex-col lg:flex-row gap-6">
-                    <aside className="w-64 shrink-0 hidden lg:block">
-                        <JuniorDesignerSidebar currentPage="documentation" onNavigate={onNavigate} />
-                    </aside>
 
-                    <main className="flex-1 min-w-0 space-y-6">
                         <div className={cardClass}>
                             <div className="flex flex-col sm:flex-row gap-2 p-3 sm:p-2 border-b border-white/10">
                                 <button
@@ -894,9 +886,7 @@ const JuniorDesignerDocumentationPage = ({ user, onNavigate }) => {
                                 </div>
                             </div>
                         )}
-                    </main>
-                </div>
-            </div>
+
 
             {zoomedImage && (
                 <div className="fixed inset-0 z-[100] bg-black/85 p-4 sm:p-8" onClick={closeImageZoom}>

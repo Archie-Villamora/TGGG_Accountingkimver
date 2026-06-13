@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import OvertimeForm from '../Public_Dashboard/OvertimeForm.jsx';
 import OvertimeStatus from '../Public_Dashboard/OvertimeStatus.jsx';
-import PublicNavigation from '../Public_Dashboard/PublicNavigation';
-import SiteCoordinatorSidebar from './components/SiteCoordinatorSidebar';
 
 const SiteCoordinatorOvertimePage = ({ user, token, onNavigate }) => {
   const [activeTab, setActiveTab] = useState('ot-form');
@@ -47,20 +45,14 @@ const SiteCoordinatorOvertimePage = ({ user, token, onNavigate }) => {
   );
 
   return (
-    <div className="min-h-screen bg-[#00273C] relative">
+    <div className="w-full relative animate-fade-in">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute top-40 -right-40 h-[520px] w-[520px] rounded-full bg-cyan-400/10 blur-[90px]" />
       </div>
 
-      <PublicNavigation onNavigate={onNavigate} currentPage="overtime" user={user} />
+      
 
-      <div className="relative pt-28 px-3 sm:px-6 pb-10">
-        <div className="w-full flex gap-6">
-          <aside className="w-64 shrink-0 hidden lg:block">
-            <SiteCoordinatorSidebar currentPage="overtime" onNavigate={onNavigate} />
-          </aside>
 
-          <main className="flex-1 min-w-0">
             {activeTab === 'ot-form' && (
               <OvertimeForm
                 token={token}
@@ -75,9 +67,7 @@ const SiteCoordinatorOvertimePage = ({ user, token, onNavigate }) => {
                 onTabChange={setActiveTab}
               />
             )}
-          </main>
-        </div>
-      </div>
+
     </div>
   );
 };

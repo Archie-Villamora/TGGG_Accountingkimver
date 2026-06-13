@@ -24,7 +24,11 @@ def get_storage_public_base_url() -> str:
         if not base:
             continue
         if "://" not in base:
-            base = f"https://{base}"
+            secure = getattr(settings, "AWS_S3_SECURE", True)
+            if not secure or "localhost" in base or "127.0.0.1" in base:
+                base = f"http://{base}"
+            else:
+                base = f"https://{base}"
         return base
 
     return ""

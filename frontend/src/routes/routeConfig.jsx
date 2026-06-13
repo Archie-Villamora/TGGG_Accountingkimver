@@ -40,7 +40,7 @@ import JuniorDesignerOvertimePage from '../pages/dashboards/JuniorDesigner_Dashb
 import JuniorDesignerProfilePage from '../pages/dashboards/JuniorDesigner_Dashboard/JuniorDesignerProfilePage';
 import JuniorDesignerDocumentationPage from '../pages/dashboards/JuniorDesigner_Dashboard/JuniorDesignerDocumentationPage';
 
-import CeoAttendanceDashboard from '../pages/dashboards/ceo/ceoAttendance';
+import CeoAttendanceDashboard from '../pages/dashboards/ceo/CeoAttendance';
 import CeoDashboardPage from '../pages/dashboards/ceo/CeoDashboardPage';
 import CeoBimDocumentationPage from '../pages/dashboards/ceo/CeoBimDocumentationPage';
 import CeoJuniorArchitectDocumentationPage from '../pages/dashboards/ceo/CeoJuniorArchitectDocumentationPage';

@@ -1,5 +1,5 @@
 import React from "react";
-import MaterialRequest from "./MaterialRequest";
+import MaterialRequest from "../SiteEngineer_Dashboard/MaterialRequest";
 
 const CoordinatorHub = ({ user, onNavigate }) => {
   return (

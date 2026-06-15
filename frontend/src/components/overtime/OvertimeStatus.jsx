@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { TableSkeleton } from '../../../components/SkeletonLoader.jsx';
-import { getMyOvertime } from '../../../services/overtimeService';
+import { TableSkeleton } from '../SkeletonLoader.jsx';
+import { getMyOvertime } from '../../services/overtimeService';
 
 const escapeHtml = (value) => {
   if (value === null || value === undefined) return '';
@@ -224,24 +224,6 @@ function OvertimeStatus({ token, activeTab, onTabChange, extraTabs = [] }) {
       >
         OT Status
       </button>
-      {extraTabs.includes('leave-form') && (
-        <button
-          type="button"
-          onClick={() => onTabChange && onTabChange('leave-form')}
-          style={tabStyle(activeTab === 'leave-form')}
-        >
-          Request Leave
-        </button>
-      )}
-      {extraTabs.includes('leave-status') && (
-        <button
-          type="button"
-          onClick={() => onTabChange && onTabChange('leave-status')}
-          style={tabStyle(activeTab === 'leave-status')}
-        >
-          Leave Status
-        </button>
-      )}
     </div>
   );
 

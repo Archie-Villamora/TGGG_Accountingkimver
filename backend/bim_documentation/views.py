@@ -842,7 +842,7 @@ class BimDocumentationViewSet(viewsets.ModelViewSet):
         """
         Remove a file from documentation.
         Only the creator of editable documentation can remove files.
-        Deletes file from Supabase Storage.
+        Deletes file from MinIO Storage.
         """
         doc = self.get_object()
         file_id = request.query_params.get('file_id')
@@ -869,12 +869,12 @@ class BimDocumentationViewSet(viewsets.ModelViewSet):
         
         file = get_object_or_404(BimDocumentationFile, id=file_id, documentation=doc)
         
-        # Delete file from Supabase Storage before removing from database
+        # Delete file from MinIO Storage before removing from database
         if file.file_path:
-            delete_result = delete_file_from_supabase(file.file_path)
+            delete_result = delete_file_from_s3(file.file_path)
             if not delete_result['success']:
-                logger.warning(f"Failed to delete file from Supabase: {file.file_path} - {delete_result['error']}")
-                # Still delete from DB even if Supabase deletion fails
+                logger.warning(f"Failed to delete file from MinIO: {file.file_path} - {delete_result['error']}")
+                # Still delete from DB even if MinIO deletion fails
         
         file.delete()
         

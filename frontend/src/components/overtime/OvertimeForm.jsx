@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { CardSkeleton } from '../../../components/SkeletonLoader.jsx';
-import { getProfile } from '../../../services/profileService';
-import { submitOvertime } from '../../../services/overtimeService';
+import { CardSkeleton } from '../SkeletonLoader.jsx';
+import { getProfile } from '../../services/profileService';
+import { submitOvertime } from '../../services/overtimeService';
 
 const getTodayDate = () => {
   const now = new Date();
@@ -12,7 +12,14 @@ const getTodayDate = () => {
 
 const formatJobPosition = (value) => {
   if (!value) return '';
-  return String(value).replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+  // Replace underscores with spaces and capitalize each word
+  return String(value)
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
 };
 
 const TIME_SLOTS = [
@@ -92,9 +99,18 @@ function OvertimeForm({ token, activeTab, onTabChange, extraTabs = [] }) {
       setLoading(true);
       try {
         const data = await getProfile();
+        
+        // Capitalize names for display
+        const firstName = (data.first_name || '').trim();
+        const lastName = (data.last_name || '').trim();
+        const fullName = data.full_name || `${firstName} ${lastName}`.trim();
+        const capitalizedName = fullName.split(' ').map(word => 
+          word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+        ).join(' ');
+        
         setForm(prev => ({
           ...prev,
-          employee_name: data.full_name || `${data.first_name} ${data.last_name}`.trim() || prev.employee_name,
+          employee_name: capitalizedName || prev.employee_name,
           job_position: formatJobPosition(data.role_name || data.role || prev.job_position),
           department: mapRoleToDepartment(data.role) || prev.department,
           employee_signature: data.signature_image || ''
@@ -240,10 +256,10 @@ function OvertimeForm({ token, activeTab, onTabChange, extraTabs = [] }) {
     const now = new Date();
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
     const cutoffMinutes = 15 * 60;
-    const hasSameDayPeriod = periods.some(period =>
-      period.start_date === todayIso && period.end_date === todayIso
+    const hasTodayPeriod = periods.some(period =>
+      period.start_date === todayIso || period.end_date === todayIso
     );
-    if (hasSameDayPeriod && nowMinutes >= cutoffMinutes) {
+    if (hasTodayPeriod && nowMinutes >= cutoffMinutes) {
       return 'Same-day OT requests must be submitted before 3:00 PM.';
     }
     const hasAnyPeriod = periods.some(period => period.start_date || period.end_date || period.start_time || period.end_time);
@@ -330,8 +346,6 @@ function OvertimeForm({ token, activeTab, onTabChange, extraTabs = [] }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const validationError = validateForm();
-
     if (validationError) {
       toast.error('Action Required', { description: validationError });
       return;
@@ -349,7 +363,7 @@ function OvertimeForm({ token, activeTab, onTabChange, extraTabs = [] }) {
         periods: periods.filter(p => p.start_date || p.end_date || p.start_time || p.end_time)
       };
       await submitOvertime(payload);
-      toast.success('Submitted', { description: 'OT request submitted successfully.' });
+      toast.success('Submission Successful', { description: 'OT request submitted successfully.' });
       setPeriods([{
         start_date: '',
         end_date: '',
@@ -370,6 +384,8 @@ function OvertimeForm({ token, activeTab, onTabChange, extraTabs = [] }) {
       setSaving(false);
     }
   };
+
+  const validationError = validateForm();
 
   const tabStyle = (isActive) => ({
     padding: '0.5rem 1rem',
@@ -399,24 +415,6 @@ function OvertimeForm({ token, activeTab, onTabChange, extraTabs = [] }) {
       >
         OT Status
       </button>
-      {extraTabs.includes('leave-form') && (
-        <button
-          type="button"
-          onClick={() => onTabChange && onTabChange('leave-form')}
-          style={tabStyle(activeTab === 'leave-form')}
-        >
-          Request Leave
-        </button>
-      )}
-      {extraTabs.includes('leave-status') && (
-        <button
-          type="button"
-          onClick={() => onTabChange && onTabChange('leave-status')}
-          style={tabStyle(activeTab === 'leave-status')}
-        >
-          Leave Status
-        </button>
-      )}
     </div>
   );
 
@@ -435,13 +433,13 @@ function OvertimeForm({ token, activeTab, onTabChange, extraTabs = [] }) {
             </div>
 
             <form onSubmit={handleSubmit} className="overtime-form">
-              <div className="overtime-grid">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-6 sm:mb-8">
                 <div className="overtime-field">
                   <label>Employee Name</label>
                   <input
                     type="text"
                     value={form.employee_name}
-                    onChange={(e) => updateFormField('employee_name', e.target.value)}
+                    readOnly
                     required
                   />
                 </div>
@@ -450,7 +448,7 @@ function OvertimeForm({ token, activeTab, onTabChange, extraTabs = [] }) {
                   <input
                     type="text"
                     value={form.job_position}
-                    onChange={(e) => updateFormField('job_position', e.target.value)}
+                    readOnly
                     required
                   />
                 </div>
@@ -465,7 +463,7 @@ function OvertimeForm({ token, activeTab, onTabChange, extraTabs = [] }) {
                     required
                   />
                 </div>
-                <div className="overtime-field span-3">
+                <div className="overtime-field md:col-span-2 lg:col-span-3">
                   <label>Department</label>
                   <input
                     type="text"
@@ -627,7 +625,7 @@ function OvertimeForm({ token, activeTab, onTabChange, extraTabs = [] }) {
                 </div>
               </div>
 
-              <div className="overtime-grid hours-explanation">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 mb-6 sm:mb-8">
                 <div className="overtime-field">
                   <label>Anticipated Number of Overtime Hours</label>
                   <input
@@ -638,7 +636,7 @@ function OvertimeForm({ token, activeTab, onTabChange, extraTabs = [] }) {
                     readOnly
                   />
                 </div>
-                <div className="overtime-field stretch">
+                <div className="overtime-field md:col-span-2">
                   <label>Please provide an explanation of the work that requires overtime</label>
                   <textarea
                     rows="4"

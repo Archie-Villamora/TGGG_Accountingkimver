@@ -16,37 +16,26 @@ import { PageSkeleton } from '../components/SkeletonLoader';
 // ── Lazy-loaded Shared Pages ─────────────────────────────────
 const CalendarPage = lazy(() => import('../pages/CalendarPage'));
 const ProfilePage = lazy(() => import('../pages/ProfilePage'));
+const OvertimePage = lazy(() => import('../pages/OvertimePage'));
 
 // ── Lazy-loaded Role Pages ─────────────────────────────────
 const StudioHeadDashboard = lazy(() => import('../pages/dashboards/StudioHead/StudioHeadDashboard'));
 const StudioHeadBimDocumentationPage = lazy(() => import('../pages/dashboards/StudioHead/StudioHeadBimDocumentationPage'));
 const StudioHeadJuniorArchitectDocumentationPage = lazy(() => import('../pages/dashboards/StudioHead/StudioHeadJuniorArchitectDocumentationPage'));
 const StudioHeadMaterialRequestPage = lazy(() => import('../pages/dashboards/StudioHead/StudioHeadMaterialRequestPage'));
-const StudioHeadOvertimePage = lazy(() => import('../pages/dashboards/StudioHead/StudioHeadOvertimePage'));
 
-const InternOvertimePage = lazy(() => import('../pages/dashboards/Intern_Dashboard/OvertimePage'));
-
-const BimSpecialistOvertimePage = lazy(() => import('../pages/dashboards/BimSpecialist/BimSpecialistOvertimePage'));
-const BimSpecialistDocumentationPage = lazy(() => import('../pages/dashboards/BimSpecialist/BimSpecialistDocumentationPage'));
-
+const DocumentationPage = lazy(() => import('../pages/DocumentationPage'));
 const EngineerHub = lazy(() => import('../pages/dashboards/SiteEngineer_Dashboard/EngineerHub'));
-const SiteEngineerOvertimePage = lazy(() => import('../pages/dashboards/SiteEngineer_Dashboard/SiteEngineerOvertimePage'));
 
 const CoordinatorHub = lazy(() => import('../pages/dashboards/SiteCoordinator_Dashboard/CoordinatorHub'));
-const SiteCoordinatorOvertimePage = lazy(() => import('../pages/dashboards/SiteCoordinator_Dashboard/SiteCoordinatorOvertimePage'));
 
-const JuniorDesignerOvertimePage = lazy(() => import('../pages/dashboards/JuniorDesigner_Dashboard/JuniorDesignerOvertimePage'));
-const JuniorDesignerDocumentationPage = lazy(() => import('../pages/dashboards/JuniorDesigner_Dashboard/JuniorDesignerDocumentationPage'));
 
 const CeoDashboardPage = lazy(() => import('../pages/dashboards/ceo/CeoDashboardPage'));
 const CeoBimDocumentationPage = lazy(() => import('../pages/dashboards/ceo/CeoBimDocumentationPage'));
 const CeoJuniorArchitectDocumentationPage = lazy(() => import('../pages/dashboards/ceo/CeoJuniorArchitectDocumentationPage'));
 const CeoMaterialRequestPage = lazy(() => import('../pages/dashboards/ceo/CeoMaterialRequestPage'));
-const CeoOvertimePage = lazy(() => import('../pages/dashboards/ceo/CeoOvertimePage'));
 const CeoEmployeeDirectoryPage = lazy(() => import('../pages/dashboards/ceo/CeoEmployeeDirectoryPage'));
 const CeoPayrollProcessedPage = lazy(() => import('../pages/dashboards/ceo/CeoPayrollProcessedPage'));
-
-const EmployeeOvertimePage = lazy(() => import('../pages/dashboards/Public_Dashboard/OvertimePage'));
 
 // ── Lazy loaded Accounting Pages ──────────────────────────────
 const loadAccountingDashboardLayout = () => import('../pages/dashboards/Accounting_Department/DashboardLayout');
@@ -56,7 +45,7 @@ const loadAccountingAttendanceLeave = () => import('../pages/dashboards/Accounti
 const loadAccountingPayrollManagement = () => import('../pages/dashboards/Accounting_Department/PayrollManagement');
 const loadAccountingSettings = () => import('../pages/dashboards/Accounting_Department/Settings');
 const loadAccountingPersonalAttendance = () => import('../pages/dashboards/Accounting_Department/AccountingPersonalAttendance');
-const loadAccountingOvertimePage = () => import('../pages/dashboards/Accounting_Department/AccountingOvertimePage');
+const loadAccountingOvertimePage = () => import('../pages/OvertimePage');
 const loadAccountingEventsPanel = () => import('../pages/dashboards/Accounting_Department/Calendar_Events/AccountingEventsPanel');
 const loadAccountingMaterialRequestPage = () => import('../pages/dashboards/Accounting_Department/AccountingMaterialRequestPage');
 const loadAccountingOvertimeRequestsPanel = () => import('../pages/dashboards/shared/OvertimeRequestApprovalsPanel');
@@ -187,6 +176,7 @@ const PAGE_REGISTRY = {
   'attendance': { Component: EmployeeAttendanceDashboard, props: { embedded: true } },
   'calendar': { Component: CalendarPage },
   'profile': { Component: ProfilePage },
+  'overtime': { Component: OvertimePage },
   
   // CEO
   'ceo-dashboard': { Component: CeoDashboardPage },
@@ -212,19 +202,8 @@ const PAGE_REGISTRY = {
   'coordinator-hub': { Component: CoordinatorHub },
   
   // Junior Designer & BIM Specialist
-  'documentation': null, // Resolved dynamically below based on role
+  'documentation': { Component: DocumentationPage },
   'designer-hub': { Component: EmployeeAttendanceDashboard, props: { embedded: true } }, // Temporary fallback mapping based on existing code
-};
-
-const OVERTIME_REGISTRY = {
-  'studio_head': StudioHeadOvertimePage,
-  'site_engineer': SiteEngineerOvertimePage,
-  'site_coordinator': SiteCoordinatorOvertimePage,
-  'junior_architect': JuniorDesignerOvertimePage,
-  'intern': InternOvertimePage,
-  'bim_specialist': BimSpecialistOvertimePage,
-  'ceo': CeoOvertimePage,
-  'employee': EmployeeOvertimePage
 };
 
 const LoadingFallback = () => (
@@ -260,23 +239,14 @@ export function renderDashboard({
     let Component;
     let extraProps = {};
 
-    if (resolvedPage === 'overtime') {
-        Component = OVERTIME_REGISTRY[user.role] || EmployeeOvertimePage;
-        // In original code, some use token={token}, some use token={localStorage.getItem('token')}
-        // We will pass both token and localStorage string directly as fallback inside the component if needed.
-        extraProps = { token: token || localStorage.getItem('token') };
-    } else if (resolvedPage === 'documentation') {
-        Component = user.role === 'bim_specialist' ? BimSpecialistDocumentationPage : JuniorDesignerDocumentationPage;
+    const entry = PAGE_REGISTRY[resolvedPage];
+    if (entry) {
+        Component = entry.Component;
+        extraProps = entry.props || {};
     } else {
-        const entry = PAGE_REGISTRY[resolvedPage];
-        if (entry) {
-            Component = entry.Component;
-            extraProps = entry.props || {};
-        } else {
-            // Default fallback
-            Component = EmployeeAttendanceDashboard;
-            extraProps = { embedded: true };
-        }
+        // Default fallback
+        Component = EmployeeAttendanceDashboard;
+        extraProps = { embedded: true };
     }
 
     return (

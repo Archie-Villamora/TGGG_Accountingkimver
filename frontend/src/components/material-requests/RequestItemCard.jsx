@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, FileText, CheckCircle2 } from 'lucide-react';
 import { formatDate } from './utils';
 import MaterialRequestFormModal from '../../components/modals/MaterialRequestFormModal';
 import MaterialRequestCommentThread from '../../components/MaterialRequestCommentThread';
+import PurchaseOrderFormPreviewModal from '../../components/modals/PurchaseOrderFormPreviewModal';
 
 const RequestItemCard = ({ 
   request, 
@@ -11,8 +12,26 @@ const RequestItemCard = ({
   onToggleExpand, 
   onOpenForm, 
   userRole, 
-  actionSlot 
+  actionSlot
 }) => {
+  // Retrieve generated POs from the request object or fallback to localStorage
+  let purchaseOrdersList = request.purchase_orders || [];
+  if (purchaseOrdersList.length === 0) {
+    const poBatchesRaw = localStorage.getItem('po_batches_' + request.id);
+    if (poBatchesRaw) {
+      try {
+        const batches = JSON.parse(poBatchesRaw);
+        batches.forEach(b => {
+          if (b.purchase_orders) {
+            purchaseOrdersList = [...purchaseOrdersList, ...b.purchase_orders];
+          }
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  }
+
   return (
     <div className="rounded-2xl border border-white/10 bg-[#00273C]/45 overflow-hidden transition hover:border-white/15">
       {/* Compact header — always visible */}
@@ -51,7 +70,7 @@ const RequestItemCard = ({
             className="inline-flex items-center gap-2 px-3 py-1.5 border border-white/20 text-white text-xs font-medium rounded-lg hover:bg-white/10 transition"
           >
             <FileText className="h-3.5 w-3.5" />
-            View Form
+            View Material Request Form
           </button>
           <button
             type="button"
@@ -137,8 +156,18 @@ const RequestItemCard = ({
             </details>
           )}
 
-          {/* Inline Form View (no image) or Attachment (image exists) */}
-          {(!request.request_image && request.items?.length > 0) ? (
+          {/* Inline Form View (PO if exists, else MR) or Attachment */}
+          {purchaseOrdersList.length > 0 ? (
+            <div className="mt-2 mb-4 border border-[#FF7120]/30 rounded-xl overflow-hidden shadow-lg bg-white overflow-x-auto print-container-wrapper">
+              <PurchaseOrderFormPreviewModal 
+                isOpen={true} 
+                pos={purchaseOrdersList} 
+                request={request}
+                userRole={userRole}
+                inline={true} 
+              />
+            </div>
+          ) : (!request.request_image && request.items?.length > 0) ? (
             <div className="mt-2 mb-4 border border-[#FF7120]/30 rounded-xl overflow-hidden shadow-lg bg-white overflow-x-auto print-container-wrapper">
               <MaterialRequestFormModal 
                 isOpen={true} 
@@ -176,6 +205,7 @@ const RequestItemCard = ({
           </div>
         </div>
       )}
+
     </div>
   );
 };

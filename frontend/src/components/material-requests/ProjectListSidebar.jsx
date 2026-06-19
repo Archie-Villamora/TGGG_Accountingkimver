@@ -25,7 +25,7 @@ const ProjectListSidebar = ({ projects, loading, selectedProjectId, onSelectProj
       )}
 
       {!loading && projects.length > 0 && (
-        <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
+        <div className="space-y-3 flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar">
           {projects.map((group) => {
             const isSelected = selectedProjectId === group.id;
             return (

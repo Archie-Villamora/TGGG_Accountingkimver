@@ -138,7 +138,7 @@ const MaterialRequestForm = ({
             </select>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
             <input
               type="number"
               min="0"
@@ -162,15 +162,6 @@ const MaterialRequestForm = ({
               <option value="meters" className="bg-[#002a45] text-white">Meters</option>
               <option value="liters" className="bg-[#002a45] text-white">Liters</option>
             </select>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={currentMaterial.price}
-              onChange={(event) => setCurrentMaterial((current) => ({ ...current, price: event.target.value }))}
-              placeholder="Price"
-              className="bg-[#001f35] border border-white/10 rounded-lg px-4 py-2 text-white placeholder:text-white/40 outline-none focus:border-[#FF7120]/50"
-            />
             <input
               type="text"
               value={currentMaterial.specifications}
@@ -200,7 +191,7 @@ const MaterialRequestForm = ({
                     {material.category && <span className="text-xs px-2 py-1 bg-[#FF7120]/20 text-[#FFBE9B] rounded">{material.category}</span>}
                   </div>
                   <p className="text-white/60 text-sm mt-1">
-                    Quantity: {material.quantity} {material.unit} | Price: {material.price} | Total: {material.total}
+                    Quantity: {material.quantity} {material.unit}
                     {material.specifications ? ` - ${material.specifications}` : ''}
                   </p>
                 </div>

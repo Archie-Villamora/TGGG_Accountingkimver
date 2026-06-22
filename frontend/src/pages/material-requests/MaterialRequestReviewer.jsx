@@ -61,6 +61,7 @@ const MaterialRequestReviewer = ({ user, reviewerRole = 'ceo', onNavigate }) => 
   
   const [expandedRequestIds, setExpandedRequestIds] = useState(new Set());
   const [decisionNote, setDecisionNote] = useState('');
+  const [decisionNotes, setDecisionNotes] = useState({});
   // Captures the decision note text at the moment Studio Head clicks "Approve", so it can be sent to the MR approval API after the PO form is submitted
   const [pendingApprovalNote, setPendingApprovalNote] = useState('');
   // True when the PO modal was opened via the decision panel "Approve" button (pending MR) vs. "Process PO" on an already-forwarded request
@@ -154,8 +155,13 @@ const MaterialRequestReviewer = ({ user, reviewerRole = 'ceo', onNavigate }) => 
 
   const activeRequests = requestsByTab[activeTab] || [];
 
-  // Grouping logic for Project Lists (Accounting uses filteredRequests, CEO/Studio Head use approvedRequests)
-  const mainProjectGroupSource = approvedRequests;
+  // Grouping logic for Project Lists (Accounting uses filteredRequests, CEO/Studio Head use approvedRequests/activeRequests)
+  const mainProjectGroupSource = useMemo(() => {
+    if (reviewerRole === 'studio_head') {
+      return activeRequests;
+    }
+    return approvedRequests;
+  }, [reviewerRole, activeRequests, approvedRequests]);
 
   const requestsByProjectMap = useMemo(() => {
     const map = new Map();
@@ -187,12 +193,21 @@ const MaterialRequestReviewer = ({ user, reviewerRole = 'ceo', onNavigate }) => 
 
   // Auto-selection effects
   useEffect(() => {
-    if ((isAccounting && pageTab === 'material-request') || (!isAccounting && activeTab === 'approved')) {
-      if (requestsByProjectMap.length > 0 && !selectedProjectId) {
-        setSelectedProjectId(requestsByProjectMap[0].id);
+    const shouldShowProjectList = 
+      (isAccounting && pageTab === 'material-request') || 
+      (!isAccounting && pageTab === 'material-request' && (reviewerRole === 'studio_head' || activeTab === 'approved'));
+
+    if (shouldShowProjectList) {
+      if (requestsByProjectMap.length > 0) {
+        const exists = requestsByProjectMap.some(p => p.id === selectedProjectId);
+        if (!selectedProjectId || !exists) {
+          setSelectedProjectId(requestsByProjectMap[0].id);
+        }
+      } else {
+        setSelectedProjectId(null);
       }
     }
-  }, [pageTab, activeTab, requestsByProjectMap, isAccounting, selectedProjectId]);
+  }, [pageTab, activeTab, requestsByProjectMap, isAccounting, reviewerRole, selectedProjectId]);
 
   useEffect(() => {
     if (pageTab === 'expenses' && expensesByProjectMap.length > 0 && !selectedExpensesProjectId) {
@@ -201,7 +216,7 @@ const MaterialRequestReviewer = ({ user, reviewerRole = 'ceo', onNavigate }) => 
   }, [pageTab, expensesByProjectMap, selectedExpensesProjectId]);
 
   useEffect(() => {
-    if (!isAccounting && activeTab !== 'approved') {
+    if (!isAccounting && reviewerRole !== 'studio_head' && activeTab !== 'approved') {
       if (activeRequests.length > 0 && !selectedRequestId) {
         setSelectedRequestId(activeRequests[0].id);
       } else if (activeRequests.length === 0) {
@@ -210,7 +225,7 @@ const MaterialRequestReviewer = ({ user, reviewerRole = 'ceo', onNavigate }) => 
          setSelectedRequestId(activeRequests[0].id);
       }
     }
-  }, [activeRequests, activeTab, isAccounting, selectedRequestId]);
+  }, [activeRequests, activeTab, isAccounting, reviewerRole, selectedRequestId]);
 
   useEffect(() => {
     if (isAccounting && pageTab === 'tally') {
@@ -333,24 +348,31 @@ const MaterialRequestReviewer = ({ user, reviewerRole = 'ceo', onNavigate }) => 
     setLoading(false);
   };
 
-  const handleApproveReject = async (action) => {
-    const request = requests.find(r => r.id === selectedRequestId);
+  const handleApproveReject = async (action, requestId, note) => {
+    const request = requests.find(r => r.id === (requestId || selectedRequestId));
     if (!request) return;
 
-    if (action === 'reject' && !decisionNote.trim()) {
+    const actualNote = note !== undefined ? note : (decisionNotes[request.id] || decisionNote);
+
+    if (action === 'reject' && !actualNote.trim()) {
       toast.error('Please provide a reason before rejecting this request.');
       return;
     }
 
     setSubmittingDecision(true);
-    const result = await materialRequestService.approvalAction(request.id, action, decisionNote);
+    const result = await materialRequestService.approvalAction(request.id, action, actualNote);
 
     if (result.success) {
       toast.success(action === 'approve' 
         ? (reviewerRole === 'ceo' ? 'Material request approved and finalized.' : 'Material request approved and forwarded to CEO.')
         : 'Material request rejected and returned for revision.'
       );
-      applyLocalDecision(request.id, action, decisionNote);
+      applyLocalDecision(request.id, action, actualNote);
+      setDecisionNotes(prev => {
+        const next = { ...prev };
+        delete next[request.id];
+        return next;
+      });
       setDecisionNote('');
       fetchRequests({ silent: true });
     } else {
@@ -366,6 +388,11 @@ const MaterialRequestReviewer = ({ user, reviewerRole = 'ceo', onNavigate }) => 
     if (result.success) {
       toast.success('Material request approved and forwarded to CEO.');
       applyLocalDecision(requestId, 'approve', note);
+      setDecisionNotes(prev => {
+        const next = { ...prev };
+        delete next[requestId];
+        return next;
+      });
       setDecisionNote('');
       fetchRequests({ silent: true });
     } else {
@@ -863,10 +890,12 @@ const MaterialRequestReviewer = ({ user, reviewerRole = 'ceo', onNavigate }) => 
 
     if (!requiresDecision) return null;
 
+    const note = decisionNotes[request.id] || decisionNote || '';
+
     // Studio Head Step 1: "Approve" captures note and opens PO builder.
     // The MR is NOT marked as forwarded yet — that only happens when the PO is submitted (Step 2).
     const handleStudioHeadApprove = () => {
-      setPendingApprovalNote(decisionNote);
+      setPendingApprovalNote(note);
       setIsApprovalPending(true);
       setSelectedRequestForAllocation(request);
       setIsAllocationModalOpen(true);
@@ -878,8 +907,12 @@ const MaterialRequestReviewer = ({ user, reviewerRole = 'ceo', onNavigate }) => 
           <>
             <h4 className="text-sm font-semibold text-white mb-3">Your Decision</h4>
             <textarea
-              value={decisionNote}
-              onChange={(e) => setDecisionNote(e.target.value)}
+              value={note}
+              onChange={(e) => {
+                const val = e.target.value;
+                setDecisionNotes(prev => ({ ...prev, [request.id]: val }));
+                setDecisionNote(val);
+              }}
               placeholder="Add comments or reasoning for your decision (required for rejection)..."
               className="w-full bg-[#00273C]/50 border border-white/10 rounded-lg p-3 text-sm text-white placeholder:text-white/30 focus:border-[#FF7120]/50 transition min-h-[100px] mb-4"
             />
@@ -904,7 +937,7 @@ const MaterialRequestReviewer = ({ user, reviewerRole = 'ceo', onNavigate }) => 
                 </button>
               ) : (
                 <button
-                  onClick={() => handleApproveReject('approve')}
+                  onClick={() => handleApproveReject('approve', request.id, note)}
                   disabled={submittingDecision}
                   className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-emerald-500/20 transition disabled:opacity-50"
                 >
@@ -913,7 +946,7 @@ const MaterialRequestReviewer = ({ user, reviewerRole = 'ceo', onNavigate }) => 
                 </button>
               )}
               <button
-                onClick={() => handleApproveReject('reject')}
+                onClick={() => handleApproveReject('reject', request.id, note)}
                 disabled={submittingDecision}
                 className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-red-500/10 border border-red-500/20 text-red-400 px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-red-500/20 transition disabled:opacity-50"
               >
@@ -925,6 +958,84 @@ const MaterialRequestReviewer = ({ user, reviewerRole = 'ceo', onNavigate }) => 
         )}
       </div>
     );
+  };
+
+  const renderStudioHeadDecisionBlock = (req) => {
+    const note = decisionNotes[req.id] || '';
+    
+    const handleStudioHeadApprove = () => {
+      setPendingApprovalNote(note);
+      setIsApprovalPending(true);
+      setSelectedRequestForAllocation(req);
+      setIsAllocationModalOpen(true);
+    };
+
+    return (
+      <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.02] p-5">
+        <h4 className="text-sm font-semibold text-white mb-3 text-left">Your Decision</h4>
+        <textarea
+          value={note}
+          onChange={(e) => setDecisionNotes(prev => ({ ...prev, [req.id]: e.target.value }))}
+          placeholder="Add comments or reasoning for your decision (required for rejection)..."
+          className="w-full bg-[#00273C]/50 border border-white/10 rounded-lg p-3 text-sm text-white placeholder:text-white/30 focus:border-[#FF7120]/50 transition min-h-[100px] mb-4 text-left"
+        />
+
+        <p className="text-[11px] text-white/40 mb-3 flex items-center gap-1.5 text-left">
+          <span className="text-[#FF7120] font-bold">ℹ</span>
+          Approving will open the PO builder (Step 2). Fill out and submit the PO to forward to the CEO.
+        </p>
+
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={handleStudioHeadApprove}
+            disabled={submittingDecision}
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-emerald-500/20 transition disabled:opacity-50"
+          >
+            {submittingDecision ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+            Approve — Fill Out PO
+          </button>
+          <button
+            onClick={() => handleApproveReject('reject', req.id, note)}
+            disabled={submittingDecision}
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-red-500/10 border border-red-500/20 text-red-400 px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-red-500/20 transition disabled:opacity-50"
+          >
+            {submittingDecision ? <RefreshCcw className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+            Reject Request
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderCardActionSlot = (req, isExpensesMode = false) => {
+    if (reviewerRole !== 'studio_head' || isExpensesMode) return null;
+
+    if (req.status === 'approved') {
+      return (
+        <div className="inline-flex items-center justify-center min-w-[140px] px-6 py-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-sm font-bold">
+          <CheckCircle2 className="w-4 h-4 mr-2" /> Approved
+        </div>
+      );
+    }
+
+    if (req.status === 'rejected') {
+      return (
+        <div className="inline-flex items-center justify-center min-w-[140px] px-6 py-2.5 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm font-bold">
+          <XCircle className="w-4 h-4 mr-2" /> Rejected
+        </div>
+      );
+    }
+
+    if (req.reviewed_by_studio_head) {
+      return (
+        <div className="inline-flex items-center justify-center min-w-[140px] px-6 py-2.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl text-sm font-bold">
+          <Clock3 className="w-4 h-4 mr-2" /> Forwarded
+        </div>
+      );
+    }
+
+    // It is pending review and not reviewed by studio head
+    return renderStudioHeadDecisionBlock(req);
   };
 
   const renderProjectListLayout = (isExpensesMode = false) => {
@@ -1022,26 +1133,8 @@ const MaterialRequestReviewer = ({ user, reviewerRole = 'ceo', onNavigate }) => 
                          onToggleExpand={toggleExpandRequest}
                          onOpenForm={handleOpenForm}
                          userRole={reviewerRole}
-                         actionSlot={
-                           (reviewerRole === 'studio_head') && !isExpensesMode ? (
-                             req.status === 'approved' ? (
-                               <div className="inline-flex items-center justify-center min-w-[140px] px-6 py-2.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-sm font-bold">
-                                 <CheckCircle2 className="w-4 h-4 mr-2" /> Approved
-                               </div>
-                             ) : req.reviewed_by_studio_head ? (
-                               <div className="inline-flex items-center justify-center min-w-[140px] px-6 py-2.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-xl text-sm font-bold">
-                                 <Clock3 className="w-4 h-4 mr-2" /> Forwarded
-                               </div>
-                             ) : (
-                               <button
-                                 onClick={(e) => { e.stopPropagation(); setIsApprovalPending(false); setSelectedRequestForAllocation(req); setIsAllocationModalOpen(true); }}
-                                 className="inline-flex items-center justify-center min-w-[140px] px-6 py-2.5 bg-[#FF7120] text-white text-sm font-bold tracking-wide rounded-xl hover:brightness-110 shadow-lg shadow-[#FF7120]/30 transition"
-                               >
-                                 Process PO
-                               </button>
-                             )
-                           ) : null
-                         }
+                         actionSlot={renderCardActionSlot(req, isExpensesMode)}
+                         purchaseOrders={purchaseOrders}
                        />
                      ))}
                    </div>
@@ -1425,6 +1518,7 @@ const MaterialRequestReviewer = ({ user, reviewerRole = 'ceo', onNavigate }) => 
                  onOpenForm={handleOpenForm}
                  userRole={reviewerRole}
                  actionSlot={renderApprovalActions()}
+                 purchaseOrders={purchaseOrders}
                />
              </div>
           )}
@@ -1484,8 +1578,7 @@ const MaterialRequestReviewer = ({ user, reviewerRole = 'ceo', onNavigate }) => 
         (isAccounting ? (
           pageTab === 'tally' ? renderAccountingTallyLayout() : renderProjectListLayout(true)
         ) : (
-          pageTab === 'expenses' ? renderProjectListLayout(true) : 
-            (activeTab === 'approved' ? renderProjectListLayout(false) : renderSimpleListLayout())
+          pageTab === 'expenses' ? renderProjectListLayout(true) : renderProjectListLayout(false)
         ))
       }
 

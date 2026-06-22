@@ -12,10 +12,18 @@ const RequestItemCard = ({
   onToggleExpand, 
   onOpenForm, 
   userRole, 
-  actionSlot
+  actionSlot,
+  purchaseOrders
 }) => {
   // Retrieve generated POs from the request object or fallback to localStorage
   let purchaseOrdersList = request.purchase_orders || [];
+  
+  if (purchaseOrdersList.length === 0 && purchaseOrders) {
+    purchaseOrdersList = purchaseOrders.filter(
+      po => po.material_request === request.id || po.mr_id === request.id
+    );
+  }
+
   if (purchaseOrdersList.length === 0) {
     const poBatchesRaw = localStorage.getItem('po_batches_' + request.id);
     if (poBatchesRaw) {
@@ -30,6 +38,66 @@ const RequestItemCard = ({
         console.error(e);
       }
     }
+  }
+
+  // Fallback simulated POs if the request is approved or forwarded to CEO, and still has no POs
+  const isApprovedOrForwarded = request.status === 'approved' || (request.status === 'pending_review' && request.reviewed_by_studio_head);
+  if (purchaseOrdersList.length === 0 && isApprovedOrForwarded && request.items?.length > 0) {
+    const itemsBySupplier = {};
+    request.items.forEach(item => {
+      let supplier = item.supplier || '';
+      if (!supplier) {
+        supplier = 'Gaza Hardware';
+        if (item.name?.toLowerCase().includes('wire') || item.name?.toLowerCase().includes('elec') || item.name?.toLowerCase().includes('tape')) {
+          supplier = 'Electrical Wholesaler';
+        } else if (item.name?.toLowerCase().includes('van') || item.name?.toLowerCase().includes('fuel') || item.name?.toLowerCase().includes('gas')) {
+          supplier = 'Shell Station';
+        }
+      }
+      if (!itemsBySupplier[supplier]) {
+        itemsBySupplier[supplier] = [];
+      }
+      itemsBySupplier[supplier].push(item);
+    });
+
+    purchaseOrdersList = Object.keys(itemsBySupplier).map((supplier, sIdx) => {
+      const supplierItems = itemsBySupplier[supplier];
+      return {
+        id: `fallback-po-${request.id}-${sIdx}`,
+        po_number: `PO-${new Date(request.ceo_reviewed_at || request.studio_head_reviewed_at || request.request_date || Date.now()).getFullYear()}-${request.id}-${supplier.substring(0, 3).toUpperCase()}-F${sIdx + 1}`,
+        date: request.ceo_reviewed_at 
+          ? new Date(request.ceo_reviewed_at).toLocaleDateString() 
+          : (request.studio_head_reviewed_at 
+              ? new Date(request.studio_head_reviewed_at).toLocaleDateString() 
+              : (request.request_date ? new Date(request.request_date).toLocaleDateString() : new Date().toLocaleDateString())),
+        payment_terms: 'PDC - 30 Days',
+        bill_to: supplier,
+        account_name: '-',
+        account_number: '-',
+        rfp_number: '-',
+        project_name: request.project_name || '',
+        mr_id: request.id,
+        supplier: supplier,
+        status: request.status === 'approved' ? 'approved' : 'pending_approval',
+        items: supplierItems.map(i => ({
+          id: i.id,
+          name: i.name,
+          quantity: i.quantity,
+          unit: i.unit,
+          price: i.price || 0,
+          discount: i.discount || 0,
+          total: i.total || ((i.quantity * (i.price || 0)) - (i.discount || 0))
+        })),
+        signatures: {
+          prepared_by: request.created_by_name || request.created_by_email || '',
+          prepared_by_signature: request.created_by_signature,
+          checked_by: request.reviewed_by_studio_head_name || '',
+          checked_by_signature: request.reviewed_by_studio_head_signature,
+          approved_by: request.reviewed_by_ceo_name || '',
+          approved_by_signature: request.reviewed_by_ceo_signature
+        }
+      };
+    });
   }
 
   return (

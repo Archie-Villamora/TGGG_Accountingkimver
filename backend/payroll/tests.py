@@ -315,3 +315,91 @@ class PayrollCacheBehaviorTests(TestCase):
 		cache_hash = hashlib.md5('/api/payroll/recent/'.encode('utf-8')).hexdigest()
 		cache_key = f'payroll:recent:v0:user:{self.accounting_user.id}:{cache_hash}'
 		self.assertIsNone(cache.get(cache_key))
+
+
+class HybridPayrollTests(TestCase):
+	def setUp(self):
+		self.client = APIClient()
+		user_model = get_user_model()
+		self.accounting_user = user_model.objects.create_user(
+			username='accounting02',
+			email='accounting-test@example.com',
+			password='test-password',
+			role='accounting',
+			is_active=True,
+		)
+		self.daily_employee = user_model.objects.create_user(
+			username='dailyemployee02',
+			email='daily-employee@example.com',
+			password='test-password',
+			role='site_engineer',
+			is_active=True,
+		)
+		from .models import SalaryStructure
+		self.salary_structure = SalaryStructure.objects.create(
+			employee=self.daily_employee,
+			base_salary='800.00',
+			frequency='monthly',
+			wage_type='daily'
+		)
+
+	def _authenticate(self, user):
+		self.client.force_authenticate(user=user)
+
+	@patch('payroll.image_generator.generate_payslip_image', return_value=b'test-image')
+	@patch('payroll.email_utils.save_payslip_image_and_send_email')
+	def test_process_payroll_for_daily_worker(self, mock_save_and_send_email, _mock_generate_image):
+		mock_save_and_send_email.return_value = {
+			'image_saved': True,
+			'image_endpoint': '/api/payroll/recent/100/payslip-image/',
+			'storage': 'database',
+			'email': {
+				'sent': True,
+				'message': 'Email sent successfully',
+				'recipient': self.daily_employee.email,
+			},
+		}
+
+		self._authenticate(self.accounting_user)
+
+		# 12 days present x 800.00 daily rate = 9600.00 basic salary
+		response = self.client.post(
+			'/api/payroll/process/',
+			{
+				'employee_id': self.daily_employee.id,
+				'period_start': '2026-06-01',
+				'period_end': '2026-06-30',
+				'payslip_form': {
+					'monthly': '17600.00',
+					'basic_salary': '9600.00',
+					'regular_overtime': '0.00',
+					'late_undertime': '0.00',
+					'rest_day_ot': '0.00',
+					'gross_amount': '9600.00',
+					'net_taxable_salary': '9600.00',
+					'payroll_tax': '0.00',
+					'total_deductions': '0.00',
+					'payroll_allowance': '0.00',
+					'company_loan_cash_advance': '0.00',
+					'salary_net_pay': '9600.00',
+					'prepared_by': 'Accounting Department',
+					'government_contributions': [],
+					'wage_type': 'daily',
+					'days_present': '12',
+					'daily_rate': '800.00',
+				},
+			},
+			format='json',
+		)
+
+		self.assertEqual(response.status_code, 201)
+		payslip = PaySlip.objects.get(employee=self.daily_employee)
+		self.assertEqual(float(payslip.base_salary), 9600.00)
+		self.assertEqual(payslip.days_present, 12)
+		
+		# check notes have correct wage_type and daily rate
+		import json
+		details = json.loads(payslip.notes)
+		self.assertEqual(details['wage_type'], 'daily')
+		self.assertEqual(details['days_present'], 12)
+		self.assertEqual(details['daily_rate'], '800.00')

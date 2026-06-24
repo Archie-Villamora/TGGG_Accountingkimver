@@ -20,10 +20,64 @@ import {
 } from '../../../../components/ui/accounting-ui';
 import { CardSkeleton } from '../../../../components/SkeletonLoader';
 import { Settings, Plus, Trash2, UserCheck, Calculator, BarChart3, CheckCircle } from 'lucide-react';
-import { formatCurrency } from '../usePayroll';
+import { formatCurrency, stripPesoInput, formatPesoInput, toNumber } from '../usePayroll';
+
+// Helper component for auto-formatting currency inputs with Peso sign on blur
+function CurrencyInput({ id, value, onChange, placeholder, className, readOnly, disabled }) {
+  const [isFocused, setIsFocused] = React.useState(false);
+  const [localValue, setLocalValue] = React.useState('');
+
+  React.useEffect(() => {
+    if (!isFocused) {
+      setLocalValue(value || '');
+    }
+  }, [value, isFocused]);
+
+  const handleFocus = () => {
+    if (readOnly || disabled) return;
+    setIsFocused(true);
+    const cleaned = stripPesoInput(value);
+    setLocalValue(cleaned === '0' || cleaned === '0.00' ? '' : cleaned);
+  };
+
+  const handleChange = (e) => {
+    setLocalValue(e.target.value);
+    onChange(e);
+  };
+
+  const handleBlur = () => {
+    if (readOnly || disabled) return;
+    setIsFocused(false);
+    const formatted = formatPesoInput(localValue);
+    setLocalValue(formatted);
+    onChange({
+      target: {
+        id,
+        name: id,
+        value: formatted,
+      },
+    });
+  };
+
+  return (
+    <Input
+      id={id}
+      type="text"
+      value={localValue}
+      onFocus={handleFocus}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      placeholder={placeholder}
+      className={className}
+      readOnly={readOnly}
+      disabled={disabled}
+    />
+  );
+}
 
 export function PayrollModals(props) {
   const {
+    attendanceSummary,
     isPayslipImageViewerOpen,
     closePayslipImageViewer,
     setIsPayslipImageViewerOpen,
@@ -94,7 +148,7 @@ export function PayrollModals(props) {
           setIsPayslipImageViewerOpen(true);
         }}
       >
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Payslip Image - {selectedPayslipRecord?.employee_name || 'Employee'}
@@ -143,7 +197,7 @@ export function PayrollModals(props) {
 
       {/* Manage Tax/Deductions Modal */}
       <Dialog open={isTaxDeductionsOpen} onOpenChange={setIsTaxDeductionsOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Settings className="w-5 h-5" />
@@ -194,14 +248,12 @@ export function PayrollModals(props) {
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs text-white/60">Amount (₱)</Label>
-                        <Input
-                          type="number"
-                          placeholder="0.00"
+                        <CurrencyInput
+                          id="newContributionAmount"
+                          placeholder="Enter amount"
                           value={newContributionAmount}
                           onChange={(e) => setNewContributionAmount(e.target.value)}
                           className="bg-background border-white/10 text-white h-9"
-                          min="0"
-                          step="0.01"
                         />
                       </div>
                       <Button
@@ -259,7 +311,7 @@ export function PayrollModals(props) {
 
       {/* Payroll Allowance Eligibility Modal */}
       <Dialog open={isAllowanceEligibilityOpen} onOpenChange={setIsAllowanceEligibilityOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserCheck className="w-5 h-5" />
@@ -317,7 +369,7 @@ export function PayrollModals(props) {
 
       {/* Process Payroll Modal */}
       <Dialog open={isProcessPayrollOpen} onOpenChange={setIsProcessPayrollOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Calculator className="w-5 h-5" />
@@ -399,22 +451,71 @@ export function PayrollModals(props) {
                   value={selectedEmployeeData?.position || ''}
                   readOnly
                   placeholder="Employee role"
-                  className="bg-background border-white/10 text-white"
+                  className="bg-background border-white/10 text-white cursor-not-allowed"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="monthlyAmount">Monthly</Label>
+                <Label>Wage Type</Label>
                 <Input
-                  id="monthlyAmount"
-                  type="number"
-                  value={payslipForm.monthly}
-                  onChange={(e) => handlePayslipFieldChange('monthly', e.target.value)}
-                  className="bg-background border-white/10 text-white"
-                  min="0"
-                  step="0.01"
+                  value={payslipForm.wageType === 'daily' ? 'Daily Rate' : 'Monthly Salary'}
+                  readOnly
+                  className="bg-[#021B2C] border-white/10 text-white cursor-not-allowed"
                 />
               </div>
             </div>
+
+            {payslipForm.wageType === 'daily' ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="dailyRate">Daily Rate (₱)</Label>
+                  <Input
+                    id="dailyRate"
+                    type="text"
+                    value={payslipForm.dailyRate}
+                    readOnly
+                    className="bg-[#021B2C] border-white/10 text-white cursor-not-allowed"
+                    placeholder="Daily rate"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="daysPresent">Days Present (Attendance)</Label>
+                  <Input
+                    id="daysPresent"
+                    type="number"
+                    value={payslipForm.daysPresent}
+                    onChange={(e) => handlePayslipFieldChange('daysPresent', e.target.value)}
+                    className="bg-background border-white/10 text-white"
+                    placeholder="Enter days present"
+                    min="0"
+                    step="1"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="monthlyAmount">Projected Monthly (₱)</Label>
+                  <Input
+                    id="monthlyAmount"
+                    type="text"
+                    value={payslipForm.monthly}
+                    readOnly
+                    className="bg-[#021B2C] border-white/10 text-white cursor-not-allowed"
+                    placeholder="Projected monthly pay"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="monthlyAmount">Monthly Salary (₱)</Label>
+                  <CurrencyInput
+                    id="monthlyAmount"
+                    value={payslipForm.monthly}
+                    onChange={(e) => handlePayslipFieldChange('monthly', e.target.value)}
+                    className="bg-background border-white/10 text-white"
+                    placeholder="Enter base salary"
+                  />
+                </div>
+              </div>
+            )}
 
             <Card className="border border-white/10 bg-card">
               <CardHeader>
@@ -422,75 +523,76 @@ export function PayrollModals(props) {
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="basicSalary">Basic Salary</Label>
-                  <Input
+                  <Label htmlFor="basicSalary">
+                    {payslipForm.wageType === 'daily' ? 'Basic Pay (Computed)' : 'Basic Salary'}
+                  </Label>
+                  <CurrencyInput
                     id="basicSalary"
-                    type="number"
                     value={payslipForm.basicSalary}
                     onChange={(e) => handlePayslipFieldChange('basicSalary', e.target.value)}
-                    className="bg-background border-white/10 text-white"
-                    min="0"
-                    step="0.01"
+                    className={payslipForm.wageType === 'daily' ? "bg-[#021B2C] border-white/10 text-white cursor-not-allowed" : "bg-background border-white/10 text-white"}
+                    readOnly={payslipForm.wageType === 'daily'}
+                    placeholder={payslipForm.wageType === 'daily' ? "Computed basic pay" : "Enter base salary"}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="regularOvertime">Regular Overtime</Label>
-                  <Input
+                  <CurrencyInput
                     id="regularOvertime"
-                    type="number"
                     value={payslipForm.regularOvertime}
                     onChange={(e) => handlePayslipFieldChange('regularOvertime', e.target.value)}
                     className="bg-background border-white/10 text-white"
-                    min="0"
-                    step="0.01"
+                    placeholder="Enter regular overtime"
                   />
+                  {attendanceSummary && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      This period: {attendanceSummary.overtime_hours ?? 0} hrs total overtime.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lateUndertime">Late/Undertime</Label>
-                  <Input
+                  <CurrencyInput
                     id="lateUndertime"
-                    type="number"
                     value={payslipForm.lateUndertime}
                     onChange={(e) => handlePayslipFieldChange('lateUndertime', e.target.value)}
                     className="bg-background border-white/10 text-white"
-                    min="0"
-                    step="0.01"
+                    placeholder="Enter late/undertime"
                   />
+                  {attendanceSummary && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      This period: {attendanceSummary.undertime_hours ?? 0} hrs total late/undertime.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="restDay">Rest Day</Label>
-                  <Input
+                  <CurrencyInput
                     id="restDay"
-                    type="number"
                     value={payslipForm.restDay}
                     onChange={(e) => handlePayslipFieldChange('restDay', e.target.value)}
                     className="bg-background border-white/10 text-white"
-                    min="0"
-                    step="0.01"
+                    placeholder="Enter rest day pay"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="restDayOt">Rest Day OT</Label>
-                  <Input
+                  <CurrencyInput
                     id="restDayOt"
-                    type="number"
                     value={payslipForm.restDayOt}
                     onChange={(e) => handlePayslipFieldChange('restDayOt', e.target.value)}
                     className="bg-background border-white/10 text-white"
-                    min="0"
-                    step="0.01"
+                    placeholder="Enter rest day OT pay"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="holiday">Holiday</Label>
-                  <Input
+                  <CurrencyInput
                     id="holiday"
-                    type="number"
                     value={payslipForm.holiday}
                     onChange={(e) => handlePayslipFieldChange('holiday', e.target.value)}
                     className="bg-background border-white/10 text-white"
-                    min="0"
-                    step="0.01"
+                    placeholder="Enter holiday pay"
                   />
                 </div>
               </CardContent>
@@ -531,13 +633,12 @@ export function PayrollModals(props) {
                         <div key={item.id} className="grid grid-cols-2 gap-3 items-center">
                           <p className="text-sm text-muted-foreground">{item.name}</p>
                           {isEditingModalContributions ? (
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
+                            <CurrencyInput
+                              id={`contribution-${item.id}`}
                               value={item.amount}
                               onChange={(e) => handleModalContributionAmountChange(item.id, e.target.value)}
                               className="bg-background border-white/10 text-white h-9"
+                              placeholder="Enter contribution"
                             />
                           ) : (
                             <p className="text-sm font-medium text-right">{formatCurrency(item.amount)}</p>
@@ -553,36 +654,33 @@ export function PayrollModals(props) {
                     <Label htmlFor="netTaxableSalary">NET Taxable Salary</Label>
                     <Input
                       id="netTaxableSalary"
-                      type="number"
-                      value={computedPayslipValues.netTaxableSalary.toFixed(2)}
+                      type="text"
+                      value={formatCurrency(computedPayslipValues.netTaxableSalary)}
                       readOnly
                       className="bg-[#021B2C] border-[#AEAAAA]/20 text-white cursor-not-allowed"
-                      min="0"
-                      step="0.01"
+                      placeholder="Net taxable salary"
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="payrollTax">Payroll Tax</Label>
                     <Input
                       id="payrollTax"
-                      type="number"
-                      value={computedPayslipValues.payrollTax.toFixed(2)}
+                      type="text"
+                      value={formatCurrency(computedPayslipValues.payrollTax)}
                       readOnly
                       className="bg-[#021B2C] border-[#AEAAAA]/20 text-white cursor-not-allowed"
-                      min="0"
-                      step="0.01"
+                      placeholder="Payroll tax"
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="totalDeductions">Total Deductions</Label>
                     <Input
                       id="totalDeductions"
-                      type="number"
-                      value={computedPayslipValues.totalDeductions.toFixed(2)}
+                      type="text"
+                      value={formatCurrency(computedPayslipValues.totalDeductions)}
                       readOnly
                       className="bg-[#021B2C] border-[#AEAAAA]/20 text-white cursor-not-allowed"
-                      min="0"
-                      step="0.01"
+                      placeholder="Total deductions"
                     />
                   </div>
                 </div>
@@ -596,25 +694,22 @@ export function PayrollModals(props) {
                     <Label htmlFor="grossAmount" className="min-h-[2.5rem] flex items-end pb-1">GROSS Amount</Label>
                     <Input
                       id="grossAmount"
-                      type="number"
-                      value={computedPayslipValues.grossAmount.toFixed(2)}
+                      type="text"
+                      value={formatCurrency(computedPayslipValues.grossAmount)}
                       readOnly
                       className="bg-[#021B2C] border-[#AEAAAA]/20 text-white cursor-not-allowed"
-                      min="0"
-                      step="0.01"
+                      placeholder="Gross amount"
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="payrollAllowance" className="min-h-[2.5rem] flex items-end pb-1">Payroll Allowance</Label>
-                    <Input
+                    <CurrencyInput
                       id="payrollAllowance"
-                      type="number"
-                      value={isSelectedEmployeeAllowanceEligible ? payslipForm.payrollAllowance : '0.00'}
+                      value={isSelectedEmployeeAllowanceEligible ? payslipForm.payrollAllowance : '₱0.00'}
                       onChange={(e) => handlePayslipFieldChange('payrollAllowance', e.target.value)}
                       className="bg-background border-white/10 text-white"
                       disabled={!isSelectedEmployeeAllowanceEligible}
-                      min="0"
-                      step="0.01"
+                      placeholder="Enter payroll allowance"
                     />
                     {!isSelectedEmployeeAllowanceEligible && (
                       <p className="text-xs text-muted-foreground">This employee is not allowance-eligible.</p>
@@ -622,14 +717,12 @@ export function PayrollModals(props) {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="companyLoanCashAdvance" className="min-h-[2.5rem] flex items-end pb-1">Company Loan/Cash Advance</Label>
-                    <Input
+                    <CurrencyInput
                       id="companyLoanCashAdvance"
-                      type="number"
                       value={payslipForm.companyLoanCashAdvance}
                       onChange={(e) => handlePayslipFieldChange('companyLoanCashAdvance', e.target.value)}
                       className="bg-background border-white/10 text-white"
-                      min="0"
-                      step="0.01"
+                      placeholder="Enter deductions"
                     />
                   </div>
                 </div>
@@ -638,12 +731,11 @@ export function PayrollModals(props) {
                   <Label htmlFor="salaryNetPay" className="text-[#F27229] font-semibold">SALARY NET PAY</Label>
                   <Input
                     id="salaryNetPay"
-                    type="number"
-                    value={computedPayslipValues.salaryNetPay.toFixed(2)}
+                    type="text"
+                    value={formatCurrency(computedPayslipValues.salaryNetPay)}
                     readOnly
                     className="bg-[#021B2C] border-[#F27229]/40 text-[#F27229] font-semibold cursor-not-allowed"
-                    min="0"
-                    step="0.01"
+                    placeholder="Salary net pay"
                   />
                 </div>
 
@@ -655,6 +747,7 @@ export function PayrollModals(props) {
                       value={payslipForm.preparedBy}
                       readOnly
                       className="bg-background border-white/10 text-white"
+                      placeholder="Prepared by name"
                     />
                   </div>
                   <div className="space-y-2">
@@ -663,7 +756,7 @@ export function PayrollModals(props) {
                       id="approvedByTopManagement"
                       value={topManagementUser?.name || payslipForm.approvedByTopManagement}
                       readOnly
-                      placeholder=""
+                      placeholder="Pending CEO Approval"
                       className="bg-[#021B2C] border-[#AEAAAA]/20 text-white cursor-not-allowed"
                     />
                   </div>
@@ -673,7 +766,7 @@ export function PayrollModals(props) {
                       id="approvedBy"
                       value={topManagementUser?.name || payslipForm.approvedBy}
                       readOnly
-                      placeholder=""
+                      placeholder="Pending Approval"
                       className="bg-[#021B2C] border-[#AEAAAA]/20 text-white cursor-not-allowed"
                     />
                   </div>
@@ -704,7 +797,7 @@ export function PayrollModals(props) {
 
       {/* Payslip Confirmation Preview Modal */}
       <Dialog open={isPayslipPreviewOpen} onOpenChange={setIsPayslipPreviewOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <BarChart3 className="w-5 h-5" />
@@ -735,14 +828,31 @@ export function PayrollModals(props) {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Monthly</span>
-                        <span className="font-semibold text-white">{formatCurrency(payslipPreviewData.monthlyAmount)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Basic Salary</span>
-                        <span className="font-semibold text-white">{formatCurrency(payslipPreviewData.basicSalary)}</span>
-                      </div>
+                      {payslipForm.wageType === 'daily' ? (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Projected Monthly</span>
+                            <span className="font-semibold text-white">{formatCurrency(payslipPreviewData.monthlyAmount)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">
+                              Basic Pay (₱{toNumber(payslipForm.dailyRate).toFixed(2)}/day x {payslipForm.daysPresent} days)
+                            </span>
+                            <span className="font-semibold text-white">{formatCurrency(payslipPreviewData.basicSalary)}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Monthly</span>
+                            <span className="font-semibold text-white">{formatCurrency(payslipPreviewData.monthlyAmount)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Basic Salary</span>
+                            <span className="font-semibold text-white">{formatCurrency(payslipPreviewData.basicSalary)}</span>
+                          </div>
+                        </>
+                      )}
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Regular Overtime</span>
                         <span className="font-semibold text-white">{formatCurrency(payslipPreviewData.regularOvertime)}</span>

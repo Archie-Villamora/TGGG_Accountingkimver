@@ -36,7 +36,106 @@ const getWorkedHours = (record) => {
   return (outMinutes - inMinutes) / 60;
 };
 
-export function useEmployees(selectedDepartment = 'All', selectedStatus = 'All', searchTerm = '') {
+export const getBiMonthlyCutoffs = (date = new Date()) => {
+  const day = date.getDate();
+  const month = date.getMonth();
+  const year = date.getFullYear();
+
+  let cutoff14_28 = {
+    label: '',
+    startDate: null,
+    endDate: null,
+  };
+  let cutoff29_13 = {
+    label: '',
+    startDate: null,
+    endDate: null,
+  };
+
+  if (day >= 14 && day <= 28) {
+    // 14-28 is active (June 14 - June 28)
+    cutoff14_28.startDate = new Date(year, month, 14);
+    cutoff14_28.endDate = new Date(year, month, 28);
+    
+    // The alternative 29-13 cutoff is the previous one (May 29 - June 13)
+    cutoff29_13.startDate = new Date(year, month - 1, 29);
+    cutoff29_13.endDate = new Date(year, month, 13);
+  } else if (day >= 29) {
+    // 29-13 is active (June 29 - July 13)
+    cutoff29_13.startDate = new Date(year, month, 29);
+    cutoff29_13.endDate = new Date(year, month + 1, 13);
+
+    // The alternative 14-28 cutoff is the current month's one (June 14 - June 28)
+    cutoff14_28.startDate = new Date(year, month, 14);
+    cutoff14_28.endDate = new Date(year, month, 28);
+  } else {
+    // day <= 13
+    // 29-13 is active (May 29 - June 13)
+    cutoff29_13.startDate = new Date(year, month - 1, 29);
+    cutoff29_13.endDate = new Date(year, month, 13);
+
+    // The alternative 14-28 cutoff is the previous month's one (May 14 - May 28)
+    cutoff14_28.startDate = new Date(year, month - 1, 14);
+    cutoff14_28.endDate = new Date(year, month - 1, 28);
+  }
+
+  const formatDateLabel = (start, end) => {
+    const options = { month: 'short', day: 'numeric' };
+    return `${start.toLocaleDateString('en-US', options)} – ${end.toLocaleDateString('en-US', options)}`;
+  };
+
+  cutoff14_28.label = formatDateLabel(cutoff14_28.startDate, cutoff14_28.endDate);
+  cutoff29_13.label = formatDateLabel(cutoff29_13.startDate, cutoff29_13.endDate);
+
+  cutoff14_28.startDate.setHours(0, 0, 0, 0);
+  cutoff14_28.endDate.setHours(23, 59, 59, 999);
+  cutoff29_13.startDate.setHours(0, 0, 0, 0);
+  cutoff29_13.endDate.setHours(23, 59, 59, 999);
+
+  return { cutoff14_28, cutoff29_13 };
+};
+
+export const getPayPeriodDates = (periodType, customStart, customEnd) => {
+  const { cutoff14_28, cutoff29_13 } = getBiMonthlyCutoffs(new Date());
+  let startDate = null;
+  let endDate = null;
+
+  if (periodType === 'cutoff-14-28') {
+    startDate = cutoff14_28.startDate;
+    endDate = cutoff14_28.endDate;
+  } else if (periodType === 'cutoff-29-13') {
+    startDate = cutoff29_13.startDate;
+    endDate = cutoff29_13.endDate;
+  } else if (periodType === 'Last Month') {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    startDate = new Date(year, month - 1, 1);
+    endDate = new Date(year, month, 0);
+  } else if (periodType === 'Custom Range') {
+    if (customStart) startDate = new Date(customStart);
+    if (customEnd) endDate = new Date(customEnd);
+  }
+
+  if (startDate) startDate.setHours(0, 0, 0, 0);
+  if (endDate) endDate.setHours(23, 59, 59, 999);
+
+  return { startDate, endDate };
+};
+
+export function useEmployees(options = {}) {
+  const defaultPeriod = (new Date().getDate() >= 14 && new Date().getDate() <= 28) ? 'cutoff-14-28' : 'cutoff-29-13';
+  const {
+    selectedDepartment = 'All',
+    selectedStatus = 'All',
+    searchTerm = '',
+    selectedPeriod = defaultPeriod,
+    customStartDate = null,
+    customEndDate = null,
+    selectedWageType = 'All',
+    selectedSort = 'name-asc',
+  } = options;
+
   const [employees, setEmployees] = useState([]);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -96,29 +195,36 @@ export function useEmployees(selectedDepartment = 'All', selectedStatus = 'All',
     };
   }, []);
 
-  const filteredEmployees = useMemo(() => {
-    const search = searchTerm.toLowerCase().trim();
+  const filteredAttendanceRecords = useMemo(() => {
+    const { startDate, endDate } = getPayPeriodDates(selectedPeriod, customStartDate, customEndDate);
+    if (!startDate && !endDate) return attendanceRecords;
 
-    return employees.filter((employee) => {
-      const name = String(employee.name || '').toLowerCase();
-      const email = String(employee.email || '').toLowerCase();
-      const department = String(employee.department || '').toLowerCase();
+    return attendanceRecords.filter((record) => {
+      const recordDateStr = record?.date || (record?.created_at ? String(record.created_at).slice(0, 10) : null);
+      if (!recordDateStr) return false;
+      const rDate = new Date(recordDateStr);
+      rDate.setHours(0, 0, 0, 0);
 
-      const matchesSearch =
-        !search ||
-        name.includes(search) ||
-        email.includes(search) ||
-        department.includes(search);
-
-      const matchesDepartment =
-        selectedDepartment === 'All' ||
-        normalizeRole(employee.position) === normalizeRole(selectedDepartment);
-
-      const matchesStatus = selectedStatus === 'All' || employee.status === selectedStatus;
-
-      return matchesSearch && matchesDepartment && matchesStatus;
+      if (startDate && rDate < startDate) return false;
+      if (endDate && rDate > endDate) return false;
+      return true;
     });
-  }, [employees, searchTerm, selectedDepartment, selectedStatus]);
+  }, [attendanceRecords, selectedPeriod, customStartDate, customEndDate]);
+
+  const filteredOvertimeRequests = useMemo(() => {
+    const { startDate, endDate } = getPayPeriodDates(selectedPeriod, customStartDate, customEndDate);
+    if (!startDate && !endDate) return overtimeRequests;
+
+    return overtimeRequests.filter((req) => {
+      if (!req.date_completed) return false;
+      const rDate = new Date(req.date_completed);
+      rDate.setHours(0, 0, 0, 0);
+
+      if (startDate && rDate < startDate) return false;
+      if (endDate && rDate > endDate) return false;
+      return true;
+    });
+  }, [overtimeRequests, selectedPeriod, customStartDate, customEndDate]);
 
   const employeeStats = useMemo(() => {
     let active = 0;
@@ -139,7 +245,7 @@ export function useEmployees(selectedDepartment = 'All', selectedStatus = 'All',
   const employeeAttendanceStats = useMemo(() => {
     const byEmployee = new Map();
 
-    attendanceRecords.forEach((record) => {
+    filteredAttendanceRecords.forEach((record) => {
       const employeeId = record?.employee_id ?? record?.user_id;
       if (employeeId === undefined || employeeId === null) return;
 
@@ -214,22 +320,22 @@ export function useEmployees(selectedDepartment = 'All', selectedStatus = 'All',
     });
 
     return summary;
-  }, [attendanceRecords]);
+  }, [filteredAttendanceRecords]);
 
   const otRequestActualHoursMap = useMemo(() => {
     const map = new Map();
-    for (const req of overtimeRequests) {
+    for (const req of filteredOvertimeRequests) {
       if (!req.management_signature || req.actual_hours == null) continue;
       const empId = String(req.employee_id);
       const hrs = parseFloat(req.actual_hours) || 0;
       map.set(empId, (map.get(empId) || 0) + hrs);
     }
     return map;
-  }, [overtimeRequests]);
+  }, [filteredOvertimeRequests]);
 
   const otRequestCountMap = useMemo(() => {
     const map = new Map();
-    for (const req of overtimeRequests) {
+    for (const req of filteredOvertimeRequests) {
       if (!req.management_signature) continue;
       const empId = String(req.employee_id);
       const existing = map.get(empId) || { total: 0, withHours: 0 };
@@ -238,7 +344,77 @@ export function useEmployees(selectedDepartment = 'All', selectedStatus = 'All',
       map.set(empId, existing);
     }
     return map;
-  }, [overtimeRequests]);
+  }, [filteredOvertimeRequests]);
+
+  const filteredEmployees = useMemo(() => {
+    const search = searchTerm.toLowerCase().trim();
+
+    let result = employees.filter((employee) => {
+      const name = String(employee.name || '').toLowerCase();
+      const email = String(employee.email || '').toLowerCase();
+      const department = String(employee.department || '').toLowerCase();
+
+      const matchesSearch =
+        !search ||
+        name.includes(search) ||
+        email.includes(search) ||
+        department.includes(search);
+
+      const matchesDepartment =
+        selectedDepartment === 'All' ||
+        normalizeRole(employee.position) === normalizeRole(selectedDepartment);
+
+      const matchesStatus = selectedStatus === 'All' || employee.status === selectedStatus;
+
+      const matchesWageType = selectedWageType === 'All' || employee.wage_type === selectedWageType;
+
+      return matchesSearch && matchesDepartment && matchesStatus && matchesWageType;
+    });
+
+    result.sort((a, b) => {
+      const nameA = String(a.name || '').toLowerCase();
+      const nameB = String(b.name || '').toLowerCase();
+
+      if (selectedSort === 'name-asc') {
+        return nameA.localeCompare(nameB);
+      }
+      if (selectedSort === 'name-desc') {
+        return nameB.localeCompare(nameA);
+      }
+      if (selectedSort === 'overtime-desc') {
+        const otA = (otRequestActualHoursMap.get(String(a.id)) || 0) + (employeeAttendanceStats.get(String(a.id))?.totalOvertime || 0);
+        const otB = (otRequestActualHoursMap.get(String(b.id)) || 0) + (employeeAttendanceStats.get(String(b.id))?.totalOvertime || 0);
+        return otB - otA;
+      }
+      if (selectedSort === 'late-desc') {
+        const lateA = employeeAttendanceStats.get(String(a.id))?.late || 0;
+        const lateB = employeeAttendanceStats.get(String(b.id))?.late || 0;
+        return lateB - lateA;
+      }
+      if (selectedSort === 'salary-desc') {
+        const salA = Number(a.salary || 0);
+        const salB = Number(b.salary || 0);
+        return salB - salA;
+      }
+      if (selectedSort === 'salary-asc') {
+        const salA = Number(a.salary || 0);
+        const salB = Number(b.salary || 0);
+        return salA - salB;
+      }
+      return 0;
+    });
+
+    return result;
+  }, [
+    employees,
+    searchTerm,
+    selectedDepartment,
+    selectedStatus,
+    selectedWageType,
+    selectedSort,
+    employeeAttendanceStats,
+    otRequestActualHoursMap,
+  ]);
 
   return {
     employees,

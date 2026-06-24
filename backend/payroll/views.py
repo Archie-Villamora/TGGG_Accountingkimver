@@ -167,15 +167,19 @@ def _serialize_deduction_type(deduction):
     }
 
 
-def _calculate_configured_deductions(base_salary):
+def _calculate_configured_deductions(base_salary, wage_type='monthly'):
     configured_rows = DeductionType.objects.all().order_by('name')
     items = []
     total = _safe_money(Decimal('0'))
     tax_total = _safe_money(Decimal('0'))
 
+    effective_base = base_salary
+    if wage_type == 'daily':
+        effective_base = base_salary * Decimal('22')
+
     for row in configured_rows:
         rate = _safe_money(Decimal(row.default_amount))
-        amount = rate if row.is_fixed else _safe_money(base_salary * (rate / Decimal('100')))
+        amount = rate if row.is_fixed else _safe_money(effective_base * (rate / Decimal('100')))
         amount = _safe_money(max(Decimal('0'), amount))
         total += amount
         if row.category == 'tax':
@@ -191,14 +195,14 @@ def _calculate_configured_deductions(base_salary):
 
     # Backward-compatible fallback when no configured deductions yet.
     if not items:
-        sss = _safe_money(base_salary * Decimal('0.045'))
-        philhealth = _safe_money(base_salary * Decimal('0.02'))
-        pagibig = _safe_money(Decimal('100')) if base_salary > 0 else _safe_money(Decimal('0'))
+        sss = _safe_money(effective_base * Decimal('0.045'))
+        philhealth = _safe_money(effective_base * Decimal('0.02'))
+        pagibig = _safe_money(Decimal('100')) if effective_base > 0 else _safe_money(Decimal('0'))
         tax = _safe_money(Decimal('0'))
-        if base_salary > Decimal('40000'):
-            tax = _safe_money((base_salary - Decimal('40000')) * Decimal('0.20') + Decimal('3000'))
-        elif base_salary > Decimal('20000'):
-            tax = _safe_money((base_salary - Decimal('20000')) * Decimal('0.15'))
+        if effective_base > Decimal('40000'):
+            tax = _safe_money((effective_base - Decimal('40000')) * Decimal('0.20') + Decimal('3000'))
+        elif effective_base > Decimal('20000'):
+            tax = _safe_money((effective_base - Decimal('20000')) * Decimal('0.15'))
 
         items = [
             {'id': None, 'name': 'SSS Contribution', 'category': 'tax', 'type': 'percentage', 'rate': '4.50', 'amount': str(sss)},
@@ -245,6 +249,18 @@ def _attendance_summary(employee, period_start, period_end):
     undertime_hours = max(Decimal('0'), expected_hours - total_hours)
     undertime_hours = undertime_hours.quantize(Decimal('0.01'))
 
+    from attendance.models import OvertimeRequest
+    from django.db.models import Sum
+
+    ot_records = OvertimeRequest.objects.filter(
+        employee=employee,
+        date_completed__gte=period_start,
+        date_completed__lte=period_end,
+    ).exclude(management_signature__isnull=True).exclude(management_signature='')
+    
+    ot_sum = ot_records.aggregate(total_ot=Sum('actual_hours'))['total_ot'] or Decimal('0')
+    overtime_hours = float(ot_sum)
+
     return {
         'working_days': working_days,
         'days_present': days_present,
@@ -254,6 +270,8 @@ def _attendance_summary(employee, period_start, period_end):
         'total_records': total_logs,
         'total_hours': float(total_hours.quantize(Decimal('0.01'))),
         'undertime_hours': float(undertime_hours),
+        'overtime_hours': overtime_hours,
+        'overtimeHours': overtime_hours,
         # Backward-friendly keys for frontend display
         'totalDays': days_present,
         'leaveCount': days_on_leave,
@@ -297,6 +315,7 @@ def payroll_employees(request):
             'id', 'employee_id', 'first_name', 'last_name', 'email', 'role',
             'profile_picture', 'signature_image', 'payroll_allowance_eligible',
             'salary_structure__base_salary', 'salary_structure__frequency',
+            'salary_structure__wage_type',
         )
         .filter(is_active=True)
         .order_by('last_name', 'first_name', 'email')
@@ -305,14 +324,19 @@ def payroll_employees(request):
     data = []
     for user in users:
         default_daily_rate = None
+        wage_type = 'monthly'
         salary_structure = getattr(user, 'salary_structure', None)
         if salary_structure:
-            divisor = Decimal('22')
-            if salary_structure.frequency == 'weekly':
-                divisor = Decimal('5')
-            elif salary_structure.frequency == 'biweekly':
-                divisor = Decimal('10')
-            default_daily_rate = _safe_money(Decimal(salary_structure.base_salary) / divisor)
+            wage_type = salary_structure.wage_type
+            if wage_type == 'daily':
+                default_daily_rate = _safe_money(Decimal(salary_structure.base_salary))
+            else:
+                divisor = Decimal('22')
+                if salary_structure.frequency == 'weekly':
+                    divisor = Decimal('5')
+                elif salary_structure.frequency == 'biweekly':
+                    divisor = Decimal('10')
+                default_daily_rate = _safe_money(Decimal(salary_structure.base_salary) / divisor)
 
         data.append({
             'id': str(user.id),
@@ -326,6 +350,7 @@ def payroll_employees(request):
             'payroll_allowance_eligible': bool(user.payroll_allowance_eligible),
             'default_daily_rate': str(default_daily_rate) if default_daily_rate is not None else None,
             'salary': str(salary_structure.base_salary) if salary_structure else None,
+            'wage_type': wage_type,
         })
 
     if cache_enabled:
@@ -466,6 +491,28 @@ def process_payroll(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    # Determine wage type
+    salary_structure = getattr(employee, 'salary_structure', None)
+    wage_type = getattr(salary_structure, 'wage_type', 'monthly') if salary_structure else 'monthly'
+    if payslip_form.get('wage_type'):
+        wage_type = str(payslip_form.get('wage_type')).strip().lower()
+
+    working_days = _count_weekdays(period_start, period_end)
+
+    # Determine days present
+    days_present_val = working_days
+    if wage_type == 'daily':
+        # Default based on attendance logs
+        att_summary = _attendance_summary(employee, period_start, period_end)
+        days_present_val = att_summary['days_present']
+
+    # Allow override from frontend
+    if 'days_present' in payslip_form and payslip_form['days_present'] not in [None, '']:
+        try:
+            days_present_val = int(float(payslip_form['days_present']))
+        except ValueError:
+            pass
+
     submitted_contributions = payslip_form.get('government_contributions')
     contribution_items = []
     if isinstance(submitted_contributions, list) and submitted_contributions:
@@ -568,6 +615,12 @@ def process_payroll(request):
     approved_by = (payslip_form.get('approved_by') or '').strip() or approved_by_top_management or top_management_name
     approved_by_signature = (payslip_form.get('approved_by_signature') or '').strip() or top_management_signature
 
+    daily_rate = _safe_money(Decimal('0'))
+    if wage_type == 'daily':
+        daily_rate = _safe_money(getattr(salary_structure, 'base_salary', Decimal('0')) if salary_structure else Decimal('0'))
+    elif working_days > 0:
+        daily_rate = _safe_money(basic_salary / Decimal(working_days))
+
     payslip_details = {
         'designation': payslip_form.get('designation') or (employee.get_role_display() if employee.role else ''),
         'monthly': str(monthly_amount),
@@ -593,29 +646,27 @@ def process_payroll(request):
         'approved_by_top_management': approved_by_top_management,
         'approved_by': approved_by,
         'approved_by_signature': approved_by_signature,
+        'wage_type': wage_type,
+        'days_present': days_present_val,
+        'daily_rate': str(daily_rate),
     }
 
-    working_days = _count_weekdays(period_start, period_end)
     summary = {
         'working_days': working_days,
-        'days_present': working_days,
-        'days_absent': 0,
+        'days_present': days_present_val,
+        'days_absent': max(0, working_days - days_present_val),
         'days_on_leave': 0,
         'late_count': 0,
         'total_records': 0,
         'total_hours': 0.0,
         'undertime_hours': 0.0,
-        'totalDays': working_days,
+        'totalDays': days_present_val,
         'leaveCount': 0,
-        'absences': 0,
+        'absences': max(0, working_days - days_present_val),
         'lateCount': 0,
         'undertimeHours': 0.0,
         'undertime': 0.0,
     }
-
-    daily_rate = _safe_money(Decimal('0'))
-    if working_days > 0:
-        daily_rate = _safe_money(basic_salary / Decimal(working_days))
 
     notes_payload = json.dumps(payslip_details)
 

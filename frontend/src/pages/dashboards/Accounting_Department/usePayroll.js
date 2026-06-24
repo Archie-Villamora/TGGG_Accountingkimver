@@ -10,6 +10,7 @@ import {
   updateEmployeeContributions,
   updatePayrollAllowanceEligibility,
   deleteEmployeeContribution,
+  getAttendanceSummary,
 } from '../../../services/payrollService';
 export const pesoFormatter = new Intl.NumberFormat('en-PH', {
   style: 'currency',
@@ -23,7 +24,24 @@ export const formatCurrency = (amount) => {
   return pesoFormatter.format(value);
 };
 
+export const stripPesoInput = (val) => {
+  if (val === null || val === undefined) return '';
+  return String(val).replace(/[₱,$\s]/g, '');
+};
+
+export const formatPesoInput = (val) => {
+  const cleaned = stripPesoInput(val);
+  const num = Number(cleaned);
+  const validNum = Number.isFinite(num) ? num : 0;
+  return `₱${validNum.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
 export const toNumber = (value) => {
+  if (typeof value === 'string') {
+    const cleaned = stripPesoInput(value);
+    const parsed = Number(cleaned);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 };
@@ -88,6 +106,9 @@ export const createEmptyPayslipForm = () => ({
   approvedBy: '',
   preparedBySignature: '',
   approvedBySignature: '',
+  daysPresent: '',
+  wageType: 'monthly',
+  dailyRate: '',
 });
 
 export function usePayroll() {
@@ -128,6 +149,9 @@ export function usePayroll() {
 
   const [payslipForm, setPayslipForm] = useState(createEmptyPayslipForm);
   const [isPayslipFormInitialized, setIsPayslipFormInitialized] = useState(false);
+  const [daysPresentFetched, setDaysPresentFetched] = useState(null);
+  const [attendanceSummary, setAttendanceSummary] = useState(null);
+  const [isLoadingAttendance, setIsLoadingAttendance] = useState(false);
 
   const [filterEmployee, setFilterEmployee] = useState('all');
   const [filterPayrollPeriod, setFilterPayrollPeriod] = useState('all');
@@ -181,6 +205,34 @@ export function usePayroll() {
   useEffect(() => {
     fetchPayrollData();
   }, []);
+
+  useEffect(() => {
+    if (!selectedEmployee) {
+      setDaysPresentFetched(null);
+      setAttendanceSummary(null);
+      return;
+    }
+    const fetchDaysPresent = async () => {
+      setIsLoadingAttendance(true);
+      try {
+        const { startDate, endDate } = calculatePayrollDates();
+        const data = await getAttendanceSummary({
+          employee_id: selectedEmployee,
+          start_date: startDate,
+          end_date: endDate,
+        });
+        setDaysPresentFetched(data?.days_present ?? 0);
+        setAttendanceSummary(data || null);
+      } catch (error) {
+        console.error('Failed to load attendance summary:', error);
+        setDaysPresentFetched(0);
+        setAttendanceSummary(null);
+      } finally {
+        setIsLoadingAttendance(false);
+      }
+    };
+    fetchDaysPresent();
+  }, [selectedEmployee, selectedMonth, selectedYear, selectedPayrollPeriod]);
 
   useEffect(() => {
     return () => {
@@ -296,12 +348,20 @@ export function usePayroll() {
       return 'Payroll period is invalid. Start date cannot be after end date.';
     }
 
-    if (toNumber(payslipForm.monthly) <= 0) {
-      return 'Please enter a valid Monthly amount greater than 0.';
-    }
-
-    if (toNumber(payslipForm.basicSalary) <= 0) {
-      return 'Please enter a valid Basic Salary greater than 0.';
+    if (payslipForm.wageType === 'daily') {
+      if (toNumber(payslipForm.dailyRate) <= 0) {
+        return 'Please enter a valid Daily Rate greater than 0.';
+      }
+      if (toNumber(payslipForm.daysPresent) < 0) {
+        return 'Days Present cannot be negative.';
+      }
+    } else {
+      if (toNumber(payslipForm.monthly) <= 0) {
+        return 'Please enter a valid Monthly amount greater than 0.';
+      }
+      if (toNumber(payslipForm.basicSalary) <= 0) {
+        return 'Please enter a valid Basic Salary greater than 0.';
+      }
     }
 
     const contributionValidationError = validateGovernmentContributions(modalEmployeeContributions);
@@ -323,13 +383,25 @@ export function usePayroll() {
   };
 
   const buildInitialPayslipForm = useCallback(() => {
-    const monthlyDefault = toNumber(selectedEmployeeData?.salary) > 0
+    const isDaily = selectedEmployeeData?.wage_type === 'daily';
+    const wageTypeVal = selectedEmployeeData?.wage_type || 'monthly';
+    const dailyRateDefault = toNumber(selectedEmployeeData?.salary) > 0
       ? toNumber(selectedEmployeeData.salary)
       : 0;
 
-    const basicSalaryDefault = toNumber(selectedEmployeeData?.salary) > 0
-      ? toNumber(selectedEmployeeData.salary)
-      : 0;
+    const daysPresentVal = daysPresentFetched !== null ? daysPresentFetched : 0;
+
+    let monthlyDefault = 0;
+    let basicSalaryDefault = 0;
+
+    if (isDaily) {
+      monthlyDefault = dailyRateDefault * 22; // projected
+      basicSalaryDefault = dailyRateDefault * daysPresentVal;
+    } else {
+      monthlyDefault = dailyRateDefault;
+      basicSalaryDefault = dailyRateDefault;
+    }
+
     const regularOvertimeDefault = 0;
     const lateUndertimeDefault = 0;
     const restDayOtDefault = 0;
@@ -348,25 +420,28 @@ export function usePayroll() {
     const topManagementName = topManagementUser?.name || '';
 
     return {
-      monthly: monthlyDefault.toFixed(2),
-      basicSalary: basicSalaryDefault.toFixed(2),
-      regularOvertime: regularOvertimeDefault.toFixed(2),
-      lateUndertime: lateUndertimeDefault.toFixed(2),
-      restDayOt: restDayOtDefault.toFixed(2),
-      netTaxableSalary: netTaxableSalaryDefault.toFixed(2),
-      payrollTax: payrollTaxDefault.toFixed(2),
-      totalDeductions: totalDeductionsDefault.toFixed(2),
-      grossAmount: grossAmountDefault.toFixed(2),
-      payrollAllowance: payrollAllowanceDefault.toFixed(2),
-      companyLoanCashAdvance: companyLoanDefault.toFixed(2),
-      salaryNetPay: netSalaryDefault.toFixed(2),
+      monthly: formatPesoInput(monthlyDefault),
+      basicSalary: formatPesoInput(basicSalaryDefault),
+      regularOvertime: formatPesoInput(regularOvertimeDefault),
+      lateUndertime: formatPesoInput(lateUndertimeDefault),
+      restDayOt: formatPesoInput(restDayOtDefault),
+      netTaxableSalary: formatPesoInput(netTaxableSalaryDefault),
+      payrollTax: formatPesoInput(payrollTaxDefault),
+      totalDeductions: formatPesoInput(totalDeductionsDefault),
+      grossAmount: formatPesoInput(grossAmountDefault),
+      payrollAllowance: formatPesoInput(payrollAllowanceDefault),
+      companyLoanCashAdvance: formatPesoInput(companyLoanDefault),
+      salaryNetPay: formatPesoInput(netSalaryDefault),
       preparedBy: preparedByName,
       approvedByTopManagement: topManagementName,
       approvedBy: topManagementName,
       preparedBySignature: currentAccountingUser?.signature_image || '',
       approvedBySignature: topManagementUser?.signature_image || '',
+      daysPresent: daysPresentVal.toString(),
+      wageType: wageTypeVal,
+      dailyRate: isDaily ? formatPesoInput(dailyRateDefault) : '₱0.00',
     };
-  }, [selectedEmployeeData, currentAccountingUser, topManagementUser, modalEmployeeContributions]);
+  }, [selectedEmployeeData, currentAccountingUser, topManagementUser, modalEmployeeContributions, daysPresentFetched]);
 
   const computePayslipValues = (formValues = payslipForm) => {
     const basicSalary = toNumber(formValues.basicSalary);
@@ -435,6 +510,7 @@ export function usePayroll() {
     if (!selectedEmployee) return;
     if (isPayslipFormInitialized) return;
     if (isLoadingModalContributions) return;
+    if (daysPresentFetched === null) return;
 
     const initialValues = buildInitialPayslipForm();
     setPayslipForm((prev) => ({
@@ -451,6 +527,7 @@ export function usePayroll() {
     isLoadingModalContributions,
     isPayslipFormInitialized,
     buildInitialPayslipForm,
+    daysPresentFetched,
   ]);
 
   useEffect(() => {
@@ -459,16 +536,32 @@ export function usePayroll() {
     const contributionsTotal = getContributionTotal(modalEmployeeContributions);
     setPayslipForm((prev) => ({
       ...prev,
-      totalDeductions: contributionsTotal.toFixed(2),
-      payrollAllowance: '0.00',
+      totalDeductions: formatPesoInput(contributionsTotal),
+      payrollAllowance: '₱0.00',
     }));
   }, [modalEmployeeContributions, selectedEmployee, isSelectedEmployeeAllowanceEligible]);
 
   const handlePayslipFieldChange = (field, value) => {
-    setPayslipForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setPayslipForm((prev) => {
+      const nextForm = {
+        ...prev,
+        [field]: value,
+      };
+
+      if (field === 'daysPresent' && prev.wageType === 'daily') {
+        const rate = toNumber(prev.dailyRate);
+        const days = toNumber(value);
+        nextForm.basicSalary = (rate * days).toFixed(2);
+      }
+
+      if (field === 'dailyRate' && prev.wageType === 'daily') {
+        const rate = toNumber(value);
+        const days = toNumber(prev.daysPresent);
+        nextForm.basicSalary = (rate * days).toFixed(2);
+      }
+
+      return nextForm;
+    });
   };
 
   const handleModalContributionAmountChange = (contributionId, value) => {
@@ -601,7 +694,7 @@ export function usePayroll() {
     try {
       const data = await updateEmployeeContributions(selectedContributionEmployee, {
         name: newContributionName.trim(),
-        amount: parseFloat(newContributionAmount),
+        amount: toNumber(newContributionAmount),
       });
       setEmployeeContributions((prev) => [...prev, data]);
       setNewContributionName('');
@@ -748,6 +841,9 @@ export function usePayroll() {
         approved_by: approvedBy,
         approved_by_signature: approvedBySignature,
         government_contributions: governmentContributions,
+        wage_type: payslipForm.wageType,
+        days_present: toNumber(payslipForm.daysPresent),
+        daily_rate: toNumber(payslipForm.dailyRate),
       },
     };
   };
@@ -814,6 +910,7 @@ export function usePayroll() {
   }, [employees, recentPayrollRecords]);
 
   return {
+    attendanceSummary,
     isProcessPayrollOpen, setIsProcessPayrollOpen,
     isTaxDeductionsOpen, setIsTaxDeductionsOpen,
     isAllowanceEligibilityOpen, setIsAllowanceEligibilityOpen,

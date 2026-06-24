@@ -10,6 +10,11 @@ import {
   DialogTitle,
   DialogTrigger,
   Label,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
 } from '../../../../components/ui/accounting-ui';
 import { addAccountingEmployee } from '../../../../services/adminService';
 
@@ -20,6 +25,8 @@ export const EmployeeAddDialog = ({ isAddEmployeeOpen, setIsAddEmployeeOpen, fet
     email: '',
     startDate: '',
     temporary_password: '',
+    salary: '',
+    wage_type: 'monthly',
   });
   const [showTemporaryPassword, setShowTemporaryPassword] = useState(false);
   const [isAddingEmployee, setIsAddingEmployee] = useState(false);
@@ -57,6 +64,8 @@ export const EmployeeAddDialog = ({ isAddEmployeeOpen, setIsAddEmployeeOpen, fet
         email,
         startDate: formData.startDate,
         temporary_password: temporaryPassword,
+        salary: formData.salary || null,
+        wage_type: formData.wage_type,
       });
       setIsAddEmployeeOpen(false);
       setFormData({
@@ -65,6 +74,8 @@ export const EmployeeAddDialog = ({ isAddEmployeeOpen, setIsAddEmployeeOpen, fet
         email: '',
         startDate: '',
         temporary_password: '',
+        salary: '',
+        wage_type: 'monthly',
       });
       fetchEmployees();
       toast.success('Employee Submitted', {
@@ -128,6 +139,36 @@ export const EmployeeAddDialog = ({ isAddEmployeeOpen, setIsAddEmployeeOpen, fet
                 {showTemporaryPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="addWageType" className="text-white/80">Wage Type</Label>
+            <Select
+              value={formData.wage_type}
+              onValueChange={(value) => setFormData({ ...formData, wage_type: value })}
+            >
+              <SelectTrigger id="addWageType" className="bg-[#00273C] border-white/10 text-white">
+                <SelectValue placeholder="Select wage type" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#001f35] border-white/10 text-white">
+                <SelectItem value="monthly" className="text-white hover:bg-[#00273C]">Monthly</SelectItem>
+                <SelectItem value="daily" className="text-white hover:bg-[#00273C]">Daily</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="addSalary" className="text-white/80">
+              {formData.wage_type === 'daily' ? 'Daily Rate (₱)' : 'Monthly Salary (₱)'}
+            </Label>
+            <Input
+              id="addSalary"
+              type="number"
+              className="bg-[#00273C] border-white/10 text-white"
+              value={formData.salary}
+              onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
+              placeholder={formData.wage_type === 'daily' ? 'Enter daily rate' : 'Enter monthly salary'}
+              min="0"
+              step="100"
+            />
           </div>
         </div>
         <div className="flex justify-end gap-2">

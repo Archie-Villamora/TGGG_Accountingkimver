@@ -763,6 +763,7 @@ def accounting_employees(request):
             'date_hired',
             'profile_picture',
             'salary_structure__base_salary',
+            'salary_structure__wage_type',
         )
         if active_only:
             users_qs = users_qs.filter(is_active=True)
@@ -778,8 +779,10 @@ def accounting_employees(request):
         data = []
         for user in users_qs:
             salary = 0
+            wage_type = 'monthly'
             if hasattr(user, 'salary_structure'):
                 salary = float(user.salary_structure.base_salary)
+                wage_type = user.salary_structure.wage_type
 
             status_text = 'Active' if user.is_active else 'Inactive'
 
@@ -794,6 +797,7 @@ def accounting_employees(request):
                 'status': status_text,
                 'joinDate': user.date_hired.strftime('%Y-%m-%d') if user.date_hired else '',
                 'salary': salary,
+                'wage_type': wage_type,
                 'location': 'Head Office',
                 'avatar': user.profile_picture,
                 'manager': 'N/A',
@@ -818,6 +822,7 @@ def accounting_employees(request):
         position_role = (request.data.get('position') or '').strip()
         temporary_password = (request.data.get('temporary_password') or '').strip()
         salary_amount = request.data.get('salary', 0)
+        wage_type = (request.data.get('wage_type') or 'monthly').strip().lower()
         start_date = request.data.get('startDate')
 
         if not email or not first_name or not last_name:
@@ -825,9 +830,12 @@ def accounting_employees(request):
         if not temporary_password or len(temporary_password) < 8:
             return Response({'error': 'temporary_password is required and must be at least 8 characters'}, status=status.HTTP_400_BAD_REQUEST)
 
+        if wage_type not in ['monthly', 'daily']:
+            return Response({'error': 'Invalid wage type'}, status=status.HTTP_400_BAD_REQUEST)
+
         if CustomUser.objects.filter(email=email).exists():
             return Response({'error': 'User with this email already exists'}, status=status.HTTP_400_BAD_REQUEST)
-
+        
         # Validate phone number format if provided (basic validation)
         if phone:
             # For testing: just strip and validate length
@@ -873,11 +881,12 @@ def accounting_employees(request):
                 user.set_password(temporary_password)
                 user.save()
 
-                if salary_amount:
+                if salary_amount or wage_type:
                     SalaryStructure.objects.create(
                         employee=user,
                         base_salary=salary_amount,
-                        frequency='monthly'
+                        frequency='monthly',
+                        wage_type=wage_type
                     )
             
             email_sent = False
@@ -962,6 +971,7 @@ def accounting_employee_detail(request, user_id):
                 department_name = request.data.get('department')
                 position_role = request.data.get('position')
                 salary_amount = request.data.get('salary')
+                wage_type = request.data.get('wage_type')
                 start_date = request.data.get('startDate')
                 status_text = request.data.get('status')
 
@@ -1015,13 +1025,25 @@ def accounting_employee_detail(request, user_id):
 
                 user.save()
 
-                if salary_amount is not None and str(salary_amount).strip() != '':
+                if wage_type is not None:
+                    wage_type = str(wage_type).strip().lower()
+                    if wage_type not in ['monthly', 'daily']:
+                        return Response({'error': 'Invalid wage type'}, status=status.HTTP_400_BAD_REQUEST)
+
+                if (salary_amount is not None and str(salary_amount).strip() != '') or wage_type is not None:
                     salary_obj, created = SalaryStructure.objects.get_or_create(
                         employee=user,
-                        defaults={'base_salary': salary_amount, 'frequency': 'monthly'}
+                        defaults={
+                            'base_salary': salary_amount if salary_amount is not None else 0,
+                            'frequency': 'monthly',
+                            'wage_type': wage_type if wage_type is not None else 'monthly'
+                        }
                     )
                     if not created:
-                        salary_obj.base_salary = float(salary_amount)
+                        if salary_amount is not None and str(salary_amount).strip() != '':
+                            salary_obj.base_salary = float(salary_amount)
+                        if wage_type is not None:
+                            salary_obj.wage_type = wage_type
                         salary_obj.save()
             _bump_accounting_employees_cache_version()
             return Response({'success': True, 'message': 'Employee updated successfully'}, status=status.HTTP_200_OK)

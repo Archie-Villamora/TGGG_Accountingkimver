@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, FileText, CheckCircle2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, FileText, CheckCircle2, Image as ImageIcon } from 'lucide-react';
 import { formatDate } from './utils';
 import MaterialRequestFormModal from '../../components/modals/MaterialRequestFormModal';
 import MaterialRequestCommentThread from '../../components/MaterialRequestCommentThread';
@@ -129,6 +129,18 @@ const RequestItemCard = ({
         </button>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0 sm:mt-0 pt-2 sm:pt-0 border-t border-white/5 sm:border-0 pl-10 sm:pl-0">
+          {request.request_image && isApprovedOrForwarded && (
+            <a
+              href={request.request_image}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-2 px-3 py-1.5 border border-white/20 text-white text-xs font-medium rounded-lg hover:bg-white/10 transition"
+            >
+              <ImageIcon className="h-3.5 w-3.5" />
+              View Uploaded Image
+            </a>
+          )}
           <button
             type="button"
             onClick={(e) => {
@@ -235,7 +247,7 @@ const RequestItemCard = ({
                 inline={true} 
               />
             </div>
-          ) : (!request.request_image && request.items?.length > 0) ? (
+          ) : request.items?.length > 0 ? (
             <div className="mt-2 mb-4 border border-[#FF7120]/30 rounded-xl overflow-hidden shadow-lg bg-white overflow-x-auto print-container-wrapper">
               <MaterialRequestFormModal 
                 isOpen={true} 
@@ -244,7 +256,7 @@ const RequestItemCard = ({
                 inline={true} 
               />
             </div>
-          ) : request.request_image ? (
+          ) : (request.request_image && !isApprovedOrForwarded) ? (
             <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 text-center">
               <p className="text-white/45 text-xs text-left mb-2">Attachment</p>
               <a href={request.request_image} target="_blank" rel="noopener noreferrer" className="inline-block w-full max-w-xs group relative">
@@ -260,7 +272,7 @@ const RequestItemCard = ({
                 <p className="text-white/45 text-xs">Materials List</p>
                 <span className="text-[10px] text-white/50">{request.items?.length || 0} item(s)</span>
               </div>
-              <p className="text-xs text-white/40 italic text-center py-4">No materials listed or image attached.</p>
+              <p className="text-xs text-white/40 italic text-center py-4">No materials listed.</p>
             </div>
           )}
 

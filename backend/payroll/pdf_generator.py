@@ -127,6 +127,10 @@ def generate_payslip_pdf(payslip_data):
     prepared_by_signature_url = str(payslip_details.get('prepared_by_signature', '')).strip()
     approved_by_signature_url = str(payslip_details.get('approved_by_signature', '')).strip()
 
+    wage_type = payslip_details.get('wage_type', 'monthly')
+    days_present_val = payslip_details.get('days_present', payslip_data.get('days_present', 0))
+    daily_rate_val = _to_decimal(payslip_details.get('daily_rate', 0))
+
     # Base Dimensions
     sheet_left, sheet_top, sheet_right, sheet_bottom = 65, 51, 890, 774
 
@@ -323,8 +327,12 @@ def generate_payslip_pdf(payslip_data):
     row_start_y = 384
     row_step = 19.5
 
+    basic_salary_label = 'Basic Salary'
+    if wage_type == 'daily':
+        basic_salary_label = f"Basic Pay (₱{format_currency(daily_rate_val)}/day x {days_present_val} days)"
+
     earnings_rows = [
-        ('Basic Salary', basic_salary),
+        (basic_salary_label, basic_salary),
         ('Regular Overtime', regular_ot),
         ('Late/Undertime', late_undertime),
         ('Rest Day', rest_day),

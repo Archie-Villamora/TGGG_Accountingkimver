@@ -199,6 +199,10 @@ def generate_payslip_image(payslip_data):
     prepared_by_signature_url = str(payslip_details.get('prepared_by_signature', '')).strip()
     approved_by_signature_url = str(payslip_details.get('approved_by_signature', '')).strip()
 
+    wage_type = payslip_details.get('wage_type', 'monthly')
+    days_present_val = payslip_details.get('days_present', payslip_data.get('days_present', 0))
+    daily_rate_val = _to_decimal(payslip_details.get('daily_rate', 0))
+
     # ── Canvas dimensions ─────────────────────────────────────────────────────
     # Portrait orientation, ~960×780 logical units at 2× scale (≈1920×1560 px)
     scale = 2.0
@@ -337,8 +341,12 @@ def generate_payslip_image(payslip_data):
     ROW_START_Y = SECTION_Y + s(17)
     ROW_STEP    = s(20)
 
+    basic_salary_label = 'Basic Salary'
+    if wage_type == 'daily':
+        basic_salary_label = f"Basic Pay (₱{format_currency(daily_rate_val)}/day x {days_present_val} days)"
+
     earnings_rows = [
-        ('Basic Salary',    basic_salary),
+        (basic_salary_label, basic_salary),
         ('Regular Overtime', regular_ot),
         ('Late/Undertime',  late_undertime),
         ('Rest Day',        rest_day),

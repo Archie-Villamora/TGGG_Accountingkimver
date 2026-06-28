@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import {
   Button,
   Popover,
@@ -27,6 +27,7 @@ import {
   Download,
 } from 'lucide-react';
 import AccountingSidebar from './AccountingSidebar';
+import AnnouncementBar from '../../../components/AnnouncementBar';
 
 const tabMeta = {
   dashboard: {
@@ -71,6 +72,7 @@ const sectionMeta = {
 };
 
 export function DashboardLayout({
+  user,
   activeTab = 'dashboard',
   activeSection = 'main',
   children,
@@ -85,6 +87,20 @@ export function DashboardLayout({
   const [notificationFilter, setNotificationFilter] = useState('all');
   const [sortOrder, setSortOrder] = useState('newest');
   const [typeFilter, setTypeFilter] = useState('all');
+  
+  const headerRef = useRef(null);
+  const [headerHeight, setHeaderHeight] = useState(112);
+
+  useEffect(() => {
+    if (!headerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setHeaderHeight(entry.target.offsetHeight);
+      }
+    });
+    observer.observe(headerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   const filteredNotifications = useMemo(() => {
     const getCategoryFromType = (type) => {
@@ -127,7 +143,9 @@ export function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-[#00273C] relative">
-      <header className="fixed top-0 w-full z-50 px-3 sm:px-6 py-3 sm:py-4" style={{ background: '#001f35' }}>
+      <div ref={headerRef} className="fixed top-0 left-0 w-full z-50 flex flex-col">
+        <AnnouncementBar user={user} />
+        <header className="w-full px-3 sm:px-6 py-3 sm:py-4" style={{ background: '#001f35' }}>
         <div className="flex flex-row items-start lg:items-center justify-between gap-4 lg:gap-0 w-full mx-auto px-2 sm:px-4">
           {/* Logo & Title: Left side */}
           <div className="flex items-center justify-start gap-2 sm:gap-4 mt-1 lg:mt-0">
@@ -283,8 +301,9 @@ export function DashboardLayout({
           </div>
         </div>
       </header>
+      </div>
 
-      <div className="relative pt-28 px-3 sm:px-6 pb-10">
+      <div className="relative px-3 sm:px-6 pb-10" style={{ paddingTop: `calc(${headerHeight}px + 2rem)` }}>
         <div className="w-full">
           <div className="flex flex-col lg:flex-row gap-6">
             <aside className="w-64 shrink-0 hidden lg:block">

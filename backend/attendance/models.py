@@ -140,6 +140,7 @@ class CalendarEvent(models.Model):
 
     title = models.CharField(max_length=200)
     date = models.DateField()
+    end_date = models.DateField(null=True, blank=True)
     event_type = models.CharField(max_length=20, choices=EVENT_TYPES, default='event')
     description = models.TextField(blank=True)
     is_holiday = models.BooleanField(default=False)
@@ -147,14 +148,43 @@ class CalendarEvent(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # Recurrence & Announcements
+    recurrence_group = models.CharField(max_length=100, blank=True, null=True)
+    announcement_type = models.CharField(
+        max_length=20,
+        choices=[
+            ('all_day', 'All Day'),
+            ('custom', 'Custom Duration'),
+            ('indefinite', 'Indefinite'),
+        ],
+        default='all_day'
+    )
+    announcement_start_time = models.TimeField(blank=True, null=True)
+    announcement_duration_minutes = models.IntegerField(blank=True, null=True)
+    is_dismissed = models.BooleanField(default=False)
+
+    # Visibility constraints
+    visible_to_roles = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="List of roles that can see this event. Empty means all roles."
+    )
+    visible_to_users = models.ManyToManyField(
+        CustomUser,
+        blank=True,
+        related_name='visible_calendar_events',
+        help_text="Specific users who can see this event."
+    )
+
     class Meta:
         ordering = ['date', 'title']
-        unique_together = ('title', 'date')
         indexes = [
             # Holiday / event lookup by date (used every page load to check holidays)
             models.Index(fields=['date'], name='cal_date_idx'),
             # Filter by event type
             models.Index(fields=['event_type', 'date'], name='cal_type_date_idx'),
+            models.Index(fields=['recurrence_group'], name='cal_rec_grp_idx'),
+            models.Index(fields=['is_dismissed', 'announcement_type', 'date'], name='cal_ann_active_idx'),
         ]
 
     def __str__(self):

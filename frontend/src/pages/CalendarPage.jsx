@@ -60,6 +60,79 @@ const blocksAttendance = (eventItem) => {
   return Boolean(eventItem.is_holiday) || NO_WORK_TYPES.has(String(eventItem.event_type || '').toLowerCase());
 };
 
+const getSortedWeekEvents = (events, weekDays) => {
+  const weekStart = toIsoDate(weekDays[0]);
+  const weekEnd = toIsoDate(weekDays[6]);
+
+  const weekEvents = (events || []).filter((ev) => {
+    const evStart = ev.date;
+    const evEnd = ev.end_date || ev.date;
+    return evStart <= weekEnd && evEnd >= weekStart;
+  });
+
+  return [...weekEvents].sort((a, b) => {
+    const aStart = parseIsoDate(a.date);
+    const aEnd = parseIsoDate(a.end_date || a.date);
+    const bStart = parseIsoDate(b.date);
+    const bEnd = parseIsoDate(b.end_date || b.date);
+
+    const aLen = aEnd - aStart;
+    const bLen = bEnd - bStart;
+
+    if (aLen !== bLen) return bLen - aLen;
+    return aStart - bStart;
+  });
+};
+
+const getWeekEventsWithRows = (events, weekDays) => {
+  const sorted = getSortedWeekEvents(events, weekDays);
+  const rows = [];
+
+  return sorted.map((ev) => {
+    const evStart = parseIsoDate(ev.date);
+    const evEnd = parseIsoDate(ev.end_date || ev.date);
+    const weekStart = weekDays[0];
+    const weekEnd = weekDays[6];
+
+    const start = evStart < weekStart ? weekStart : evStart;
+    const end = evEnd > weekEnd ? weekEnd : evEnd;
+
+    const colStart = start.getDay();
+    const colEnd = end.getDay();
+
+    let rowIndex = 0;
+    while (true) {
+      if (!rows[rowIndex]) {
+        rows[rowIndex] = Array(7).fill(false);
+      }
+      let conflict = false;
+      for (let c = colStart; c <= colEnd; c++) {
+        if (rows[rowIndex][c]) {
+          conflict = true;
+          break;
+        }
+      }
+      if (!conflict) {
+        for (let c = colStart; c <= colEnd; c++) {
+          rows[rowIndex][c] = true;
+        }
+        break;
+      }
+      rowIndex++;
+    }
+
+    return {
+      event: ev,
+      style: {
+        gridColumnStart: colStart + 1,
+        gridColumnEnd: colEnd + 2,
+        gridRowStart: rowIndex + 1,
+        gridRowEnd: rowIndex + 2,
+      }
+    };
+  });
+};
+
 export default function CalendarPage({ user }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -117,14 +190,33 @@ export default function CalendarPage({ user }) {
   const eventsByDate = useMemo(() => {
     const map = new Map();
 
-    events.forEach((eventItem) => {
-      const key = String(eventItem?.date || '').trim();
-      if (!key) return;
+    (events || []).forEach((eventItem) => {
+      const start = eventItem?.date;
+      const end = eventItem?.end_date || eventItem?.date;
+      if (!start) return;
 
-      if (!map.has(key)) {
-        map.set(key, []);
+      let curr = parseIsoDate(start);
+      const last = parseIsoDate(end);
+      if (curr && last) {
+        while (curr <= last) {
+          const key = toIsoDate(curr);
+          if (!map.has(key)) {
+            map.set(key, []);
+          }
+          if (!map.get(key).some((ev) => ev.id === eventItem.id)) {
+            map.get(key).push(eventItem);
+          }
+          curr.setDate(curr.getDate() + 1);
+        }
+      } else {
+        const key = String(start).trim();
+        if (!map.has(key)) {
+          map.set(key, []);
+        }
+        if (!map.get(key).some((ev) => ev.id === eventItem.id)) {
+          map.get(key).push(eventItem);
+        }
       }
-      map.get(key).push(eventItem);
     });
 
     map.forEach((items) => {
@@ -140,6 +232,14 @@ export default function CalendarPage({ user }) {
   }, [events]);
 
   const calendarDays = useMemo(() => buildMonthGrid(currentMonth), [currentMonth]);
+
+  const weeks = useMemo(() => {
+    const grouped = [];
+    for (let i = 0; i < calendarDays.length; i += 7) {
+      grouped.push(calendarDays.slice(i, i + 7));
+    }
+    return grouped;
+  }, [calendarDays]);
 
   const monthBlockedCount = useMemo(
     () =>
@@ -269,71 +369,79 @@ export default function CalendarPage({ user }) {
                 ))}
               </div>
 
-              <div className="grid grid-cols-7 gap-2">
-                {calendarDays.map((day) => {
-                  const dayKey = toIsoDate(day);
-                  const dayEvents = eventsByDate.get(dayKey) || [];
-                  const inCurrentMonth = day.getMonth() === currentMonth.getMonth();
-                  const isToday = dayKey === todayIso;
-                  const isSelected = dayKey === selectedDate;
-                  const hasBlockedEvent = dayEvents.some((eventItem) => blocksAttendance(eventItem));
+            <div className="space-y-2 select-none">
+              {weeks.map((week, weekIdx) => {
+                const weekEventsWithRows = getWeekEventsWithRows(events, week);
+                return (
+                  <div key={weekIdx} className="relative min-h-[110px] w-full border border-white/5 rounded-lg p-1 bg-[#021B2C]/20">
+                    {/* Background Day Cells */}
+                    <div className="grid grid-cols-7 gap-1 h-full min-h-[100px]">
+                      {week.map((day) => {
+                        const dayKey = toIsoDate(day);
+                        const dayEvents = eventsByDate.get(dayKey) || [];
+                        const inCurrentMonth = day.getMonth() === currentMonth.getMonth();
+                        const isToday = dayKey === todayIso;
+                        const isSelected = dayKey === selectedDate;
+                        const hasBlockedEvent = dayEvents.some((eventItem) => blocksAttendance(eventItem));
 
-                  return (
-                    <button
-                      key={dayKey}
-                      type="button"
-                      onClick={() => setSelectedDate(dayKey)}
-                      className={`min-h-[88px] rounded-lg border p-2 text-left transition-all focus:outline-none focus:ring-2 focus:ring-[#FF7120]/50 ${
-                        inCurrentMonth
-                          ? 'bg-[#001f35]/70 border-white/10 hover:border-white/20'
-                          : 'bg-[#001f35]/35 border-white/5 opacity-70'
-                      } ${isSelected ? 'border-[#FF7120]/45 ring-1 ring-[#FF7120]/35' : ''}`}
-                    >
-                      <div className="flex items-start justify-between gap-1">
-                        <span
-                          className={`text-xs sm:text-sm font-semibold ${
-                            isToday
-                              ? 'text-[#FF7120]'
-                              : inCurrentMonth
-                                ? 'text-white'
-                                : 'text-white/45'
-                          }`}
-                        >
-                          {day.getDate()}
-                        </span>
-
-                        {dayEvents.length > 0 && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white/10 text-white/75 font-semibold">
-                            {dayEvents.length}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="mt-1.5 space-y-1">
-                        {dayEvents.slice(0, 2).map((eventItem) => (
-                          <p
-                            key={`${dayKey}-${eventItem.id ?? eventItem.title}`}
-                            className={`truncate text-[10px] sm:text-[11px] rounded px-1.5 py-0.5 ${
-                              blocksAttendance(eventItem)
-                                ? 'bg-[#FF7120]/20 text-[#FFB284]'
-                                : 'bg-emerald-500/14 text-emerald-300'
-                            }`}
+                        return (
+                          <button
+                            key={dayKey}
+                            type="button"
+                            onClick={() => setSelectedDate(dayKey)}
+                            className={`h-full min-h-[96px] rounded-md border p-1.5 text-left transition-all focus:outline-none focus:ring-1 focus:ring-[#FF7120]/30 ${
+                              inCurrentMonth
+                                ? 'bg-[#001f35]/70 border-white/5 hover:border-white/10'
+                                : 'bg-transparent border-transparent opacity-40'
+                            } ${isSelected ? 'border-[#FF7120]/45 ring-1 ring-[#FF7120]/35' : ''}`}
                           >
-                            {eventItem.title}
-                          </p>
-                        ))}
-                        {dayEvents.length > 2 && (
-                          <p className="text-[10px] text-white/50 px-1">+{dayEvents.length - 2} more</p>
-                        )}
-                      </div>
+                            <div className="flex items-center justify-between">
+                              <span
+                                className={`text-[10px] sm:text-xs font-semibold ${
+                                  isToday
+                                    ? 'text-[#FF7120]'
+                                    : inCurrentMonth
+                                      ? 'text-white/80'
+                                      : 'text-white/30'
+                                }`}
+                              >
+                                {day.getDate()}
+                              </span>
+                              {hasBlockedEvent && (
+                                <span className="h-1.5 w-1.5 rounded-full bg-[#FF7120]" />
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
 
-                      {hasBlockedEvent && (
-                        <span className="inline-block mt-2 h-1.5 w-1.5 rounded-full bg-[#FF7120]" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+                    {/* Horizontal Overlap/Events Layer */}
+                    <div className="absolute top-7 left-1 right-1 bottom-1 grid grid-cols-7 gap-y-1 gap-x-1 pointer-events-none auto-rows-max z-10">
+                      {weekEventsWithRows.map(({ event: ev, style }) => {
+                        const blocked = blocksAttendance(ev);
+                        return (
+                          <button
+                            key={ev.id}
+                            type="button"
+                            onClick={() => setSelectedDate(ev.date)}
+                            style={style}
+                            className={`pointer-events-auto truncate text-[10px] sm:text-[11px] rounded px-2 py-0.5 text-left font-medium select-none shadow border transition-all hover:scale-[1.01] h-[22px] flex items-center ${
+                              blocked
+                                ? 'bg-[#FF7120]/15 text-[#FFB284] border-[#FF7120]/30 hover:bg-[#FF7120]/25'
+                                : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20 hover:bg-emerald-500/20'
+                            }`}
+                            title={ev.title}
+                          >
+                            {ev.title}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
             </div>
 
             <aside className="order-2 rounded-xl border border-white/10 bg-[#021B2C]/70 p-4 flex flex-col">

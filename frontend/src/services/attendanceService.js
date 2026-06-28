@@ -92,9 +92,19 @@ export async function updateEvent(eventId, payload) {
     return data;
 }
 
-export async function deleteEvent(eventId) {
-    const { data } = await api.delete(`/attendance/events/${eventId}/`);
+export async function deleteEvent(eventId, params = {}) {
+    const { data } = await api.delete(`/attendance/events/${eventId}/`, { params });
     invalidateRequestCache(ATTENDANCE_CACHE_PREFIX.events);
+    return data;
+}
+
+export async function getActiveAnnouncements() {
+    const { data } = await api.get('/attendance/announcements/');
+    return data;
+}
+
+export async function dismissEvent(eventId) {
+    const { data } = await api.post(`/attendance/events/${eventId}/dismiss/`);
     return data;
 }
 

@@ -14,6 +14,8 @@ urlpatterns = [
     path('leave/my/', views.my_leave_requests, name='my_leave_requests'),
     path('events/', views.calendar_events, name='calendar_events'),
     path('events/<int:event_id>/', views.calendar_event_detail, name='calendar_event_detail'),
+    path('events/<int:event_id>/dismiss/', views.dismiss_calendar_event, name='dismiss_calendar_event'),
+    path('announcements/', views.active_announcements, name='active_announcements'),
     path('overtime/', views.all_overtime_requests, name='all_overtime_requests'),
     
     # Work Documentation Endpoints

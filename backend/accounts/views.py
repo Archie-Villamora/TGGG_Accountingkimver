@@ -441,7 +441,7 @@ def _is_accounting_or_admin(user):
 
 def _can_view_user_directory(user):
     normalized_role = normalize_role_input(getattr(user, 'role', None))
-    return user.is_staff or user.is_superuser or normalized_role in APPROVER_ROLES.union(EXECUTIVE_VIEW_ROLES)
+    return user.is_staff or user.is_superuser or normalized_role in APPROVER_ROLES.union(EXECUTIVE_VIEW_ROLES).union({'accounting'})
 
 
 ACCOUNTING_EMPLOYEES_CACHE_VERSION_KEY = 'accounts:accounting-employees:version'

@@ -56,9 +56,11 @@ export const EmployeeGrid = ({
                 </div>
 
                 <div className="w-full bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-lg p-2.5 border border-green-200/30">
-                  <p className="text-[10px] text-white/60">Monthly Salary</p>
+                  <p className="text-[10px] text-white/60">
+                    {employee.wage_type === 'daily' ? 'Daily Rate' : 'Monthly Salary'}
+                  </p>
                   <p className="text-lg font-semibold tracking-tight text-green-400 truncate">
-                    {employee.salary ? `₱${Number(employee.salary).toLocaleString('en-PH')}` : '---'}
+                    {employee.salary ? `₱${Number(employee.salary).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '---'}
                   </p>
                 </div>
 

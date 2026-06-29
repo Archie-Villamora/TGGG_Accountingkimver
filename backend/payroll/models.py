@@ -9,9 +9,15 @@ class SalaryStructure(models.Model):
         ('monthly', 'Monthly'),
     ]
     
+    WAGE_TYPE_CHOICES = [
+        ('monthly', 'Monthly'),
+        ('daily', 'Daily'),
+    ]
+    
     employee = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='salary_structure')
     base_salary = models.DecimalField(max_digits=10, decimal_places=2)
     frequency = models.CharField(max_length=20, choices=FREQUENCY_CHOICES, default='monthly')
+    wage_type = models.CharField(max_length=20, choices=WAGE_TYPE_CHOICES, default='monthly')
     tax_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)  # income tax
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

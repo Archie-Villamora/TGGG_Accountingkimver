@@ -1,4 +1,4 @@
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -475,3 +475,368 @@ class AutoPmTimeoutTests(TestCase):
 		record.refresh_from_db()
 		self.assertIsNone(record.time_out)
 		self.assertEqual(response.data['record']['id'], record.id)
+
+
+class CalendarEventRecurrenceAndAnnouncementTests(TestCase):
+	def setUp(self):
+		self.client = APIClient()
+		user_model = get_user_model()
+		self.accounting = user_model.objects.create_user(
+			username='accounting_test_user',
+			email='accounting_test_user@example.com',
+			password='test-password',
+			role='accounting',
+		)
+		self._authenticate(self.accounting)
+
+	def _authenticate(self, user):
+		self.client.force_authenticate(user=user)
+
+	def test_create_recurring_event(self):
+		# 2026-06-30 is a Tuesday, 2026-07-02 is a Thursday
+		response = self.client.post(
+			'/api/attendance/events/',
+			{
+				'title': 'Weekly Sync',
+				'date': '2026-06-30',
+				'event_type': 'event',
+				'is_holiday': False,
+				'description': 'Recurring sync',
+				'is_recurring': True,
+				'recurrence_weekdays': ['Tuesday', 'Thursday'],
+				'recurrence_end_date': '2026-07-05',
+				'announcement_type': 'all_day',
+			},
+			format='json',
+		)
+		self.assertEqual(response.status_code, 201)
+		self.assertIsNotNone(response.data['recurrence_group'])
+
+		events = CalendarEvent.objects.filter(recurrence_group=response.data['recurrence_group'])
+		self.assertEqual(events.count(), 2)
+		dates = {str(e.date) for e in events}
+		self.assertIn('2026-06-30', dates)
+		self.assertIn('2026-07-02', dates)
+
+	def test_delete_series(self):
+		response = self.client.post(
+			'/api/attendance/events/',
+			{
+				'title': 'Weekly Sync Delete',
+				'date': '2026-06-30',
+				'event_type': 'event',
+				'is_holiday': False,
+				'description': 'Recurring sync delete',
+				'is_recurring': True,
+				'recurrence_weekdays': ['Tuesday', 'Thursday'],
+				'recurrence_end_date': '2026-07-05',
+				'announcement_type': 'all_day',
+			},
+			format='json',
+		)
+		self.assertEqual(response.status_code, 201)
+		event_id = response.data['id']
+		recurrence_group = response.data['recurrence_group']
+
+		delete_response = self.client.delete(f'/api/attendance/events/{event_id}/?delete_type=series')
+		self.assertEqual(delete_response.status_code, 200)
+
+		self.assertFalse(CalendarEvent.objects.filter(recurrence_group=recurrence_group).exists())
+
+	@patch('attendance.views.timezone.localtime')
+	def test_active_announcements_visibility(self, mock_localtime):
+		mock_localtime.return_value = timezone.make_aware(datetime(2026, 6, 24, 10, 0, 0))
+
+		CalendarEvent.objects.create(
+			title='Indefinite Notice',
+			date=date(2026, 6, 23),
+			event_type='event',
+			announcement_type='indefinite',
+			created_by=self.accounting,
+		)
+		CalendarEvent.objects.create(
+			title='All Day Today',
+			date=date(2026, 6, 24),
+			event_type='event',
+			announcement_type='all_day',
+			created_by=self.accounting,
+		)
+		CalendarEvent.objects.create(
+			title='Custom Active Today',
+			date=date(2026, 6, 24),
+			event_type='event',
+			announcement_type='custom',
+			announcement_start_time=time(9, 0),
+			announcement_duration_minutes=120,
+			created_by=self.accounting,
+		)
+		CalendarEvent.objects.create(
+			title='Custom Inactive Today',
+			date=date(2026, 6, 24),
+			event_type='event',
+			announcement_type='custom',
+			announcement_start_time=time(11, 0),
+			announcement_duration_minutes=60,
+			created_by=self.accounting,
+		)
+
+		response = self.client.get('/api/attendance/announcements/')
+		self.assertEqual(response.status_code, 200)
+		self.assertEqual(len(response.data), 3)
+		titles = {r['title'] for r in response.data}
+		self.assertIn('Indefinite Notice', titles)
+		self.assertIn('All Day Today', titles)
+		self.assertIn('Custom Active Today', titles)
+		self.assertNotIn('Custom Inactive Today', titles)
+
+
+class CalendarEventMultipleAndTargetedVisibilityTests(TestCase):
+	def setUp(self):
+		self.client = APIClient()
+		user_model = get_user_model()
+		self.accounting = user_model.objects.create_user(
+			username='acct_test',
+			email='acct_test@example.com',
+			password='test-password',
+			role='accounting',
+		)
+		self.site_engineer = user_model.objects.create_user(
+			username='eng_test',
+			email='eng_test@example.com',
+			password='test-password',
+			role='site_engineer',
+		)
+		self.intern = user_model.objects.create_user(
+			username='intern_test',
+			email='intern_test@example.com',
+			password='test-password',
+			role='intern',
+		)
+		self.client.force_authenticate(user=self.accounting)
+
+	def test_multiple_events_on_same_day_no_cap(self):
+		target_day = str(timezone.localdate() + timedelta(days=2))
+		# Create 8 events on the same day (should succeed since cap is removed)
+		for i in range(1, 9):
+			response = self.client.post(
+				'/api/attendance/events/',
+				{
+					'title': f'Event {i}',
+					'date': target_day,
+					'event_type': 'event',
+					'is_holiday': False,
+					'description': f'Test event {i}',
+				},
+				format='json',
+			)
+			self.assertEqual(response.status_code, 201)
+
+	def test_visibility_targeting(self):
+		target_day = str(timezone.localdate() + timedelta(days=3))
+		# Create an event visible only to site_engineer
+		response = self.client.post(
+			'/api/attendance/events/',
+			{
+				'title': 'Engineer Sync',
+				'date': target_day,
+				'event_type': 'event',
+				'is_holiday': False,
+				'description': 'Visible to engineers',
+				'visible_to_roles': ['site_engineer'],
+			},
+			format='json',
+		)
+		self.assertEqual(response.status_code, 201)
+
+		# Create an event visible only to named employee (intern)
+		response = self.client.post(
+			'/api/attendance/events/',
+			{
+				'title': 'Intern Chat',
+				'date': target_day,
+				'event_type': 'event',
+				'is_holiday': False,
+				'description': 'Visible to intern only',
+				'visible_to_users': [self.intern.id],
+			},
+			format='json',
+		)
+		self.assertEqual(response.status_code, 201)
+
+		# 1. Test GET as site_engineer: should see 'Engineer Sync' but not 'Intern Chat'
+		self.client.force_authenticate(user=self.site_engineer)
+		response = self.client.get('/api/attendance/events/')
+		self.assertEqual(response.status_code, 200)
+		titles = {ev['title'] for ev in response.data}
+		self.assertIn('Engineer Sync', titles)
+		self.assertNotIn('Intern Chat', titles)
+
+		# 2. Test GET as intern: should see 'Intern Chat' but not 'Engineer Sync'
+		self.client.force_authenticate(user=self.intern)
+		response = self.client.get('/api/attendance/events/')
+		self.assertEqual(response.status_code, 200)
+		titles = {ev['title'] for ev in response.data}
+		self.assertIn('Intern Chat', titles)
+		self.assertNotIn('Engineer Sync', titles)
+
+		# 3. Test GET as accounting: should see both (creators/managers see all)
+		self.client.force_authenticate(user=self.accounting)
+		response = self.client.get('/api/attendance/events/')
+		self.assertEqual(response.status_code, 200)
+		titles = {ev['title'] for ev in response.data}
+		self.assertIn('Engineer Sync', titles)
+		self.assertIn('Intern Chat', titles)
+
+	def test_input_validation_and_sanitization(self):
+		target_day = str(timezone.localdate() + timedelta(days=4))
+
+		# 1. Title too long (>200 characters)
+		response = self.client.post(
+			'/api/attendance/events/',
+			{
+				'title': 'A' * 201,
+				'date': target_day,
+				'event_type': 'event',
+				'description': 'Valid description',
+			},
+			format='json',
+		)
+		self.assertEqual(response.status_code, 400)
+		self.assertIn('Title must be 200 characters or less', response.data['error'])
+
+		# 2. Description too long (>500 characters)
+		response = self.client.post(
+			'/api/attendance/events/',
+			{
+				'title': 'Valid Title',
+				'date': target_day,
+				'event_type': 'event',
+				'description': 'B' * 501,
+			},
+			format='json',
+		)
+		self.assertEqual(response.status_code, 400)
+		self.assertIn('Description must be 500 characters or less', response.data['error'])
+
+		# 3. Sanitization of HTML tags in Title and Description
+		response = self.client.post(
+			'/api/attendance/events/',
+			{
+				'title': '<b>Bold Event</b> <script>danger</script>',
+				'date': target_day,
+				'event_type': 'event',
+				'description': '<p>Sanitize me</p> <a href="#">link</a>',
+			},
+			format='json',
+		)
+		self.assertEqual(response.status_code, 201)
+		self.assertEqual(response.data['title'], 'Bold Event danger')
+		self.assertEqual(response.data['description'], 'Sanitize me link')
+
+	def test_multi_day_event_creation_and_no_cap(self):
+		self.client.force_authenticate(user=self.accounting)
+		start_date = timezone.localdate() + timedelta(days=5)
+		end_date = start_date + timedelta(days=2) # 3 days total
+		
+		# Create a 3-day event
+		response = self.client.post(
+			'/api/attendance/events/',
+			{
+				'title': 'Multi-day Celebration',
+				'date': str(start_date),
+				'end_date': str(end_date),
+				'event_type': 'event',
+				'description': '3-day event',
+			},
+			format='json',
+		)
+		self.assertEqual(response.status_code, 201)
+		self.assertEqual(str(response.data['date']), str(start_date))
+		self.assertEqual(str(response.data['end_date']), str(end_date))
+		
+		# Add 7 more events on the second day (total 8 events)
+		second_day = start_date + timedelta(days=1)
+		for i in range(7):
+			response = self.client.post(
+				'/api/attendance/events/',
+				{
+					'title': f'Day 2 Event {i}',
+					'date': str(second_day),
+					'event_type': 'event',
+				},
+				format='json',
+			)
+			self.assertEqual(response.status_code, 201)
+			
+		# Check that we can still add an event on the third day
+		third_day = start_date + timedelta(days=2)
+		response = self.client.post(
+			'/api/attendance/events/',
+			{
+				'title': 'Day 3 Event',
+				'date': str(third_day),
+				'event_type': 'event',
+			},
+			format='json',
+		)
+		self.assertEqual(response.status_code, 201)
+
+	def test_recurring_multi_day_event(self):
+		self.client.force_authenticate(user=self.accounting)
+		start_date = timezone.localdate() + timedelta(days=10)
+		end_date = start_date + timedelta(days=2) # 3 days occurrence
+		recurrence_end = start_date + timedelta(days=100)
+		
+		# Create quarterly multi-day event
+		response = self.client.post(
+			'/api/attendance/events/',
+			{
+				'title': 'Quarterly Inventory',
+				'date': str(start_date),
+				'end_date': str(end_date),
+				'event_type': 'event',
+				'is_recurring': True,
+				'recurrence_frequency': 'quarterly',
+				'recurrence_end_date': str(recurrence_end),
+			},
+			format='json',
+		)
+		self.assertEqual(response.status_code, 201)
+		recurrence_group = response.data['recurrence_group']
+		self.assertIsNotNone(recurrence_group)
+		
+		# Check the generated occurrences (there should be 2: one at start_date, one at start_date + 3 months)
+		occurrences = CalendarEvent.objects.filter(recurrence_group=recurrence_group).order_by('date')
+		self.assertEqual(occurrences.count(), 2)
+		
+		first = occurrences[0]
+		self.assertEqual(first.date, start_date)
+		self.assertEqual(first.end_date, end_date)
+		
+		second = occurrences[1]
+		# should be roughly 3 months later
+		self.assertTrue(second.date > start_date + timedelta(days=80))
+		self.assertEqual(second.end_date, second.date + timedelta(days=2))
+
+	@patch('attendance.views.determine_session', return_value='morning')
+	@patch('attendance.views.is_late_for_session', return_value=False)
+	def test_multi_day_holiday_blocks_attendance(self, _mock_is_late, _mock_session):
+		self.client.force_authenticate(user=self.accounting)
+		start_date = timezone.localdate()
+		end_date = start_date + timedelta(days=2) # spans today, tomorrow, day-after
+		
+		CalendarEvent.objects.create(
+			title='Holy Week Break',
+			date=start_date,
+			end_date=end_date,
+			event_type='holiday',
+			is_holiday=True,
+			created_by=self.accounting,
+		)
+		
+		# Attempting to clock in today (day 1 of holiday) must be blocked
+		self.client.force_authenticate(user=self.intern) # clock in as employee/intern
+		clock_in_response = self.client.post('/api/attendance/clock-in/', {}, format='json')
+		self.assertEqual(clock_in_response.status_code, 400)
+		self.assertIn('cannot make your attendance', clock_in_response.data['error'].lower())
+

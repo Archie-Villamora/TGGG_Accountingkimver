@@ -4,9 +4,9 @@ import NotificationBell from '../../../components/navigation/NotificationBell';
 import DesktopNavLinks from '../../../components/navigation/DesktopNavLinks';
 import MobileMenu from '../../../components/navigation/MobileMenu';
 
-const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user }) => {
+const PublicNavigation = ({ onNavigate, currentPage = 'attendance', user, fixed = true }) => {
   return (
-    <nav className="fixed top-0 w-full z-50 px-3 sm:px-6 py-2 sm:py-4" style={{ background: '#001f35' }}>
+    <nav className={`${fixed ? 'fixed top-0 left-0 w-full' : 'w-full'} z-50 px-3 sm:px-6 py-2 sm:py-4`} style={{ background: '#001f35' }}>
       <div className="flex flex-row items-start lg:items-center justify-between w-full mx-auto px-2 sm:px-4 gap-2 lg:gap-0">
         {/* Logo & Title: Left side */}
         <div className="flex items-center gap-2 sm:gap-4 mt-1 lg:mt-0">

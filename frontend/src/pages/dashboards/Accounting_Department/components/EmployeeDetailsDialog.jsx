@@ -49,6 +49,7 @@ export const EmployeeDetailsDialog = ({
     startDate: '',
     status: 'Active',
     salary: '',
+    wage_type: 'monthly',
   });
 
   useEffect(() => {
@@ -74,6 +75,7 @@ export const EmployeeDetailsDialog = ({
       startDate: selectedEmployee.joinDate || '',
       status: selectedEmployee.status || 'Active',
       salary: selectedEmployee.salary || '',
+      wage_type: selectedEmployee.wage_type || 'monthly',
     });
     setIsEditingEmployee(true);
   };
@@ -101,6 +103,7 @@ export const EmployeeDetailsDialog = ({
         startDate: editFormData.startDate || null,
         status: editFormData.status,
         salary: editFormData.salary || null,
+        wage_type: editFormData.wage_type,
       });
 
       toast.success('Employee Updated', { description: 'Employee updated successfully.' });
@@ -185,7 +188,9 @@ export const EmployeeDetailsDialog = ({
                   </div>
                   <div>
                     <h4 className="font-semibold text-white/80 mb-2">Salary</h4>
-                    <p className="text-sm font-semibold text-green-400">{selectedEmployee.salary ? `₱${Number(selectedEmployee.salary).toLocaleString('en-PH')}` : '---'}</p>
+                    <p className="text-sm font-semibold text-green-400">
+                      {selectedEmployee.salary ? `₱${Number(selectedEmployee.salary).toLocaleString('en-PH')} / ${selectedEmployee.wage_type === 'daily' ? 'day' : 'month'}` : '---'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -245,14 +250,31 @@ export const EmployeeDetailsDialog = ({
                   </Select>
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="editSalary" className="text-white/80">Monthly Salary (₱)</Label>
+                  <Label htmlFor="editWageType" className="text-white/80">Wage Type</Label>
+                  <Select
+                    value={editFormData.wage_type}
+                    onValueChange={(value) => setEditFormData({ ...editFormData, wage_type: value })}
+                  >
+                    <SelectTrigger id="editWageType" className="bg-[#00273C] border-white/10 text-white">
+                      <SelectValue placeholder="Select wage type" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#001f35] border-white/10 text-white">
+                      <SelectItem value="monthly" className="text-white hover:bg-[#00273C]">Monthly</SelectItem>
+                      <SelectItem value="daily" className="text-white hover:bg-[#00273C]">Daily</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="editSalary" className="text-white/80">
+                    {editFormData.wage_type === 'daily' ? 'Daily Rate (₱)' : 'Monthly Salary (₱)'}
+                  </Label>
                   <Input
                     id="editSalary"
                     type="number"
                     className="bg-[#00273C] border-white/10 text-white"
                     value={editFormData.salary}
                     onChange={(e) => setEditFormData({ ...editFormData, salary: e.target.value })}
-                    placeholder="Enter monthly salary"
+                    placeholder={editFormData.wage_type === 'daily' ? 'Enter daily rate' : 'Enter monthly salary'}
                     min="0"
                     step="100"
                   />

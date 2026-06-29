@@ -25,7 +25,7 @@ const formatDurationParts = (totalMinutes) => {
   const minuteLabel = remainingMinutes === 1 ? 'min' : 'mins';
 
   if (hours > 0 && remainingMinutes > 0) {
-    return `${hours}${hourLabel} and ${remainingMinutes} ${minuteLabel}`;
+    return `${hours}${hourLabel} ${remainingMinutes} ${minuteLabel}`;
   }
 
   if (hours > 0) {

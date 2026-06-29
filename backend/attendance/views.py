@@ -13,6 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from accounts.models import CustomUser
+from accounts.views import normalize_role_input
 from todos.services import NotificationService
 from .models import Attendance, CalendarEvent, Leave, OvertimeRequest, TimeLog
 from .geocoding_service import reverse_geocode
@@ -770,7 +771,11 @@ def _event_blocks_attendance(event_type, is_holiday):
 
 
 def _get_non_working_event(day):
-    for event in CalendarEvent.objects.filter(date=day).order_by('title'):
+    events = CalendarEvent.objects.filter(
+        Q(end_date__gte=day) | Q(end_date__isnull=True),
+        date__lte=day
+    ).order_by('title')
+    for event in events:
         if _event_blocks_attendance(event.event_type, event.is_holiday):
             return event
     return None
@@ -994,46 +999,137 @@ def clock_out(request):
     return Response({'success': True, 'attendance': _serialize_attendance(record)}, status=status.HTTP_200_OK)
 
 
+def _is_event_expired(event, now_local=None):
+    if now_local is None:
+        now_local = timezone.localtime(timezone.now())
+    
+    event_date = event.date
+    if not event_date:
+        return True
+        
+    if event.announcement_type == 'indefinite':
+        return False
+        
+    event_end = event.end_date or event_date
+        
+    if event.announcement_type == 'all_day':
+        return now_local.date() > event_end
+        
+    if event.announcement_type == 'custom':
+        start_time = event.announcement_start_time or time(0, 0)
+        duration = event.announcement_duration_minutes or 0
+        start_dt = datetime.combine(event_end, start_time)
+        end_dt = start_dt + timedelta(minutes=duration)
+        
+        try:
+            end_dt = timezone.make_aware(end_dt)
+        except ValueError:
+            pass
+            
+        return now_local >= end_dt
+        
+    return now_local.date() > event_end
+
+
+def get_next_monthly_date(start_date, months_offset):
+    year = start_date.year
+    month = start_date.month + months_offset
+    while month > 12:
+        month -= 12
+        year += 1
+    import calendar
+    last_day = calendar.monthrange(year, month)[1]
+    day = min(start_date.day, last_day)
+    return date(year, month, day)
+
+
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def calendar_events(request):
     """
-    GET: list all events (optionally filter by upcoming)
-    POST: create/update an event (Accounting only)
+    GET: list all events (optionally filter by upcoming/history and role/user visibility)
+    POST: create an event (Accounting/CEO only, up to 7 events per day)
     """
     if request.method == 'GET':
+        show_history = request.query_params.get('history') == 'true'
         only_upcoming = request.query_params.get('upcoming') == 'true'
-        qs = CalendarEvent.objects.all()
+        
+        now_local = timezone.localtime(timezone.now())
+        qs = CalendarEvent.objects.all().order_by('date', 'title')
+        
+        selected_events = []
+        for event in qs:
+            expired = _is_event_expired(event, now_local)
+            if show_history and expired:
+                selected_events.append(event)
+            elif not show_history and not expired:
+                selected_events.append(event)
+                
         if only_upcoming:
-            qs = qs.filter(date__gte=date.today())
-        qs = qs.order_by('date', 'title')[:100]
+            selected_events = [ev for ev in selected_events if (ev.end_date or ev.date) >= now_local.date()]
+            
+        # Visibility Filter for GET
+        user = request.user
+        user_role = normalize_role_input(user.role) if getattr(user, 'role', None) else None
+        
+        filtered_events = []
+        for event in selected_events:
+            # CEO and Accounting can view all events to manage them
+            if user_role in ['accounting', 'ceo'] or user.is_staff or user.is_superuser:
+                filtered_events.append(event)
+            else:
+                roles = event.visible_to_roles or []
+                users_ids = list(event.visible_to_users.values_list('id', flat=True))
+                # If no role/user constraints are set, it defaults to being visible to all
+                if not roles and not users_ids:
+                    filtered_events.append(event)
+                # Otherwise, user must match one of the targets
+                elif (user_role in roles) or (user.id in users_ids):
+                    filtered_events.append(event)
+        selected_events = filtered_events
+            
         return Response([
             {
                 'id': event.id,
                 'title': event.title,
                 'date': event.date,
+                'end_date': event.end_date,
                 'event_type': event.event_type,
                 'is_holiday': event.is_holiday,
                 'blocks_attendance': _event_blocks_attendance(event.event_type, event.is_holiday),
                 'description': event.description,
                 'created_by': event.created_by_id,
+                'recurrence_group': event.recurrence_group,
+                'announcement_type': event.announcement_type,
+                'announcement_start_time': event.announcement_start_time.isoformat() if event.announcement_start_time else None,
+                'announcement_duration_minutes': event.announcement_duration_minutes,
+                'is_dismissed': event.is_dismissed,
+                'visible_to_roles': event.visible_to_roles or [],
+                'visible_to_users': list(event.visible_to_users.values_list('id', flat=True)) if event.id else [],
             }
-            for event in qs
+            for event in selected_events[:100]
         ])
 
     # POST
-    if request.user.role != 'accounting':
-        return Response({'error': 'Only Accounting department can add events.'}, status=status.HTTP_403_FORBIDDEN)
+    if request.user.role not in ['accounting', 'ceo']:
+        return Response({'error': 'Only Accounting department or CEO can add events.'}, status=status.HTTP_403_FORBIDDEN)
 
-    title = (request.data.get('title') or '').strip()
+    from django.utils.html import strip_tags
+
+    title = strip_tags((request.data.get('title') or '').strip())
     event_date_raw = request.data.get('date')
+    end_date_raw = request.data.get('end_date')
     raw_event_type = (request.data.get('event_type') or 'event').strip().lower()
     event_type = EVENT_TYPE_ALIASES.get(raw_event_type, raw_event_type)
-    description = (request.data.get('description') or '').strip()
+    description = strip_tags((request.data.get('description') or '').strip())
     is_holiday_flag = bool(request.data.get('is_holiday'))
 
     if not title:
         return Response({'error': 'Title is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    if len(title) > 200:
+        return Response({'error': 'Title must be 200 characters or less.'}, status=status.HTTP_400_BAD_REQUEST)
+    if len(description) > 500:
+        return Response({'error': 'Description must be 500 characters or less.'}, status=status.HTTP_400_BAD_REQUEST)
     if not event_date_raw:
         return Response({'error': 'Date is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1048,70 +1144,264 @@ def calendar_events(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    if end_date_raw:
+        try:
+            end_date = date.fromisoformat(str(end_date_raw))
+        except ValueError:
+            return Response({'error': 'Invalid end date. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        if end_date < event_date:
+            return Response({'error': 'End date cannot be earlier than start date.'}, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        end_date = event_date
+
+    duration_days = (end_date - event_date).days
+
     if event_type not in dict(CalendarEvent.EVENT_TYPES):
         event_type = 'event'
 
     is_holiday = bool(is_holiday_flag or event_type in NON_WORKING_EVENT_TYPES)
 
-    existing_event = CalendarEvent.objects.filter(title=title, date=event_date).first()
-    previous_blocked = (
-        _event_blocks_attendance(existing_event.event_type, existing_event.is_holiday)
-        if existing_event else False
-    )
+    # Get announcement fields
+    announcement_type = request.data.get('announcement_type', 'all_day')
+    if announcement_type not in ['all_day', 'custom', 'indefinite']:
+        announcement_type = 'all_day'
 
-    event, created = CalendarEvent.objects.update_or_create(
-        title=title,
-        date=event_date,
-        defaults={
-          'event_type': event_type,
-          'is_holiday': is_holiday,
-          'description': description,
-          'created_by': request.user,
-        }
-    )
-
-    now_blocks_attendance = _event_blocks_attendance(event.event_type, event.is_holiday)
-    if now_blocks_attendance and (created or not previous_blocked):
+    announcement_start_time_raw = request.data.get('announcement_start_time')
+    announcement_start_time = None
+    if announcement_start_time_raw:
         try:
-            _notify_non_working_event(event, request.user)
-        except Exception as exc:
-            print(f"⚠️ Calendar non-working notification failed for event_id={event.id}: {exc}")
+            announcement_start_time = time.fromisoformat(str(announcement_start_time_raw))
+        except ValueError:
+            pass
 
-    return Response({
-        'id': event.id,
-        'title': event.title,
-        'date': event.date,
-        'event_type': event.event_type,
-        'is_holiday': event.is_holiday,
-        'blocks_attendance': now_blocks_attendance,
-        'description': event.description,
-        'created_by': event.created_by_id,
-    }, status=status.HTTP_201_CREATED)
+    announcement_duration_minutes_raw = request.data.get('announcement_duration_minutes')
+    announcement_duration_minutes = None
+    if announcement_duration_minutes_raw is not None:
+        try:
+            announcement_duration_minutes = int(float(announcement_duration_minutes_raw))
+        except ValueError:
+            pass
+
+    # Visibility targeting inputs
+    visible_to_roles = request.data.get('visible_to_roles', [])
+    visible_to_users_ids = request.data.get('visible_to_users', [])
+    if not isinstance(visible_to_roles, list):
+        visible_to_roles = []
+    if not isinstance(visible_to_users_ids, list):
+        visible_to_users_ids = []
+
+    # Sanitize inputs for visibility constraints
+    visible_to_roles = [strip_tags(str(role).strip()) for role in visible_to_roles if role]
+    try:
+        visible_to_users_ids = [int(uid) for uid in visible_to_users_ids if str(uid).strip().isdigit()]
+    except (ValueError, TypeError):
+        visible_to_users_ids = []
+
+    # Recurrence Fields
+    is_recurring = bool(request.data.get('is_recurring'))
+    recurrence_frequency = str(request.data.get('recurrence_frequency') or 'weekly').strip().lower()
+    recurrence_weekdays = request.data.get('recurrence_weekdays', [])
+    recurrence_end_date_raw = request.data.get('recurrence_end_date')
+
+    if is_recurring:
+        if recurrence_frequency not in ['weekly', 'monthly', 'quarterly']:
+            return Response({'error': 'Invalid recurrence frequency.'}, status=status.HTTP_400_BAD_REQUEST)
+        if recurrence_frequency == 'weekly' and (not recurrence_weekdays or not isinstance(recurrence_weekdays, list)):
+            return Response({'error': 'Please select at least one weekday for recurrence.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not recurrence_end_date_raw:
+            return Response({'error': 'Recurrence end date is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            recurrence_end_date = date.fromisoformat(str(recurrence_end_date_raw))
+        except ValueError:
+            return Response({'error': 'Invalid recurrence end date. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if recurrence_end_date < event_date:
+            return Response(
+                {'error': 'Recurrence end date must be on or after the event start date.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        import uuid
+        recurrence_group = str(uuid.uuid4())
+
+        occurrence_starts = []
+        if recurrence_frequency == 'weekly':
+            WEEKDAYS_MAP = {
+                'monday': 0,
+                'tuesday': 1,
+                'wednesday': 2,
+                'thursday': 3,
+                'friday': 4,
+                'saturday': 5,
+                'sunday': 6
+            }
+            selected_weekday_ints = []
+            for d in recurrence_weekdays:
+                d_clean = str(d).strip().lower()
+                if d_clean in WEEKDAYS_MAP:
+                    selected_weekday_ints.append(WEEKDAYS_MAP[d_clean])
+
+            if not selected_weekday_ints:
+                return Response({'error': 'No valid weekdays selected for recurrence.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            curr = event_date
+            while curr <= recurrence_end_date:
+                if curr.weekday() in selected_weekday_ints:
+                    occurrence_starts.append(curr)
+                curr += timedelta(days=1)
+
+        elif recurrence_frequency == 'monthly':
+            curr = event_date
+            months_counter = 0
+            while curr <= recurrence_end_date:
+                occurrence_starts.append(curr)
+                months_counter += 1
+                curr = get_next_monthly_date(event_date, months_counter)
+
+        elif recurrence_frequency == 'quarterly':
+            curr = event_date
+            months_counter = 0
+            while curr <= recurrence_end_date:
+                occurrence_starts.append(curr)
+                months_counter += 3
+                curr = get_next_monthly_date(event_date, months_counter)
+
+        if not occurrence_starts:
+            return Response({'error': 'No matching weekdays found in the selected date range.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Event cap check removed
+
+        created_events = []
+        for o_start in occurrence_starts:
+            o_end = o_start + timedelta(days=duration_days)
+            ev = CalendarEvent.objects.create(
+                title=title,
+                date=o_start,
+                end_date=o_end,
+                event_type=event_type,
+                is_holiday=is_holiday,
+                description=description,
+                created_by=request.user,
+                recurrence_group=recurrence_group,
+                announcement_type=announcement_type,
+                announcement_start_time=announcement_start_time,
+                announcement_duration_minutes=announcement_duration_minutes,
+                is_dismissed=False,
+                visible_to_roles=visible_to_roles,
+            )
+            if visible_to_users_ids:
+                ev.visible_to_users.set(visible_to_users_ids)
+            created_events.append(ev)
+
+        first_event = created_events[0]
+        now_blocks_attendance = _event_blocks_attendance(first_event.event_type, first_event.is_holiday)
+        if now_blocks_attendance:
+            try:
+                _notify_non_working_event(first_event, request.user)
+            except Exception as exc:
+                print(f"⚠️ Calendar non-working notification failed for event_id={first_event.id}: {exc}")
+
+        return Response({
+            'id': first_event.id,
+            'title': first_event.title,
+            'date': first_event.date,
+            'end_date': first_event.end_date,
+            'event_type': first_event.event_type,
+            'is_holiday': first_event.is_holiday,
+            'blocks_attendance': now_blocks_attendance,
+            'description': first_event.description,
+            'created_by': first_event.created_by_id,
+            'recurrence_group': first_event.recurrence_group,
+            'announcement_type': first_event.announcement_type,
+            'announcement_start_time': first_event.announcement_start_time.isoformat() if first_event.announcement_start_time else None,
+            'announcement_duration_minutes': first_event.announcement_duration_minutes,
+            'is_dismissed': first_event.is_dismissed,
+            'visible_to_roles': first_event.visible_to_roles or [],
+            'visible_to_users': list(first_event.visible_to_users.values_list('id', flat=True)) if first_event.id else [],
+        }, status=status.HTTP_201_CREATED)
+
+    else:
+        # Non-recurring
+        pass
+
+        event = CalendarEvent.objects.create(
+            title=title,
+            date=event_date,
+            end_date=end_date,
+            event_type=event_type,
+            is_holiday=is_holiday,
+            description=description,
+            created_by=request.user,
+            announcement_type=announcement_type,
+            announcement_start_time=announcement_start_time,
+            announcement_duration_minutes=announcement_duration_minutes,
+            is_dismissed=False,
+            visible_to_roles=visible_to_roles,
+        )
+        if visible_to_users_ids:
+            event.visible_to_users.set(visible_to_users_ids)
+
+        now_blocks_attendance = _event_blocks_attendance(event.event_type, event.is_holiday)
+        if now_blocks_attendance:
+            try:
+                _notify_non_working_event(event, request.user)
+            except Exception as exc:
+                print(f"⚠️ Calendar non-working notification failed for event_id={event.id}: {exc}")
+
+        return Response({
+            'id': event.id,
+            'title': event.title,
+            'date': event.date,
+            'end_date': event.end_date,
+            'event_type': event.event_type,
+            'is_holiday': event.is_holiday,
+            'blocks_attendance': now_blocks_attendance,
+            'description': event.description,
+            'created_by': event.created_by_id,
+            'recurrence_group': event.recurrence_group,
+            'announcement_type': event.announcement_type,
+            'announcement_start_time': event.announcement_start_time.isoformat() if event.announcement_start_time else None,
+            'announcement_duration_minutes': event.announcement_duration_minutes,
+            'is_dismissed': event.is_dismissed,
+            'visible_to_roles': event.visible_to_roles or [],
+            'visible_to_users': list(event.visible_to_users.values_list('id', flat=True)) if event.id else [],
+        }, status=status.HTTP_201_CREATED)
 
 
 @api_view(['PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def calendar_event_detail(request, event_id):
-    if request.user.role != 'accounting':
-        return Response({'error': 'Only Accounting department can manage events.'}, status=status.HTTP_403_FORBIDDEN)
+    if request.user.role not in ['accounting', 'ceo']:
+        return Response({'error': 'Only Accounting department or CEO can manage events.'}, status=status.HTTP_403_FORBIDDEN)
 
     event = CalendarEvent.objects.filter(id=event_id).first()
     if not event:
         return Response({'error': 'Event not found.'}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'DELETE':
-        event.delete()
+        delete_type = request.query_params.get('delete_type', 'single')
+        if delete_type == 'series' and event.recurrence_group:
+            CalendarEvent.objects.filter(recurrence_group=event.recurrence_group).delete()
+        else:
+            event.delete()
         return Response({'success': True}, status=status.HTTP_200_OK)
 
-    title = (request.data.get('title') or '').strip()
+    from django.utils.html import strip_tags
+
+    title = strip_tags((request.data.get('title') or '').strip())
     event_date_raw = request.data.get('date')
+    end_date_raw = request.data.get('end_date')
     raw_event_type = (request.data.get('event_type') or 'event').strip().lower()
     event_type = EVENT_TYPE_ALIASES.get(raw_event_type, raw_event_type)
-    description = (request.data.get('description') or '').strip()
+    description = strip_tags((request.data.get('description') or '').strip())
     is_holiday_flag = bool(request.data.get('is_holiday'))
 
     if not title:
         return Response({'error': 'Title is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    if len(title) > 200:
+        return Response({'error': 'Title must be 200 characters or less.'}, status=status.HTTP_400_BAD_REQUEST)
+    if len(description) > 500:
+        return Response({'error': 'Description must be 500 characters or less.'}, status=status.HTTP_400_BAD_REQUEST)
     if not event_date_raw:
         return Response({'error': 'Date is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1126,23 +1416,80 @@ def calendar_event_detail(request, event_id):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    if end_date_raw:
+        try:
+            end_date = date.fromisoformat(str(end_date_raw))
+        except ValueError:
+            return Response({'error': 'Invalid end date. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        if end_date < event_date:
+            return Response({'error': 'End date cannot be earlier than start date.'}, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        end_date = event_date
+
     if event_type not in dict(CalendarEvent.EVENT_TYPES):
         event_type = 'event'
 
-    duplicate = CalendarEvent.objects.filter(title=title, date=event_date).exclude(id=event.id).exists()
-    if duplicate:
-        return Response({'error': 'An event with the same title and date already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+    pass
 
     previous_blocked = _event_blocks_attendance(event.event_type, event.is_holiday)
     is_holiday = bool(is_holiday_flag or event_type in NON_WORKING_EVENT_TYPES)
 
+    announcement_type = request.data.get('announcement_type', 'all_day')
+    if announcement_type not in ['all_day', 'custom', 'indefinite']:
+        announcement_type = 'all_day'
+
+    announcement_start_time_raw = request.data.get('announcement_start_time')
+    announcement_start_time = None
+    if announcement_start_time_raw:
+        try:
+            announcement_start_time = time.fromisoformat(str(announcement_start_time_raw))
+        except ValueError:
+            pass
+
+    announcement_duration_minutes_raw = request.data.get('announcement_duration_minutes')
+    announcement_duration_minutes = None
+    if announcement_duration_minutes_raw is not None:
+        try:
+            announcement_duration_minutes = int(float(announcement_duration_minutes_raw))
+        except ValueError:
+            pass
+
+    # Visibility targeting inputs
+    visible_to_roles = request.data.get('visible_to_roles', [])
+    visible_to_users_ids = request.data.get('visible_to_users', [])
+    if not isinstance(visible_to_roles, list):
+        visible_to_roles = []
+    if not isinstance(visible_to_users_ids, list):
+        visible_to_users_ids = []
+
+    # Sanitize inputs for visibility constraints
+    visible_to_roles = [strip_tags(str(role).strip()) for role in visible_to_roles if role]
+    try:
+        visible_to_users_ids = [int(uid) for uid in visible_to_users_ids if str(uid).strip().isdigit()]
+    except (ValueError, TypeError):
+        visible_to_users_ids = []
+
     event.title = title
     event.date = event_date
+    event.end_date = end_date
     event.event_type = event_type
     event.is_holiday = is_holiday
     event.description = description
     event.created_by = request.user
-    event.save(update_fields=['title', 'date', 'event_type', 'is_holiday', 'description', 'created_by', 'updated_at'])
+    event.announcement_type = announcement_type
+    event.announcement_start_time = announcement_start_time
+    event.announcement_duration_minutes = announcement_duration_minutes
+    event.is_dismissed = False # reset on edit
+    event.visible_to_roles = visible_to_roles
+
+    event.save(update_fields=[
+        'title', 'date', 'end_date', 'event_type', 'is_holiday', 'description',
+        'created_by', 'updated_at', 'announcement_type',
+        'announcement_start_time', 'announcement_duration_minutes', 'is_dismissed',
+        'visible_to_roles'
+    ])
+    
+    event.visible_to_users.set(visible_to_users_ids)
 
     now_blocks_attendance = _event_blocks_attendance(event.event_type, event.is_holiday)
     if now_blocks_attendance and not previous_blocked:
@@ -1155,12 +1502,121 @@ def calendar_event_detail(request, event_id):
         'id': event.id,
         'title': event.title,
         'date': event.date,
+        'end_date': event.end_date,
         'event_type': event.event_type,
         'is_holiday': event.is_holiday,
         'blocks_attendance': now_blocks_attendance,
         'description': event.description,
         'created_by': event.created_by_id,
+        'recurrence_group': event.recurrence_group,
+        'announcement_type': event.announcement_type,
+        'announcement_start_time': event.announcement_start_time.isoformat() if event.announcement_start_time else None,
+        'announcement_duration_minutes': event.announcement_duration_minutes,
+        'is_dismissed': event.is_dismissed,
+        'visible_to_roles': event.visible_to_roles or [],
+        'visible_to_users': list(event.visible_to_users.values_list('id', flat=True)) if event.id else [],
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def active_announcements(request):
+    """
+    Returns active announcements for the current local time and date.
+    - Indefinite active announcements: date <= today and is_dismissed = False
+    - Today's all day announcements: date = today and is_dismissed = False
+    - Today's custom duration announcements: date = today and is_dismissed = False and start_time <= current_time <= end_time
+    """
+    now = timezone.localtime(timezone.now())
+    today = now.date()
+
+    # Query candidate events
+    # We filter by is_dismissed=False and date <= today
+    qs = CalendarEvent.objects.filter(is_dismissed=False, date__lte=today)
+    
+    # Filter visible active announcements
+    user = request.user
+    user_role = normalize_role_input(user.role) if getattr(user, 'role', None) else None
+    
+    filtered_qs = []
+    for event in qs:
+        # CEO and Accounting see all active announcements
+        if user_role in ['accounting', 'ceo'] or user.is_staff or user.is_superuser:
+            filtered_qs.append(event)
+        else:
+            roles = event.visible_to_roles or []
+            users_ids = list(event.visible_to_users.values_list('id', flat=True))
+            if not roles and not users_ids:
+                filtered_qs.append(event)
+            elif (user_role in roles) or (user.id in users_ids):
+                filtered_qs.append(event)
+
+    active_events = []
+    for event in filtered_qs:
+        event_end = event.end_date or event.date
+        is_today_in_range = (event.date <= today <= event_end)
+        
+        is_active = False
+        if event.announcement_type == 'indefinite':
+            is_active = True
+        elif is_today_in_range:
+            if event.announcement_type == 'all_day':
+                is_active = True
+            elif event.announcement_type == 'custom':
+                start_time = event.announcement_start_time or time(0, 0)
+                duration = event.announcement_duration_minutes or 0
+                start_dt = datetime.combine(today, start_time)
+                end_dt = start_dt + timedelta(minutes=duration)
+                
+                try:
+                    start_dt = timezone.make_aware(start_dt)
+                    end_dt = timezone.make_aware(end_dt)
+                except ValueError:
+                    pass
+                
+                if start_dt <= now <= end_dt:
+                    is_active = True
+
+        if is_active:
+            active_events.append(event)
+
+    # Sort events by date, then ID
+    active_events.sort(key=lambda x: (x.date, x.id))
+
+    return Response([
+        {
+            'id': event.id,
+            'title': event.title,
+            'date': event.date,
+            'event_type': event.event_type,
+            'is_holiday': event.is_holiday,
+            'description': event.description,
+            'announcement_type': event.announcement_type,
+            'announcement_start_time': event.announcement_start_time.isoformat() if event.announcement_start_time else None,
+            'announcement_duration_minutes': event.announcement_duration_minutes,
+            'is_dismissed': event.is_dismissed,
+        }
+        for event in active_events
+    ])
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def dismiss_calendar_event(request, event_id):
+    """
+    Dismisses a calendar event announcement. Only accessible by admins (accounting, studio_head, ceo).
+    """
+    if request.user.role not in ['accounting', 'studio_head', 'ceo']:
+        return Response({'error': 'Only admins can dismiss announcements.'}, status=status.HTTP_403_FORBIDDEN)
+
+    event = CalendarEvent.objects.filter(id=event_id).first()
+    if not event:
+        return Response({'error': 'Event not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    event.is_dismissed = True
+    event.save(update_fields=['is_dismissed'])
+
+    return Response({'success': True}, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])

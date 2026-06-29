@@ -2,7 +2,8 @@
  * Route configuration extracted from App.jsx
  * Maps user roles + currentPage to the correct dashboard component.
  */
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useRef, useState, useEffect } from 'react';
+import AnnouncementBar from '../components/AnnouncementBar';
 
 // Shared Layout and Navigation Components
 import DashboardLayout from '../layouts/DashboardLayout';
@@ -86,12 +87,57 @@ export function preloadDashboardAssets({ role, currentPage, departmentName } = {
         );
     }
 
+    if (normalizedRole === 'ceo') {
+        preloads.push(loadAccountingEventsPanel());
+    }
+
     if (normalizedPage === 'overtime') {
         preloads.push(loadAccountingOvertimePage(), loadAccountingOvertimeRequestsPanel());
     }
 
     return Promise.allSettled(preloads);
 }
+
+const AccountingProfileLayout = ({ user, token, handleNavigate, handleLogout }) => {
+    const headerRef = useRef(null);
+    const [headerHeight, setHeaderHeight] = useState(112);
+
+    useEffect(() => {
+        if (!headerRef.current) return;
+        const observer = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                setHeaderHeight(entry.target.offsetHeight);
+            }
+        });
+        observer.observe(headerRef.current);
+        return () => observer.disconnect();
+    }, []);
+
+    return (
+        <div className="min-h-screen bg-[#00273C] relative">
+            <div ref={headerRef} className="fixed top-0 left-0 w-full z-50 flex flex-col">
+                <AnnouncementBar user={user} />
+                <PublicNavigation
+                    onNavigate={handleNavigate}
+                    currentPage="profile"
+                    user={user}
+                    onLogout={handleLogout}
+                    fixed={false}
+                />
+            </div>
+            <div className="relative px-3 sm:px-6 pb-10" style={{ paddingTop: `calc(${headerHeight}px + 2rem)` }}>
+                <div className="w-full flex flex-col lg:flex-row gap-6">
+                    <aside className="hidden lg:block lg:w-64 shrink-0">
+                        <AccountingSidebar currentPage="profile" onNavigate={handleNavigate} onLogout={handleLogout} />
+                    </aside>
+                    <main className="flex-1 min-w-0">
+                        <ProfilePage user={user} token={token} onLogout={handleLogout} />
+                    </main>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 /**
  * Renders the accounting dashboard with its own layout and tabs.
@@ -104,19 +150,12 @@ export function renderAccountingDashboard({
     if (currentPage === 'profile') {
         return (
             <Suspense fallback={<div className="min-h-screen bg-[#00273C] p-6 sm:p-8"><PageSkeleton /></div>}>
-                <div className="min-h-screen bg-[#00273C] relative">
-                    <PublicNavigation onNavigate={handleNavigate} currentPage="profile" user={user} onLogout={handleLogout} />
-                    <div className="relative pt-28 px-3 sm:px-6 pb-10">
-                        <div className="w-full flex flex-col lg:flex-row gap-6">
-                            <aside className="hidden lg:block lg:w-64 shrink-0">
-                                <AccountingSidebar currentPage="profile" onNavigate={handleNavigate} onLogout={handleLogout} />
-                            </aside>
-                            <main className="flex-1 min-w-0">
-                                <ProfilePage user={user} token={token} onLogout={handleLogout} />
-                            </main>
-                        </div>
-                    </div>
-                </div>
+                <AccountingProfileLayout
+                    user={user}
+                    token={token}
+                    handleNavigate={handleNavigate}
+                    handleLogout={handleLogout}
+                />
             </Suspense>
         );
     }
@@ -150,6 +189,7 @@ export function renderAccountingDashboard({
     return (
         <Suspense fallback={<div className="min-h-screen bg-[#00273C] p-6 sm:p-8"><PageSkeleton /></div>}>
             <AccountingDashboardLayout
+                user={user}
                 activeTab={activeTab}
                 activeSection={effectiveSection}
                 onLogout={handleLogout}
@@ -177,7 +217,7 @@ const PAGE_REGISTRY = {
   
   // CEO
   'ceo-dashboard': { Component: CeoDashboardPage },
-  'ceo-calendar': { Component: CalendarPage },
+  'ceo-calendar': { Component: AccountingEventsPanel },
   'ceo-employees': { Component: CeoEmployeeDirectoryPage },
   'ceo-payroll': { Component: CeoPayrollProcessedPage },
   'ceo-bim-docs': { Component: CeoBimDocumentationPage },
